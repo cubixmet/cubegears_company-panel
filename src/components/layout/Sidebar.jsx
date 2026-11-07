@@ -13,6 +13,7 @@ export const Sidebar = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const featureAccess = useFeatureAccess();
+  const canViewNotifications = featureAccess.can('notifications.view');
   const { themeMode, setThemeMode } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -28,6 +29,11 @@ export const Sidebar = () => {
   }, [location.pathname]);
 
   useEffect(() => {
+    // Never poll an API that the logged-in staff role cannot read.
+    if (!canViewNotifications) {
+      setNotificationCount(0);
+      return undefined;
+    }
     let mounted = true;
     const loadNotificationCount = async () => {
       try {
@@ -42,15 +48,22 @@ export const Sidebar = () => {
     const onStorage = (event) => {
       if (!event.key || event.key === 'cubixgear:notifications') loadNotificationCount();
     };
+    const onVisible = () => {
+      if (!document.hidden) void loadNotificationCount();
+    };
+    const timer = window.setInterval(onVisible, 60000);
     window.addEventListener('storage', onStorage);
     window.addEventListener('cubixgear:notifications-changed', loadNotificationCount);
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       mounted = false;
+      window.clearInterval(timer);
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('cubixgear:notifications-changed', loadNotificationCount);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [location.pathname]);
+  }, [location.pathname, canViewNotifications]);
 
   const sections = Object.values(ROUTE_SECTIONS);
   const isRouteActive = (route) =>

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, CheckCircle2, ClipboardCheck, Plus, RefreshCcw, Search, SkipForward, Trash2, Wrench } from 'lucide-react';
 import { ResponsiveModalSheet } from '../common/ResponsiveModalSheet';
 import { jobInspectionService, DEFAULT_INSPECTION_CATEGORIES } from '../../services/jobInspection.service';
+import { vehiclePhotoService } from '../../services/vehiclePhoto.service';
+import { VehiclePhotoGallery } from '../vehicles/VehiclePhotoGallery';
 
 const SKIP_REASONS = [
   'Quick Service',
@@ -18,13 +20,6 @@ const newFinding = () => ({
 });
 
 const formatMoney = (number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(number) || 0);
-
-const readImage = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result);
-  reader.onerror = () => reject(new Error('Unable to read the photo.'));
-  reader.readAsDataURL(file);
-});
 
 export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit = false, startEditing = false, onDoneEditing }) {
   const [inspection, setInspection] = useState(null);
@@ -133,6 +128,7 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
       ...finding,
       title: finding.description.trim(),
       description: finding.description.trim(),
+      estimatedCost: finding.estimatedCost === '' ? null : Number(finding.estimatedCost),
       estimatedPartCharge: Number(finding.estimatedCost) || 0
     }));
     if (saved) setFinding(newFinding());
@@ -151,18 +147,21 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/') || file.size > 2 * 1024 * 1024) {
-      setError('Choose an image under 2 MB.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
+        file.size <= 0 || file.size > 10 * 1024 * 1024) {
+      setError('Choose a JPEG, PNG or WebP image under 10 MB.');
       return;
     }
-    try {
-      const url = await readImage(file);
-      await perform('photo', () => jobInspectionService.addInspectionPhoto(job.id, {
-        url, type: 'Inspection', caption: file.name
-      }));
-    } catch (e) {
-      setError(e?.message || 'Photo could not be saved.');
-    }
+    await perform('photo', async () => {
+      // Only the private Django file endpoint stores image bytes. The
+      // inspection JSON contains a server-verified reference, not Base64.
+      const uploaded = await vehiclePhotoService.upload({
+        jobId: job.id, file, category: 'damage', phase: 'before',
+        caption: file.name.slice(0, 255),
+      });
+      if (!uploaded?.id) throw new Error('Private photo upload was not confirmed.');
+      await jobInspectionService.addInspectionPhoto(job.id, { photoId: uploaded.id });
+    });
   };
 
 
@@ -339,12 +338,12 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
         <div className="cg-inspection-attachment-content">
           <section>
             <h4>Inspection photos</h4>
-            <p>Use your camera or upload an image (max 2 MB).</p>
+            <p>Capture or upload a JPEG, PNG or WebP image (max 10 MB). Photos remain private until you explicitly publish them.</p>
             <label className={'cg-inspection-upload ' + (!editable || busy ? 'is-disabled' : '')}>
               <Camera size={16}/> Take / upload photo
               <input type="file" accept="image/*" capture="environment" disabled={!editable || !!busy} onChange={savePhoto}/>
             </label>
-            {!!photos.length && <div className="cg-inspection-photo-grid">{photos.map((photo) => <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer" title={photo.caption || 'Inspection photo'}><img src={photo.url} alt={photo.caption || 'Inspection photo'}/></a>)}</div>}
+            <VehiclePhotoGallery jobId={job.id} canEdit={false} refreshKey={photos.length} />
           </section>
           <section>
             <h4>Diagnostic codes</h4>

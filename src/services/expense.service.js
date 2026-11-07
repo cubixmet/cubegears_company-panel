@@ -82,6 +82,14 @@ export const expenseService = {
   createExpense,
   updateExpense,
   deleteExpense,
+  settleExpense: (id, data) => {
+    if (USE_MOCK_API) throw new Error('Expense settlement requires the live backend.');
+    return apiClient.post(`${API_ENDPOINTS.EXPENSES}/${id}/settle`, data);
+  },
+  reverseSettlement: (id, settlementId, reason) => {
+    if (USE_MOCK_API) throw new Error('Expense reversal requires the live backend.');
+    return apiClient.post(`${API_ENDPOINTS.EXPENSES}/${id}/settlements/${settlementId}/reverse`, { reason });
+  },
   getAll: getExpenses,
   getById: getExpenseById,
   create: createExpense,

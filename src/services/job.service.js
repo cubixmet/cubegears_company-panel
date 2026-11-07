@@ -264,6 +264,9 @@ export const saveQuickJobEstimate = async (id, payload, draftId = null) => {
     return entry;
   }
   const base = `${API_ENDPOINTS.JOBS}/${id}/estimates/quick`;
+  if (!payload?.requestId || !/^[0-9a-f-]{36}$/i.test(String(payload.requestId))) {
+    throw new Error('A stable request reference is required for estimate saving.');
+  }
   return draftId
     ? apiClient.patch(`${base}/${draftId}`, payload)
     : apiClient.post(base, payload);
@@ -281,6 +284,17 @@ export const updateJobComplaintStatus = async (jobId, complaintId, { status, not
 export const skipJobEstimate = async (id, { reason, details = '' }) => {
   if (USE_MOCK_API) throw new Error('Skip Estimate requires the live backend audit workflow.');
   return apiClient.post(`${API_ENDPOINTS.JOBS}/${id}/estimate/skip`, { reason, details });
+};
+
+export const shareJobEstimate = async (jobId, estimateId, action = 'share') => {
+  if (USE_MOCK_API) throw new Error('Customer estimate sharing needs the live backend.');
+  if (!jobId || !estimateId || !['share', 'withdraw'].includes(action)) {
+    throw new Error('Select a valid estimate and sharing action.');
+  }
+  return apiClient.post(
+    `${API_ENDPOINTS.JOBS}/${encodeURIComponent(jobId)}/estimates/${encodeURIComponent(estimateId)}/share`,
+    { action }
+  );
 };
 
 export const rejectJobEstimate = async (id, estimateId) => {
@@ -326,6 +340,7 @@ export const jobService = {
   saveQuickJobEstimate,
   skipJobEstimate,
   rejectJobEstimate,
+  shareJobEstimate,
   deleteJob,
   getVehicleHistory,
   getAll: getJobs,

@@ -12,7 +12,7 @@ test('Job Estimate has only Approve & Continue as a primary save/approve action'
   assert.doesNotMatch(source, /className="job-quick-primary"/);
   assert.doesNotMatch(source, /'Save Draft'/);
   assert.match(source, /await jobService\.saveQuickJobEstimate\(job\.id/);
-  assert.match(source, /await onSaved\?\.\(\);[\s\S]*await onApprove\?\.\(\);/);
+  assert.match(source, /await onSaved\?\.\(\);[\s\S]*await onApprove\?\.\(target\.id, target\.version\);/);
   assert.match(source, /if \(!latest \|\| changed \|\| stale/);
   assert.doesNotMatch(source, /disabled=\{busy \|\| !latest \|\| changed \|\| stale/);
 });
@@ -30,5 +30,5 @@ test('selected GST remains a total rate and respects jurisdiction on the save pa
   assert.match(source, /Number\(option\.totalRate\) === Number\(line\.taxRate\)/);
   assert.match(source, /replacement\.value/);
   assert.match(source, /taxRate: taxRate \|\| '0', taxChoice: taxChoice \|\| ''/);
-  assert.match(source, /await onApprove\?\.\(\)/);
+  assert.match(source, /await onApprove\?\.\(target\.id, target\.version\)/);
 });

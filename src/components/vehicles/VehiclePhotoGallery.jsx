@@ -57,7 +57,7 @@ function PrivateVehiclePhoto({ photo, canEdit, onVisibility }) {
   );
 }
 
-export function VehiclePhotoGallery({ vehicleId, jobId, canEdit = false }) {
+export function VehiclePhotoGallery({ vehicleId, jobId, canEdit = false, refreshKey = 0 }) {
   const [photos, setPhotos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -77,7 +77,7 @@ export function VehiclePhotoGallery({ vehicleId, jobId, canEdit = false }) {
     } finally {
       setLoading(false);
     }
-  }, [vehicleId, jobId]);
+  }, [vehicleId, jobId, refreshKey]);
 
   useEffect(() => { load(); }, [load]);
 

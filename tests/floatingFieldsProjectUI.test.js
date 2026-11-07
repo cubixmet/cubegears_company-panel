@@ -51,7 +51,7 @@ test('unnecessary descriptions removed, critical stock and tax rules retained', 
   const labour = read('src/components/jobs/OutsideLabourPanel.jsx');
   assert.doesNotMatch(stock,/cg-easy-tax-guidance/);
   assert.match(stock,/validGstRate/);
-  assert.match(stock,/label="GST Rate"/);
+  assert.ok(stock.includes('label="GST Component / Rate *"'));
   assert.doesNotMatch(stock,/Choose the total GST rate applicable to this part\./);
   assert.match(work,/Stock is deducted only after confirming Issue Stock/);
   assert.match(labour,/Expenses View permission/);

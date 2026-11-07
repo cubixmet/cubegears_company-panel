@@ -40,6 +40,9 @@ export const AuthProvider = ({ children }) => {
       .then((profile) => {
         if (!active) return;
         const resolvedUser = profile?.user || profile;
+        if (!resolvedUser?.id || !(resolvedUser?.phone || resolvedUser?.email)) {
+          throw new Error('Unable to verify the account from the Django API.');
+        }
         setUser(resolvedUser);
         setIsAuthenticated(true);
         setSessionError('');
@@ -69,6 +72,24 @@ export const AuthProvider = ({ children }) => {
     };
   }, [sessionRetryKey]);
 
+  // Synchronize multiple open tabs: signing out in one tab also locks the
+  // workspace in every other tab. New credentials must revalidate via /auth/me.
+  useEffect(() => {
+    const syncSession = (event) => {
+      if (event.key !== 'auth_token' && event.key !== 'auth_refresh_token' && event.key !== null) return;
+      if (!localStorage.getItem('auth_token')) {
+        setUser(null);
+        setIsAuthenticated(false);
+        setSessionError('');
+        setLoading(false);
+      } else {
+        setSessionRetryKey((key) => key + 1);
+      }
+    };
+    window.addEventListener('storage', syncSession);
+    return () => window.removeEventListener('storage', syncSession);
+  }, []);
+
   const login = async (credentials) => {
     setLoading(true);
 
@@ -78,14 +99,16 @@ export const AuthProvider = ({ children }) => {
       const refreshToken = response?.refresh || response?.refreshToken || response?.refresh_token;
       const resolvedUser = response?.user || response?.profile;
 
-      if (!token || !resolvedUser?.id || !(resolvedUser?.email || resolvedUser?.phone)) {
-        throw new Error('Login response did not include a verified user session.');
+      if (typeof token !== 'string' || !token ||
+          typeof refreshToken !== 'string' || !refreshToken ||
+          !resolvedUser?.id || !(resolvedUser?.email || resolvedUser?.phone)) {
+        throw new Error('Login response did not include a complete verified user session.');
       }
 
+      // Never retain a refresh token for a different user from a prior session.
+      localStorage.removeItem('auth_refresh_token');
       localStorage.setItem('auth_token', token);
-      if (refreshToken) {
-        localStorage.setItem('auth_refresh_token', refreshToken);
-      }
+      localStorage.setItem('auth_refresh_token', refreshToken);
       if (resolvedUser) {
         localStorage.setItem('auth_user', JSON.stringify(resolvedUser));
       }

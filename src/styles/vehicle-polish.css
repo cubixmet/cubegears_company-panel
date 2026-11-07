@@ -146,3 +146,10 @@
 .cg-vehicles.vehicle-profile-page .vehicle-reminder-card strong { font-size: 16px; }
 .cg-vehicles.vehicle-profile-page .vehicle-reminder-card span,
 .cg-vehicles.vehicle-profile-page .vehicle-reminder-card small { font-size: 14px; }
+
+/* Keep key workshop vehicle labels readable on desktop and mobile. */
+.cg-vehicles .vehicle-dashboard-stat-top span,
+.cg-vehicles.vehicle-profile-page .vehicle-profile-kpis span {
+  font-size: 16px !important;
+  line-height: 1.4;
+}

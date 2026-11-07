@@ -38,6 +38,12 @@ const stepNumber = (id) => String(JOB_CREATE_STEPS.findIndex((step) => step.id =
 
 export const JobCreatePage = () => {
   const navigate = useNavigate();
+  // Reuse the same key for retries after a lost response: Django returns the
+  // original Job Card instead of creating duplicate jobs/customers/vehicles.
+  const createRequestId = useRef(
+    globalThis.crypto?.randomUUID?.() ||
+      `job-create-${Date.now()}-${Math.random().toString(36).slice(2, 14)}`
+  );
   const { can } = useFeatureAccess();
   const maySelectBranch = can('company.manage') || can('branches.manage');
   const formRef = useRef(null);
@@ -314,6 +320,7 @@ export const JobCreatePage = () => {
       const normalizedComplaints = buildJobComplaints(complaints);
       const created = createdId ? { id: createdId, ...(createdJob || {}) } : await jobService.createJob({
         ...form,
+        clientRequestId: createRequestId.current,
         ...(selectedCustomer?.id ? { customer: selectedCustomer.id } : {}),
         checkInTime: form.jobDateTime,
         vehicleInfo: [form.vehicleMake, form.vehicleModel].filter(Boolean).join(' '),

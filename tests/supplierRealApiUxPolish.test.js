@@ -1,58 +1,42 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-
 const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
-const finance = read('src/pages/stock/SupplierFinancePage.jsx');
-const suppliers = read('src/pages/suppliers/SuppliersPage.jsx');
-const api = read('src/services/supplierFinance.service.js');
-const tabs = read('src/components/suppliers/SupplierSectionTabs.jsx');
-const styles = read('src/styles/supplier-finance-polish.css');
-const directoryStyle = read('src/styles/suppliers-workspace.css');
+const profile = read('src/pages/suppliers/SuppliersPage.jsx');
+const purchase = read('src/components/suppliers/SupplierPurchaseFlow.jsx');
+const routes = read('src/routes/AppRoutes.jsx');
+const css = read('src/styles/supplier-purchase-flow.css');
 
-test('four supplier pages use shared responsive navigation with supplier context', () => {
-  assert.match(tabs, /supplierSubmenu\.filter/);
-  assert.match(tabs, /selectedSupplier/);
-  assert.match(tabs, /encodeURIComponent\(selectedSupplier\)/);
-  assert.match(finance, /<SupplierSectionTabs \/>/);
-  assert.match(suppliers, /<SupplierSectionTabs \/>/);
-  assert.match(styles, /grid-template-columns:repeat\(5,minmax\(0,1fr\)\)/);
-  assert.match(styles, /grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
-  assert.doesNotMatch(styles, /scroll-snap-type|overflow-x:auto/);
+test('supplier directory/detail is the only active supplier UI', () => {
+  assert.match(routes, /path="\/suppliers\/:id" element=\{<SuppliersPage \/>}/);
+  assert.match(routes, /LegacySupplierRouteRedirect/);
+  assert.doesNotMatch(profile, /<SupplierSectionTabs/);
+  assert.doesNotMatch(routes, /SupplierFinancePage/);
+  assert.match(profile, /<SupplierPurchaseFlow/);
 });
 
-test('financial summaries are fetched from real backend, not mock or stored balances', () => {
-  assert.match(api, /const root = '\/inventory\/procurement'/);
-  assert.match(api, /Supplier credit accounting requires the live Django backend/);
-  assert.match(api, /getSupplierSummary: \(id\) => live\('get'/);
-  assert.match(api, /getSupplierLedger: \(id\) => live\('get'/);
-  assert.match(finance, /finance\.getSupplierSummary\(target\)/);
-  assert.match(finance, /finance\.getSupplierLedger\(target\)/);
-  assert.match(finance, /supplierRequest\.current/);
-  assert.match(finance, /setSummary\(null\)/);
-  assert.match(finance, /summary &&/);
-  assert.doesNotMatch(finance, /stockSuppliersMock|localStorage\.getItem/);
-  assert.match(suppliers, /Supplier records require the live Django backend/);
-  assert.match(suppliers, /Purchase history requires the live Django backend/);
-  assert.match(suppliers, /setPurchaseBillsError\(/);
+test('supplier credit summary, payments and product details come from live APIs', () => {
+  assert.match(profile, /supplierFinanceService\.getSupplierSummary/);
+  assert.match(profile, /supplierFinanceService\.getBills/);
+  assert.match(profile, /supplierFinanceService\.getPayments/);
+  assert.match(profile, /supplierService\.products/);
+  assert.match(profile, /Supplier Accounts & Payments/);
+  assert.match(profile, /Credit outstanding/);
+  assert.match(purchase, /supplierFinanceService\.recordPayment/);
 });
 
-test('supplier payment remains idempotent and cannot be presented as automatic success', () => {
-  assert.match(finance, /idempotencyKey: requestKey\.current/);
-  assert.match(finance, /idempotencyKey: purchaseRequestKey\.current/);
-  assert.match(finance, /finance\.recordPayment\(/);
-  assert.match(finance, /setPaymentPopupError\(/);
-  assert.match(finance, /No account is debited until payment is confirmed/);
-  assert.match(finance, /recorded account ledger, not a real-time bank balance/);
+test('financial actions are not marked as successful until the backend responds', () => {
+  assert.match(purchase, /await supplierFinanceService\.createBill/);
+  assert.match(purchase, /await supplierFinanceService\.recordPayment/);
+  assert.match(purchase, /catch \(cause\)/);
+  assert.match(purchase, /disabled=\{posting/);
+  assert.match(purchase, /disabled=\{settling/);
 });
 
-test('long supplier names and finance controls are responsive and remain readable', () => {
-  assert.match(styles, /text-overflow:ellipsis/);
-  assert.match(styles, /min-height:46px/);
-  assert.match(styles, /font-size:16px/);
-  assert.match(styles, /cg-supplier-finance-metrics/);
-  assert.match(styles, /cg-supplier-finance-selector/);
-  assert.match(directoryStyle, /-webkit-line-clamp:2/);
-  assert.match(directoryStyle, /cg-supplier-purchase-history/);
-  assert.match(suppliers, /amount == null|purchaseBillsError/);
+test('long names, small screens and light/dark themes remain readable', () => {
+  assert.match(css, /overflow-wrap:anywhere/);
+  assert.match(css, /@media\(max-width:500px\)/);
+  assert.match(css, /@media\(max-width:740px\)/);
+  assert.match(css, /var\(--text-primary/);
+  assert.match(css, /var\(--primary/);
 });

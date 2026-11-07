@@ -310,24 +310,16 @@ export const addDiagnosticCode = async (jobId, payload) => {
   return apiClient.post(`${API_ENDPOINTS.JOBS}/${jobId}/inspection/diagnostic`, payload);
 };
 
-export const addInspectionPhoto = async (jobId, payload) => {
+// Image bytes are first stored by the authenticated private vehicle-photo
+// endpoint. This action only links that verified file into inspection metadata.
+export const addInspectionPhoto = async (jobId, { photoId } = {}) => {
   if (USE_MOCK_API) {
-    await delay();
-    const job = getMockJobById(jobId);
-    const inspection = job.vehicleInspection || getInitialInspectionData();
-    const newPhoto = {
-      id: `PH-${Date.now()}`,
-      type: payload.type || 'Damage',
-      url: payload.url || 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=400',
-      caption: payload.caption || 'Inspection Photo',
-      takenBy: payload.takenBy || 'Technician',
-      dateTime: new Date().toISOString().replace('T', ' ').substring(0, 16)
-    };
-    inspection.photos = [...(inspection.photos || []), newPhoto];
-    updateMockJob(job.id, { vehicleInspection: inspection });
-    return Promise.resolve(newPhoto);
+    throw new Error('Inspection image storage requires the real Django backend.');
   }
-  return apiClient.post(`${API_ENDPOINTS.JOBS}/${jobId}/inspection/photos`, payload);
+  if (!photoId) {
+    throw new Error('Upload the photo to the private vehicle gallery before linking it.');
+  }
+  return apiClient.post(`${API_ENDPOINTS.JOBS}/${jobId}/inspection/photos`, { photoId });
 };
 
 /**

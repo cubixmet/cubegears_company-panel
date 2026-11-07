@@ -43,6 +43,10 @@ export const StaffShiftCrud = ({ staff = [] }) => {
     ),
     [staff],
   );
+  // A branch-scoped shift cannot select employees from another branch.
+  const assignableStaff = useMemo(() => activeStaff.filter((item) =>
+    !form.branchId || String(item.branchId || '') === String(form.branchId),
+  ), [activeStaff, form.branchId]);
 
   const load = async () => {
     const [shiftRows, branchRows] = await Promise.all([
@@ -111,6 +115,13 @@ export const StaffShiftCrud = ({ staff = [] }) => {
       return;
     }
 
+    const hasInvalidStaff = form.assignedStaffIds.some((id) =>
+      !assignableStaff.some((person) => String(person.id) === String(id))
+    );
+    if (hasInvalidStaff) {
+      setError('Selected staff must belong to the chosen shift branch.');
+      return;
+    }
     setSaving(true);
     setError('');
     setSuccess('');
@@ -301,7 +312,17 @@ export const StaffShiftCrud = ({ staff = [] }) => {
               <div className="staff-branch-select-row">
                 <select name="branchId"
                   value={form.branchId}
-                  onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+                  onChange={(e) => {
+                    const branchId = e.target.value;
+                    setForm((current) => ({
+                      ...current,
+                      branchId,
+                      assignedStaffIds: current.assignedStaffIds.filter((id) => {
+                        const person = activeStaff.find((item) => String(item.id) === String(id));
+                        return person && (!branchId || String(person.branchId || '') === String(branchId));
+                      }),
+                    }));
+                  }}
                 >
                   <option value="">All Branches</option>
                   {branches.map((item) => (
@@ -322,9 +343,9 @@ export const StaffShiftCrud = ({ staff = [] }) => {
           </div>
 
           <fieldset className="staff-crud-assignment-fieldset">
-            <legend>Assign Staff</legend>
+            <legend>Assign Staff · {form.branchId ? 'Selected branch only' : 'All branches'}</legend>
             <div className="staff-crud-check-grid">
-              {activeStaff.map((person) => (
+              {assignableStaff.map((person) => (
                 <label key={person.id} className="staff-crud-check">
                   <input
                     type="checkbox"

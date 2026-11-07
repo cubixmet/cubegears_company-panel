@@ -19,11 +19,11 @@ test('Stock page has route-local UI style after pre-existing modal styles', () =
 test('Inventory summary, five quick actions and history remain visible', () => {
   for (const label of [
     'Inventory Management', 'Total parts', 'Stock value', 'Low stock', 'Out of stock',
-    'Receive Stock', 'Internal Use', 'Job Card Parts', 'Stock History', 'Supplier Bills & Payments',
+    'Buy / Receive from Supplier', 'Internal Use', 'Job Card Parts', 'Stock History', 'Suppliers',
     'Parts & Products', 'Recent movements',
   ]) assert.ok(page.includes(label), label);
   assert.match(page, /href="#stock-history"/);
-  assert.match(page, /to="\/stock\/suppliers"/);
+  assert.match(page, /to="\/suppliers"/);
   assert.match(page, /aria-live="polite"/);
 });
 

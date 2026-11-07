@@ -12,7 +12,7 @@ export const PaymentRecordsPanel = ({
     <header className="payments-dashboard-section-title">
       <div>
         <h2>Payment Records</h2>
-        <p>Customer collections linked to workshop invoices.</p>
+        <p>Customer receipts, spare parts supplier payments, expense and payroll payouts.</p>
       </div>
       <span>{payments.length} record{payments.length === 1 ? '' : 's'}</span>
     </header>
@@ -31,9 +31,9 @@ export const PaymentRecordsPanel = ({
             <thead>
               <tr>
                 <th>Payment ID</th>
-                <th>Customer / Invoice</th>
+                <th>Party / Related Record</th>
                 <th>Date</th>
-                <th>Method</th>
+                <th>Method / Type</th>
                 <th>Reference</th>
                 <th>Amount</th>
                 <th>Status</th>
@@ -49,13 +49,16 @@ export const PaymentRecordsPanel = ({
                     </button>
                   </td>
                   <td>
-                    <strong>{row.customer || 'Customer'}</strong>
-                    <span>{row.invoice || 'No invoice'}</span>
+                    <strong>{row.customer || 'Payment party'}</strong>
+                    <span>{row.invoice || row.category || 'No related reference'}</span>
+                    {row.account && <span>Account: {row.account}</span>}
+                    {row.source === 'payment' && row.ledgerPosted === false &&
+                      <small role="note">Unlinked legacy ledger — reconciliation needed</small>}
                   </td>
                   <td>{formatPaymentDate(row.date)}</td>
-                  <td>{row.method || '—'}</td>
+                  <td>{row.method || '—'}<span>{row.category || ''}</span></td>
                   <td>{row.reference || '—'}</td>
-                  <td><strong>{formatMoney(row.amount || 0)}</strong></td>
+                  <td><strong>{row.direction === 'OUT' ? '−' : '+'}{formatMoney(row.amount || 0)}</strong></td>
                   <td>
                     <span className={'payments-dashboard-status ' + paymentStatusClass(row.status)}>
                       {row.status || 'Completed'}
@@ -78,7 +81,7 @@ export const PaymentRecordsPanel = ({
               <div className="payments-dashboard-mobile-head">
                 <div>
                   <strong title={String(row.receiptNo || row.id)}>{row.receiptNo || row.id}</strong>
-                  <span>{row.customer || 'Customer'}</span>
+                  <span>{row.customer || 'Payment party'}</span>
                 </div>
                 <span className={'payments-dashboard-status ' + paymentStatusClass(row.status)}>
                   {row.status || 'Completed'}
@@ -86,10 +89,11 @@ export const PaymentRecordsPanel = ({
               </div>
 
               <div className="payments-dashboard-mobile-meta">
-                <div><span>Invoice</span><strong>{row.invoice || '—'}</strong></div>
+                <div><span>Related</span><strong>{row.invoice || row.category || '—'}</strong></div>
+                <div><span>Account</span><strong>{row.account || 'Not linked'}</strong></div>
                 <div><span>Date</span><strong>{formatPaymentDate(row.date)}</strong></div>
                 <div><span>Method</span><strong>{row.method || '—'}</strong></div>
-                <div><span>Amount</span><strong>{formatMoney(row.amount || 0)}</strong></div>
+                <div><span>{row.direction === 'OUT' ? 'Paid Out' : 'Received'}</span><strong>{formatMoney(row.amount || 0)}</strong></div>
               </div>
 
               {row.reference && (

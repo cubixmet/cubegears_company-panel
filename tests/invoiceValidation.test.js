@@ -22,7 +22,8 @@ const draft = () => ({
 test('empty optional invoice numbers become zero only in API payload', () => {
   const original = draft();
   const payload = prepareInvoicePayloadForApi(original);
-  assert.equal(payload.paid, '0');
+  // Invoice drafts never send cash received; payment ledger owns this field.
+  assert.equal(payload.paid, undefined);
   assert.equal(payload.adjustment, '0');
   assert.equal(payload.discount, '0');
   assert.equal(payload.items[0].rate, '0');
@@ -57,8 +58,11 @@ test('decimal format and invalid adjustment values are rejected', () => {
   const input = draft();
   input.paid = '7.123';
   input.adjustment = 'xyz';
-  assert.match(validateInvoiceDraft(input).paid, /2 decimal places/);
+  assert.equal(validateInvoiceDraft(input).paid, undefined);
   assert.match(validateInvoiceDraft(input).adjustment, /valid number/);
+  // Malformed paid in a browser form cannot alter the saved invoice balance.
+  input.adjustment = '0';
+  assert.equal(prepareInvoicePayloadForApi(input).paid, undefined);
 });
 
 test('nested Django item errors are mapped into input paths and summarized', () => {

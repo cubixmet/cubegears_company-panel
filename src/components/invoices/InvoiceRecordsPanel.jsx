@@ -1,5 +1,5 @@
 
-import { Download, Edit3, Eye, FileText, Trash2 } from 'lucide-react';
+import { Download, Edit3, Eye, FileText } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
 import { invoiceStatusClass } from './invoices.utils';
@@ -13,11 +13,9 @@ export const InvoiceRecordsPanel = ({
   onView,
   onPdf,
   onEdit,
-  onDelete,
 }) => {
   const { user } = useAuth();
   const canEdit = hasPermission(user, 'invoices.edit');
-  const canDelete = hasPermission(user, 'invoices.delete');
 
   return (
     <section className="invoice-dashboard-records">
@@ -84,11 +82,8 @@ export const InvoiceRecordsPanel = ({
                         <div className="invoice-dashboard-actions">
                           <button type="button" title="View" aria-label={`View ${document.number || document.id}`} onClick={() => onView(document)}><Eye size={13} /></button>
                           <button type="button" title="PDF" aria-label={`Download PDF for ${document.number || document.id}`} onClick={() => onPdf(document)}><Download size={13} /></button>
-                          {canEdit && document.status !== 'Converted' && (
+                          {canEdit && document.status === 'Draft' && (
                             <button type="button" title="Edit" aria-label={`Edit ${document.number || document.id}`} onClick={() => onEdit(document)}><Edit3 size={13} /></button>
-                          )}
-                          {canDelete && (
-                            <button type="button" className="is-danger" title="Delete" aria-label={`Delete ${document.number || document.id}`} onClick={() => onDelete(document)}><Trash2 size={13} /></button>
                           )}
                         </div>
                       </td>
@@ -126,9 +121,6 @@ export const InvoiceRecordsPanel = ({
                     <button type="button" onClick={() => onPdf(document)}><Download size={12} /> PDF</button>
                     {canEdit && document.status !== 'Converted' && (
                       <button type="button" onClick={() => onEdit(document)}><Edit3 size={12} /> Edit</button>
-                    )}
-                    {canDelete && (
-                      <button type="button" className="is-danger" onClick={() => onDelete(document)}><Trash2 size={12} /> Delete</button>
                     )}
                   </div>
                 </article>

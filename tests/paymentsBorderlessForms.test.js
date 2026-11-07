@@ -45,7 +45,7 @@ test('Payment dashboard search stays single-outline and filtered', () => {
 test('Posting and payment amount validation are unchanged by styling', () => {
   assert.match(page,/makePaymentPayload\(form, selectedInvoice, outstanding, USE_MOCK_API\)/);
   assert.match(page,/paymentService\.create\(payload\)/);
-  assert.match(page,/disabled=\{saving \|\| !selectedInvoice\}/);
+  assert.match(page, /form\.direction === "IN" && \(form\.receiptKind === 'advance' \? !form\.customerId : !selectedInvoice\)/);
   assert.match(page,/inputMode="decimal"/);
   assert.match(page,/Payment Amount \(₹\) \*/);
 });

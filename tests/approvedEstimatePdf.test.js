@@ -94,7 +94,8 @@ test('PDF is downloaded only when the user clicks, not automatically on approval
   const parent = readFileSync(new URL('../src/pages/jobs/JobCardWorkspace.jsx', import.meta.url), 'utf8');
   assert.match(parent, /onClick=\{\(\) => downloadApprovalPdf\(pdfOffer\.job, pdfOffer\.estimate\)\}/);
   assert.match(parent, /onClick=\{continueAfterApproval\}/);
-  assert.match(parent, /if \(!await appConfirm\('Confirm that the customer approved the latest estimate\?'\)\) return/);
+  assert.match(parent, /Confirm that the customer approved this exact saved Estimate/);
+  assert.match(parent, /not a customer electronic signature/);
 });
 
 test('iPhone and desktop share the approved PDF file without touching draft data', () => {

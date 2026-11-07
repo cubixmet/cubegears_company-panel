@@ -6,6 +6,7 @@ import { CompanyProvider } from './context/CompanyContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { PayrollPeriodProvider } from './context/PayrollPeriodContext';
 import { AppErrorBoundary } from './components/feedback/AppErrorBoundary';
+import { BackendConnectionBanner } from './components/feedback/BackendConnectionBanner';
 import { GlobalFormValidation } from './components/common/GlobalFormValidation';
 import { AppDialogHost } from './components/common/AppDialogHost';
 import './api/registerSaasEndpoints';
@@ -46,6 +47,8 @@ import './styles/billing-ui-unified.css';
 import './styles/account-workspace-unified.css';
 import './styles/account-ui-polish.css';
 import './styles/workspace-responsive-polish.css';
+// Connection banner CSS must precede the final global typography/form layers.
+import './styles/backend-connection.css';
 import './styles/responsive-typography.css';
 // Last shared layers: preserve regular text and a single clean search border.
 import './styles/form-typography.css';
@@ -60,6 +63,7 @@ export function App() {
   return (
     <AppErrorBoundary>
       <BrowserRouter>
+        <BackendConnectionBanner />
         <GlobalFormValidation />
         <ThemeProvider>
           <AppDialogHost />

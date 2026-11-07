@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Save } from 'lucide-react';
+import { branchService } from '../../services/branch.service';
 import { ResponsiveModalSheet } from '../common/ResponsiveModalSheet';
 import { clearFieldValidation, showFormFieldError, showServerFormErrors } from '../../utils/formValidation';
 
@@ -19,6 +20,8 @@ export const StaffProfileEditSheet = ({
   const formRef = useRef(null);
   const [form, setForm] = useState({});
   const [skillIds, setSkillIds] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [branchError, setBranchError] = useState('');
 
   useEffect(() => {
     if (!open || !staff) return;
@@ -27,6 +30,7 @@ export const StaffProfileEditSheet = ({
       name: staff.name || '',
       phone: staff.phone || '',
       role: staff.role || '',
+      branchId: staff.branchId || '',
       roleId: staff.roleId || (roles.filter(role => role.name === staff.role).length === 1 ? roles.find(role => role.name === staff.role).id : ''),
       teamId: staff.teamId || '',
       shiftId: staff.shiftId || '',
@@ -42,6 +46,16 @@ export const StaffProfileEditSheet = ({
         .map((skill) => String(skill.id)),
     );
   }, [open, staff, skills, roles]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let active = true;
+    setBranchError('');
+    branchService.getBranches()
+      .then((rows) => { if (active) setBranches((Array.isArray(rows) ? rows : []).filter((branch) => branch.is_active !== false)); })
+      .catch((cause) => { if (active) setBranchError(cause?.message || 'Unable to load branches.'); });
+    return () => { active = false; };
+  }, [open]);
 
   const set = (key, value) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -66,6 +80,10 @@ export const StaffProfileEditSheet = ({
       showFormFieldError(formRef.current, 'phone', 'Enter a valid international mobile number.');
       return;
     }
+    if (form.branchId && !branches.some((branch) => String(branch.id) === String(form.branchId))) {
+      showFormFieldError(formRef.current, 'branchId', 'Select an active workshop branch.');
+      return;
+    }
     if (canAssignRole && (!form.roleId || !roles.some(role => String(role.id) === String(form.roleId)))) {
       showFormFieldError(formRef.current, 'role', 'Choose an active company role.');
       return;
@@ -82,6 +100,7 @@ export const StaffProfileEditSheet = ({
           (canAssignRole || !['role', 'roleId', 'whatsappConsent', 'whatsappConsentSource'].includes(key))
           && !['email', 'designation', 'emergencyContact', 'address', 'notes'].includes(key)
         )),
+        branchId: form.branchId || null,
         teamId: form.teamId || null,
         shiftId: form.shiftId || null,
         skillIds: skills
@@ -95,7 +114,8 @@ export const StaffProfileEditSheet = ({
     } catch (cause) {
       showServerFormErrors(formRef.current, cause, {
         roleId: 'role', role: 'role', phone: 'phone', name: 'name',
-        employmentStatus: 'employmentStatus',
+        employmentStatus: 'employmentStatus', branchId: 'branchId',
+        teamId: 'teamId', shiftId: 'shiftId',
         whatsappConsentSource: 'whatsappConsentSource',
       });
       setError(cause?.message || 'Unable to update staff.');
@@ -113,10 +133,11 @@ export const StaffProfileEditSheet = ({
     >
       <form ref={formRef} className="staff-profile-edit-form" noValidate onSubmit={submit}
         onChange={event => clearFieldValidation(event.target)}>
-        {error && <div className="staff-directory-message is-error" role="alert">{error}</div>}
+        {(error || branchError) && <div className="staff-directory-message is-error" role="alert">{error || branchError}</div>}
         <div className="staff-profile-edit-grid">
           <label>Full Name *<input name="name" required value={form.name || ''} onChange={(e) => set('name', e.target.value)} /></label>
-          <label>Mobile Number<input name="phone" type="tel" value={form.phone || ''} onChange={(e) => set('phone', e.target.value)} /></label>
+          <label>Mobile Number<input name="phone" type="tel" disabled={!canAssignRole && Boolean(staff?.user)}
+            value={form.phone || ''} onChange={(e) => set('phone', e.target.value)} /></label>
           <label>
             Company Role
             <select name="role" disabled={!canAssignRole} value={form.roleId || ''} onChange={(e) => { const role = roles.find(item => String(item.id) === e.target.value); setForm(current => ({...current,roleId:role?.id || '',role:role?.name || ''})); }}>
@@ -126,18 +147,35 @@ export const StaffProfileEditSheet = ({
           </label>
 
           <label>
-            Team
-            <select value={form.teamId || ''} onChange={(e) => set('teamId', e.target.value)}>
+            Branch
+            <select name="branchId" value={form.branchId || ''} onChange={(e) => {
+              const branchId = e.target.value;
+              setForm((current) => ({
+                ...current,
+                branchId,
+                teamId: teams.some((team) => String(team.id) === String(current.teamId) &&
+                  (!team.branchId || String(team.branchId) === String(branchId))) ? current.teamId : '',
+                shiftId: shifts.some((shift) => String(shift.id) === String(current.shiftId) &&
+                  (!shift.branchId || String(shift.branchId) === String(branchId))) ? current.shiftId : '',
+              }));
+            }}>
               <option value="">Unassigned</option>
-              {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+              {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+            </select>
+          </label>
+          <label>
+            Team
+            <select name="teamId" value={form.teamId || ''} onChange={(e) => set('teamId', e.target.value)}>
+              <option value="">Unassigned</option>
+              {teams.filter((team) => !team.branchId || String(team.branchId) === String(form.branchId)).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
             </select>
           </label>
 
           <label>
             Shift
-            <select value={form.shiftId || ''} onChange={(e) => set('shiftId', e.target.value)}>
+            <select name="shiftId" value={form.shiftId || ''} onChange={(e) => set('shiftId', e.target.value)}>
               <option value="">Unassigned</option>
-              {shifts.map((shift) => <option key={shift.id} value={shift.id}>{shift.name}</option>)}
+              {shifts.filter((shift) => !shift.branchId || String(shift.branchId) === String(form.branchId)).map((shift) => <option key={shift.id} value={shift.id}>{shift.name}</option>)}
             </select>
           </label>
 

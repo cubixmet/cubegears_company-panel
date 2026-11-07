@@ -5,6 +5,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { dailyWageService } from '../../services/dailyWage.service';
+import { financeService } from '../../services/finance.service';
 import { DailyWageNav, rupees, todayISO } from './DailyWagePage';
 import './daily-wage.css';
 
@@ -13,7 +14,7 @@ const empty = (kind, current = {}) => ({
   date: todayISO(), rate: current.currentRate || '',
   effectiveFrom: todayISO(), reason: '',
   status: 'Full Day', category: 'OT', amount: '',
-  method: 'Cash', reference: '', paymentDate: todayISO(),
+  method: 'Cash', reference: '', paymentDate: todayISO(), account: '',
   requestKey: key(),
   ...(kind === 'pay' ? { amount: String(Math.max(0, Number(current.currentBalance || 0))) } : {}),
 });
@@ -42,6 +43,7 @@ export const DailyWageAccountPage = () => {
   const canReversePayment = can('payroll.payments.reverse');
   const canViewPayments = can('payroll.payments.view');
   const [account, setAccount] = useState(null);
+  const [financialAccounts, setFinancialAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -51,6 +53,13 @@ export const DailyWageAccountPage = () => {
   const [section, setSection] = useState('history');
   const [reload, setReload] = useState(0);
   const [filter, setFilter] = useState('All');
+
+  useEffect(() => {
+    if (!actionAccess.pay) return;
+    financeService.listAccounts()
+      .then((rows) => setFinancialAccounts(Array.isArray(rows) ? rows : []))
+      .catch(() => setFinancialAccounts([]));
+  }, [actionAccess.pay]);
 
   useEffect(() => {
     if (!canView || !id) { setLoading(false); return; }
@@ -98,6 +107,7 @@ export const DailyWageAccountPage = () => {
         pay: () => dailyWageService.pay(id, {
           amount: form.amount, method: form.method, reference: form.reference,
           paymentDate: form.paymentDate, requestKey: form.requestKey,
+          account: form.account || null,
         }),
       };
       await actions[modal]();
@@ -296,6 +306,17 @@ export const DailyWageAccountPage = () => {
             <div className="dw-payment-due">Amount Due <strong>{rupees(account?.currentBalance)}</strong></div>
             <label>Pay Amount (₹)<input name="amount" type="number" required min="0.01" max={account?.currentBalance} step="0.01" value={form.amount || ''} onChange={(e) => set('amount', e.target.value)}/></label>
             <label>Payment Date<input type="date" max={todayISO()} required value={form.paymentDate || ''} onChange={(e) => set('paymentDate', e.target.value)}/></label>
+            <label>Pay From Bank / Cash Account
+              <select value={form.account || ''} required={financialAccounts.length > 0}
+                onChange={(e) => set('account', e.target.value)}>
+                <option value="">Select account {financialAccounts.length ? '*' : '(not configured)'}</option>
+                {financialAccounts.filter((item) => item.isActive).map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name} ({item.kind}) — {rupees(item.currentBalance)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label>Payment Method<select value={form.method || 'Cash'} onChange={(e) => set('method', e.target.value)}>
               {['Cash','UPI','Bank Transfer','Cheque','Other'].map((m) => <option key={m}>{m}</option>)}
             </select></label>

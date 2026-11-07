@@ -34,7 +34,7 @@ test('Add and Edit Service/Category editors use borderless accessible 16px field
     'Add Service', 'Edit Service', 'Service Code', 'Service Name', 'Category',
     'Pricing Type', 'Default Selling Rate (₹)', 'Estimated Duration (minutes)',
     'Description', 'Checklist — one item per line', 'Save Service',
-    'Add Service Category', 'Edit Service Category', 'Save Category',
+    'Add Category', 'Save Category', 'Main Category (root)',
   ]) assert.ok(page.includes(label), label);
 });
 
@@ -50,7 +50,7 @@ test('Services directory search field uses one focus outline and no double borde
 test('All existing save and price calculations remain untouched', () => {
   assert.match(page, /serviceService\.createService\(payload\)/);
   assert.match(page, /serviceService\.updateService\(id, payload\)/);
-  assert.match(page, /serviceService\.createServiceCategory\(categoryForm\)/);
-  assert.match(page, /serviceService\.updateServiceCategory\(categoryEditor\.id, categoryForm\)/);
+  assert.ok(page.includes('serviceService.createServiceCategory({'));
+  assert.ok(page.includes('onSubmit={saveCategory}'));
   assert.match(page, /price: Number\(form\.price \|\| 0\)/);
 });

@@ -30,3 +30,8 @@
 .wa-mode-option.is-selected{border-color:var(--primary);background:var(--surface-2)}
 .wa-manual-example{padding:15px;border:1px dashed var(--border);border-radius:10px;overflow-wrap:anywhere;font-size:14px;line-height:1.6}
 @media(max-width:640px){.wa-mode-grid{grid-template-columns:1fr}}
+
+/* Part 19 — opt-in customer estimate reminder cadence. */
+.wa-reminder-settings{display:grid;grid-template-columns:minmax(190px,280px) minmax(0,1fr);align-items:center;gap:15px;padding:13px;border:1px solid var(--border);border-radius:12px;background:var(--surface-2)}
+.wa-reminder-settings p{margin:0;font-size:12px;line-height:1.6}
+@media(max-width:640px){.wa-reminder-settings{grid-template-columns:1fr;gap:9px}}

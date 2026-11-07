@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Building2, CreditCard, Mail, Package, Phone, Plus, Search, ShoppingBag, Truck } from 'lucide-react';
+import { ArrowLeft, Building2, CreditCard, Mail, MessageCircle, Package, Pencil, Phone, Plus, Search, ShoppingBag } from 'lucide-react';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { supplierService } from '../../services/supplier.service';
 import { supplierFinanceService } from '../../services/supplierFinance.service';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
 import { USE_MOCK_API } from '../../api/apiConfig';
-import { SupplierSectionTabs } from '../../components/suppliers/SupplierSectionTabs';
+import SupplierPurchaseFlow from '../../components/suppliers/SupplierPurchaseFlow';
+import SupplierReturnsPanel from '../../components/suppliers/SupplierReturnsPanel';
+import { useLocation } from 'react-router-dom';
+import { customerContactLinks } from '../../components/jobs/customerContact.utils';
 import '../../styles/suppliers-workspace.css';
 
 const asText = value => String(value ?? '').trim();
@@ -25,6 +28,20 @@ const initialForm = supplier => ({
   address:asText(supplier?.address),
   is_active:supplier?.is_active !== false,
 });
+
+
+function SupplierContactActions({ supplier, compact = false }) {
+  const { callUrl, whatsappUrl } = customerContactLinks({ customerPhone: supplier?.phone });
+  const name = asText(supplier?.name) || 'supplier';
+  return <span className={'cg-supplier-contact-actions' + (compact ? ' is-compact' : '')}>
+    {callUrl
+      ? <a className="cg-supplier-contact-btn is-call" href={callUrl} aria-label={'Call ' + name}><Phone size={14} aria-hidden="true"/> Call</a>
+      : <span className="cg-supplier-contact-btn is-disabled" title="No valid phone number"><Phone size={14} aria-hidden="true"/> Call</span>}
+    {whatsappUrl
+      ? <a className="cg-supplier-contact-btn is-whatsapp" href={whatsappUrl} target="_blank" rel="noopener noreferrer" aria-label={'WhatsApp ' + name}><MessageCircle size={14} aria-hidden="true"/> WhatsApp</a>
+      : <span className="cg-supplier-contact-btn is-disabled" title="No valid WhatsApp number"><MessageCircle size={14} aria-hidden="true"/> WhatsApp</span>}
+  </span>;
+}
 
 function SupplierEditor({ supplier, onClose, onSaved }) {
   const access = useFeatureAccess();
@@ -142,12 +159,15 @@ export default function SuppliersPage({ section = 'all' }) {
   const purchaseView = section === 'purchases';
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [params, setParams] = useSearchParams();
   const access = useFeatureAccess();
   const canCreate = access.can('stock.create') && !USE_MOCK_API;
   const canEdit = access.can('stock.edit') && !USE_MOCK_API;
   const canViewFinance = access.can('payments.view') && access.can('stock.view');
-  const canCreatePurchase = access.can('stock.create') && access.can('payments.create') && !USE_MOCK_API;
+  const canCreatePurchase = canViewFinance && access.can('stock.create') && access.can('stock.edit') &&
+    access.can('payments.create') && !USE_MOCK_API;
+  const canPaySupplier = canViewFinance && access.can('payments.create') && !USE_MOCK_API;
   const canDelete = access.can('stock.delete') && !USE_MOCK_API;
   const [suppliers, setSuppliers] = useState([]);
   const [creditBalances, setCreditBalances] = useState(null);
@@ -162,6 +182,10 @@ export default function SuppliersPage({ section = 'all' }) {
   const [purchaseHistoryLoading, setPurchaseHistoryLoading] = useState(false);
   const [purchaseHistoryError, setPurchaseHistoryError] = useState('');
   const [supplier, setSupplier] = useState(null);
+  const [supplierFinancials, setSupplierFinancials] = useState(null);
+  const [supplierBills, setSupplierBills] = useState([]);
+  const [supplierPayments, setSupplierPayments] = useState([]);
+  const [supplierFinanceError, setSupplierFinanceError] = useState('');
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -210,6 +234,30 @@ export default function SuppliersPage({ section = 'all' }) {
       .finally(()=>{if(active)setDetailsLoading(false);});
     return()=>{active=false};
   }, [id]);
+
+  useEffect(() => {
+    if (!id || !canViewFinance || USE_MOCK_API) {
+      setSupplierFinancials(null);
+      setSupplierBills([]);
+      setSupplierPayments([]);
+      return undefined;
+    }
+    let active = true;
+    setSupplierFinanceError('');
+    Promise.all([
+      supplierFinanceService.getSupplierSummary(id),
+      supplierFinanceService.getBills(id),
+      supplierFinanceService.getPayments(id),
+    ]).then(([summary, bills, payments]) => {
+      if (!active) return;
+      setSupplierFinancials(summary);
+      setSupplierBills(bills);
+      setSupplierPayments(payments);
+    }).catch(error => {
+      if (active) setSupplierFinanceError(error?.message || 'Supplier finance records could not be loaded.');
+    });
+    return () => { active = false; };
+  }, [id, canViewFinance]);
 
   useEffect(() => {
     if (!purchaseView) return undefined;
@@ -304,6 +352,21 @@ export default function SuppliersPage({ section = 'all' }) {
     } finally { setActionBusy(false); }
   }
 
+  const refreshSupplierDetails = async () => {
+    if (!id) return;
+    const [summary, bills, payments, catalog] = await Promise.all([
+      supplierFinanceService.getSupplierSummary(id),
+      supplierFinanceService.getBills(id),
+      supplierFinanceService.getPayments(id),
+      supplierService.products(),
+    ]);
+    setSupplierFinancials(summary);
+    setSupplierBills(bills);
+    setSupplierPayments(payments);
+    setProducts(catalog.filter(row => supplierIdOf(row) === String(id)));
+    setNotice('Supplier purchase, stock, payments and outstanding balance updated.');
+  };
+
   function onSaved(saved) {
     setEditor(null);
     setNotice(supplier ? 'Supplier updated successfully.' : 'Supplier saved successfully.');
@@ -324,11 +387,9 @@ export default function SuppliersPage({ section = 'all' }) {
         </h1>
       </div>
       {id ? canEdit && supplier && <button type="button" className="cg-supplier-button" onClick={()=>setEditor(supplier)}>Edit Supplier</button>
-        : purchaseView ? (canCreatePurchase && <Link className="cg-supplier-button primary" to="/stock/suppliers?tab=bill"><Plus size={17}/> New Purchase</Link>)
         : canCreate && <button type="button" className="cg-supplier-button primary" onClick={()=>setEditor({create:true})}><Plus size={17}/> Add Supplier</button>}
     </div>
 
-    <SupplierSectionTabs />
 
     {error&&<div className="cg-supplier-error" role="alert">{error} <button type="button" onClick={()=>window.location.reload()}>Retry</button></div>}
     {notice&&<p className="cg-supplier-success" role="status">{notice}</p>}
@@ -351,18 +412,84 @@ export default function SuppliersPage({ section = 'all' }) {
         </label>
         <span>{matches.length} suppliers</span>
       </div>
-      {loading?<p role="status" className="cg-supplier-empty">Loading suppliers…</p>:
-        error ? null : matches.length?<div className="cg-suppliers-list">
-          {matches.map(row=><Link className="cg-supplier-list-item" to={'/suppliers/'+encodeURIComponent(row.id)} key={row.id}>
-            <span className="cg-supplier-avatar"><Truck size={21}/></span>
-            <span className="cg-supplier-summary">
-              <strong title={row.name}>{row.name}</strong>
-              <small>{[row.contact_person||row.contactPerson,row.phone].filter(Boolean).join(' · ')||'Contact details not added'}</small>
-              {canViewFinance && <small>Credit outstanding: {creditBalances ? money(creditBalances.get(String(row.id)) || 0) : 'Unavailable'}</small>}
-            </span>
-            <span className={row.is_active===false?'cg-supplier-status inactive':'cg-supplier-status'}>{status(row)}</span>
-          </Link>)}
-        </div>:<p className="cg-supplier-empty">{search?'No suppliers match your search.':'No suppliers added yet.'}</p>}
+      <div className="cg-supplier-directory-heading">
+        <div><h2>All Suppliers</h2>
+          <span className="cg-supplier-directory-count">{loading ? '—' : matches.length + ' / ' + suppliers.length}</span>
+        </div>
+      </div>
+      {loading ? <p role="status" className="cg-supplier-empty">Loading suppliers…</p>
+        : error ? null : matches.length ? <>
+          <div className="cg-supplier-directory-table-wrap">
+            <table className="cg-supplier-directory-table">
+              <thead><tr>
+                <th scope="col">Supplier</th>
+                <th scope="col">Phone / WhatsApp</th>
+                <th scope="col">Contact Person</th>
+                <th scope="col">GSTIN</th>
+                {canViewFinance && <th scope="col">Outstanding</th>}
+                <th scope="col">Status</th>
+                <th scope="col" className="cg-supplier-actions-col">Actions</th>
+              </tr></thead>
+              <tbody>{matches.map(row => {
+                const name = asText(row.name) || 'Unnamed Supplier';
+                const phone = asText(row.phone);
+                const gstin = asText(row.gstNo || row.gstin);
+                const person = asText(row.contact_person || row.contactPerson);
+                const balance = creditBalances?.get(String(row.id));
+                return <tr key={row.id}>
+                  <td><Link className="cg-supplier-name-link" to={'/suppliers/' + encodeURIComponent(row.id)} title={name}>{name}</Link>
+                    {row.email && <span className="cg-supplier-secondary-text" title={row.email}>{row.email}</span>}
+                  </td>
+                  <td><span className="cg-supplier-directory-phone">{phone || 'Not added'}</span>
+                    <SupplierContactActions supplier={row} compact/>
+                  </td>
+                  <td>{person || '—'}</td>
+                  <td><span className="cg-supplier-gstin-cell" title={gstin || undefined}>{gstin || '—'}</span></td>
+                  {canViewFinance && <td><strong className={'cg-supplier-balance' + (creditBalances && Number(balance ?? 0) > 0 ? ' has-due' : '')}>
+                    {creditBalances ? money(balance ?? 0) : 'Unavailable'}
+                  </strong></td>}
+                  <td><span className={row.is_active === false ? 'cg-supplier-directory-status inactive' : 'cg-supplier-directory-status'}>{status(row)}</span></td>
+                  <td><span className="cg-supplier-row-actions">
+                    <Link className="cg-supplier-row-view" to={'/suppliers/' + encodeURIComponent(row.id)}>View</Link>
+                    {canEdit && <button type="button" className="cg-supplier-row-edit" aria-label={'Edit ' + name}
+                      title={'Edit ' + name} onClick={() => setEditor(row)}><Pencil size={15} aria-hidden="true"/></button>}
+                  </span></td>
+                </tr>;
+              })}</tbody>
+            </table>
+          </div>
+          <div className="cg-supplier-mobile-directory">
+            {matches.map(row => {
+              const name = asText(row.name) || 'Unnamed Supplier';
+              const gstin = asText(row.gstNo || row.gstin);
+              const person = asText(row.contact_person || row.contactPerson);
+              const balance = creditBalances?.get(String(row.id));
+              return <article className="cg-supplier-mobile-entry" key={row.id}>
+                <header className="cg-supplier-mobile-head">
+                  <div><Link className="cg-supplier-name-link" to={'/suppliers/' + encodeURIComponent(row.id)}>{name}</Link>
+                    <span className="cg-supplier-secondary-text">{row.email || person || 'Supplier'}</span></div>
+                  <span className={row.is_active === false ? 'cg-supplier-directory-status inactive' : 'cg-supplier-directory-status'}>{status(row)}</span>
+                </header>
+                <div className="cg-supplier-mobile-details">
+                  <div><span>Contact Person</span><strong>{person || '—'}</strong></div>
+                  <div><span>GSTIN</span><strong>{gstin || '—'}</strong></div>
+                  {canViewFinance && <div><span>Outstanding</span><strong className={'cg-supplier-balance' + (creditBalances && Number(balance ?? 0) > 0 ? ' has-due' : '')}>
+                    {creditBalances ? money(balance ?? 0) : 'Unavailable'}
+                  </strong></div>}
+                </div>
+                <div className="cg-supplier-mobile-bottom">
+                  <div><span className="cg-supplier-directory-phone">{asText(row.phone) || 'No phone number'}</span>
+                    <SupplierContactActions supplier={row}/></div>
+                  <span className="cg-supplier-row-actions">
+                    <Link className="cg-supplier-row-view" to={'/suppliers/' + encodeURIComponent(row.id)}>View</Link>
+                    {canEdit && <button type="button" className="cg-supplier-row-edit" aria-label={'Edit ' + name}
+                      title={'Edit ' + name} onClick={() => setEditor(row)}><Pencil size={15} aria-hidden="true"/></button>}
+                  </span>
+                </div>
+              </article>;
+            })}
+          </div>
+        </> : <p className="cg-supplier-empty">{search ? 'No suppliers match your search.' : 'No suppliers added yet.'}</p>}
     </>}
 
     {!id&&purchaseView&&(
@@ -448,24 +575,88 @@ export default function SuppliersPage({ section = 'all' }) {
           <div className="full"><span>Address</span><strong>{supplier.address||'—'}</strong></div>
         </div>
         {canViewFinance && <div style={{ marginTop: 10, fontSize: 14 }}>
-          Credit outstanding: <strong>{creditBalances ? money(creditBalances.get(String(supplier.id)) || 0) : 'Unavailable'}</strong>
-          <Link to={'/suppliers/credits?supplier=' + encodeURIComponent(supplier.id)}
-            style={{ marginLeft: 12, color: 'var(--primary)' }}>Credit Management</Link>
+          Credit outstanding: <strong>{supplierFinancials
+            ? money(supplierFinancials.outstanding)
+            : 'Loading / Unavailable'}</strong>
+          <a href="#supplier-pay-now" style={{ marginLeft: 12, color: 'var(--primary)' }}>Pay / Settle Credit</a>
         </div>}
         <div className="cg-supplier-contacts">
           {supplier.phone&&<a href={'tel:'+String(supplier.phone).replace(/[^\d+]/g,'')}><Phone size={15}/> Call</a>}
           {supplier.email&&<a href={'mailto:'+supplier.email}><Mail size={15}/> Email</a>}
           <Link to={'/stock?supplier='+encodeURIComponent(supplier.id)}><Package size={15}/> Inventory</Link>
-          <Link to={'/suppliers/purchases?supplier=' + encodeURIComponent(supplier.id)}>
-            <ShoppingBag size={15}/> Purchases</Link>
-          {canViewFinance && <Link to={'/suppliers/payments?supplier=' + encodeURIComponent(supplier.id)}>
-            <CreditCard size={15}/> Payments</Link>}
+          {canCreatePurchase && <a href="#supplier-purchase-form">
+            <ShoppingBag size={15}/> Add Purchased Part</a>}
+          {canPaySupplier && <a href="#supplier-pay-now">
+            <CreditCard size={15}/> Pay Supplier</a>}
           {supplier.is_active !== false && canEdit && <button type="button" disabled={actionBusy}
             onClick={deactivateSupplier} className="cg-supplier-button">Deactivate</button>}
           {canDelete && <button type="button" disabled={actionBusy}
             onClick={() => setDeleteConfirmOpen(true)} className="cg-supplier-button">Delete Supplier</button>}
         </div>
       </section>
+      {(canCreatePurchase || canPaySupplier) && (
+        <SupplierPurchaseFlow
+          supplier={supplier}
+          initialPart={location.state?.purchasePrefill || null}
+          canPurchase={canCreatePurchase}
+          canPay={canPaySupplier}
+          bills={supplierBills}
+          onChanged={refreshSupplierDetails}
+        />
+      )}
+      {canViewFinance && (
+        <SupplierReturnsPanel
+          supplier={supplier}
+          bills={supplierBills}
+          payments={supplierPayments}
+          canReturn={canEdit && access.can('payments.edit')}
+          canPay={canPaySupplier}
+          onChanged={refreshSupplierDetails}
+        />
+      )}
+      {canViewFinance && (
+        <section className="cg-supplier-profile" aria-label="Supplier credit and settlement">
+          <div className="cg-supplier-profile-head">
+            <CreditCard size={20}/><h2>Supplier Accounts & Payments</h2>
+          </div>
+          {supplierFinanceError && <p className="cg-supplier-error" role="alert">{supplierFinanceError}</p>}
+          {supplierFinancials && (
+            <div className="cg-supplier-fields">
+              <div><span>Total Posted Purchases</span><strong>{money(supplierFinancials.totalPurchases)}</strong></div>
+              <div><span>Paid Against Bills</span><strong>{money(supplierFinancials.totalPaymentsApplied)}</strong></div>
+              <div><span>Remaining Credit</span><strong>{money(supplierFinancials.outstanding)}</strong></div>
+              <div><span>Unapplied Advances</span><strong>{money(supplierFinancials.availableAdvance)}</strong></div>
+              <div><span>Purchase Returns</span><strong>{money(supplierFinancials.totalReturns)}</strong></div>
+              <div><span>Debit Note Credit Available</span><strong>{money(supplierFinancials.availableDebitCredit)}</strong></div>
+            </div>
+          )}
+          <p>Purchase and payment actions are available above on this Supplier page.</p>
+          <h3>Purchase Bills</h3>
+          {supplierBills.filter(b => b.postingStatus === 'Posted').map(bill => (
+            <div key={bill.id} className="cg-supplier-record">
+              <div><strong>{bill.invoiceNumber}</strong>
+                <small>{bill.postedAt
+                  ? new Date(bill.postedAt).toLocaleString('en-IN')
+                  : bill.invoiceDate} · Paid {money(bill.paid)} · {bill.status}</small>
+                <small>{bill.items?.map(item => item.description).join(', ') || 'Supplier purchase'} · Bought by {bill.purchasedBy || 'Workshop staff'}</small>
+              </div>
+              <b>Due {money(bill.outstanding)}</b>
+            </div>
+          ))}
+          {!supplierBills.length && <p className="cg-supplier-empty">No supplier purchase bills recorded.</p>}
+          <h3>Payment History</h3>
+          {supplierPayments.map(payment => (
+            <div key={payment.id} className="cg-supplier-record">
+              <div><strong>{payment.kind} · {payment.method}</strong>
+                <small>{payment.createdAt
+                  ? new Date(payment.createdAt).toLocaleString('en-IN')
+                  : payment.paidOn} · {payment.billReferences?.join(', ') || payment.reference || 'Advance / Unallocated'}</small>
+              </div><b>{money(payment.amount)}</b>
+            </div>
+          ))}
+          {!supplierPayments.length && <p className="cg-supplier-empty">No supplier payments recorded.</p>}
+        </section>
+      )}
       <div className="cg-supplier-details-grid">
         <section className="cg-supplier-profile">
           <div className="cg-supplier-profile-head"><ShoppingBag size={20}/><h2>Purchase Orders</h2><span>{orders.length} loaded</span></div>
@@ -477,7 +668,11 @@ export default function SuppliersPage({ section = 'all' }) {
         <section className="cg-supplier-profile">
           <div className="cg-supplier-profile-head"><Package size={20}/><h2>Supplied Products</h2><span>{products.length} loaded</span></div>
           {products.length? products.map(item=><div className="cg-supplier-record" key={item.id}>
-            <div><strong>{item.partName||item.name}</strong><small>{item.sku||'—'}</small></div>
+            <div>
+              <strong>{item.partName||item.name}</strong>
+              <small>{item.sku||'—'} · Purchase {money(item.costPrice ?? item.cost)} · Selling {money(item.sellingPrice ?? item.price)}</small>
+              <small>GST {item.tax ?? 0}% · {item.hsnCode || item.hsn_code || 'No HSN'}</small>
+            </div>
             <span>{item.onHand??'—'} in stock</span>
           </div>):<p className="cg-supplier-empty">No products linked yet.</p>}
         </section>

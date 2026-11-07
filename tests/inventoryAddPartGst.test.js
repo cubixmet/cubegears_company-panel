@@ -4,16 +4,15 @@ import { readFileSync } from 'node:fs';
 
 const read = (file) => readFileSync(new URL('../' + file, import.meta.url), 'utf8');
 
-test('Add New Part form offers a total GST rate dropdown and custom rate', () => {
+test('Add New Part uses the same CGST / SGST / IGST rate choices as invoices', () => {
   const page = read('src/pages/stock/StockEasyPage.jsx');
-  assert.match(page, /label="GST Rate"/);
-  assert.match(page, /GST_RATE_PRESETS = \['0', '3', '5', '12', '18', '28', '40'\]/);
-  assert.match(page, /<OutlinedSelect label="GST Rate"/);
-  assert.match(page, /Other rate \(custom %\)/);
-  assert.match(page, /Custom GST Rate \(%\)/);
-  assert.match(page, /max="100" step="0\.01" required/);
+  assert.ok(page.includes('label="GST Component / Rate *"'));
+  assert.ok(page.includes("STOCK_GST_CHOICES = invoiceLineTaxChoices('unknown')"));
+  assert.ok(page.includes('invoiceTotalRateFromChoice'));
+  assert.doesNotMatch(page, /GST_RATE_PRESETS/);
+  assert.ok(page.includes('Saved/Other HSN-Specific Rate (custom %)'));
+  assert.ok(page.includes('Custom GST Rate (%)'));
 });
-
 test('GST and optional alphanumeric HSN/SAC are persisted with new stock item', () => {
   const page = read('src/pages/stock/StockEasyPage.jsx');
   const service = read('src/services/stockCatalog.service.js');
@@ -33,7 +32,7 @@ test('GST is item metadata, not a change to Receive Stock or Issue Stock behavio
   const service = read('src/services/stockCatalog.service.js');
   assert.match(page, /stockCatalogService\.stockIn\(payload\)/);
   assert.match(page, /stockCatalogService\.stockOut\(payload\)/);
-  assert.match(page, /stockQuantity: openingQuantity/);
-  assert.match(page, /beginMove\('in', created\.id, created\)/);
+  assert.match(page, /stockQuantity: 0/);
+  assert.ok(page.includes("navigate('/suppliers/' + encodeURIComponent(part.supplier)"));
   assert.match(service, /hsnCode: item\.hsnCode \|\| item\.hsn_code \|\| ''/);
 });

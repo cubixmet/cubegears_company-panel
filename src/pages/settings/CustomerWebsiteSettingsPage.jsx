@@ -23,6 +23,10 @@ function ErrorMessage({children}) {
 export default function CustomerWebsiteSettingsPage(){
   const [fields,setFields] = useState(empty);
   const [subdomain,setSubdomain] = useState('');
+  const [subdomainLabel,setSubdomainLabel] = useState('');
+  const [subdomainDraft,setSubdomainDraft] = useState('');
+  const [wildcardReady,setWildcardReady] = useState(false);
+  const [subdomainSaving,setSubdomainSaving] = useState(false);
   const [logo,setLogo] = useState(false);
   const [domains,setDomains] = useState([]);
   const [hostname,setHostname] = useState('');
@@ -41,6 +45,9 @@ export default function CustomerWebsiteSettingsPage(){
       ]);
       setFields(Object.fromEntries(Object.keys(empty).map(k=>[k,website[k]??empty[k]])));
       setSubdomain(website.subdomain||'');
+      setSubdomainLabel(website.subdomainLabel||'');
+      setSubdomainDraft(website.subdomainLabel||'');
+      setWildcardReady(website.wildcardReady===true);
       setLogo(!!website.hasLogo);
       setDomains(Array.isArray(domainRows)?domainRows:[]);
     } catch(e) {setError(e.message||'Could not load your website settings.');}
@@ -64,6 +71,31 @@ export default function CustomerWebsiteSettingsPage(){
       setNotice('Website branding saved. The updated settings will appear on your Customer Website.');
     }catch(e){setError(e.message||'Unable to save settings.');}
     finally{setSaving(false);}
+  }
+
+  async function updateDefaultSubdomain(event){
+    event.preventDefault();
+    if(subdomainSaving)return;
+    const label=subdomainDraft.trim().toLowerCase();
+    if(!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(label)){
+      setError('Use 3–63 lowercase letters, numbers or hyphens.');
+      return;
+    }
+    if(label===subdomainLabel)return;
+    if(!await appConfirm(
+      'Change your default website address? Existing customer links using the previous subdomain will need to be sent again.'
+    ))return;
+    setSubdomainSaving(true);setError('');setNotice('');
+    try{
+      const changed=await apiClient.patch('/company/customer-website/subdomain',{label});
+      setSubdomain(changed.subdomain);
+      setSubdomainLabel(changed.subdomainLabel);
+      setSubdomainDraft(changed.subdomainLabel);
+      setWildcardReady(changed.wildcardReady===true);
+      setNotice(changed.message||'Default website address updated.');
+    }catch(e){
+      setError(e?.response?.data?.label||e?.message||'Could not change this website address.');
+    }finally{setSubdomainSaving(false);}
   }
 
   async function requestDomain(event){
@@ -91,9 +123,10 @@ export default function CustomerWebsiteSettingsPage(){
 
   const primaryDomain = domains.find(d=>d.isPrimary && d.status==='active' && d.sslStatus==='ready' && d.ownershipVerified && d.dnsConfigured);
   const websiteHost = primaryDomain?.hostname || subdomain;
+  const websiteReady = Boolean(primaryDomain || wildcardReady);
 
   async function copyLink(){
-    if(!websiteHost)return;
+    if(!websiteHost||!websiteReady)return;
     try{
       await navigator.clipboard.writeText('https://'+websiteHost);
       setNotice('Default website address copied.');
@@ -115,12 +148,32 @@ export default function CustomerWebsiteSettingsPage(){
         <div className="cws-heading"><div className="cws-square"><Globe2 size={23}/></div><div><h2>Your Customer Website</h2><p>Visitors see your workshop website at the domain root.</p></div></div>
         <div className="cws-domain-url">
           <span>{websiteHost ? 'https://'+websiteHost+'/' : 'Website domain not configured'}</span>
-          <button type="button" aria-label="Copy website URL" onClick={copyLink} disabled={!websiteHost}><Copy size={17}/></button>
+          <button type="button" aria-label="Copy website URL" onClick={copyLink} disabled={!websiteReady||!websiteHost}><Copy size={17}/></button>
         </div>
         <div className="cws-actions">
-          {websiteHost&&<a className="cws-btn cws-primary" href={'https://'+websiteHost+'/'} target="_blank" rel="noopener noreferrer">Open Website <ArrowUpRight size={16}/></a>}
-          <Link to="/settings/customer-website/domains" className="cws-btn cws-secondary">Domain Settings</Link>
+          {websiteReady&&websiteHost&&<a className="cws-btn cws-primary" href={'https://'+websiteHost+'/'} target="_blank" rel="noopener noreferrer">Open Website <ArrowUpRight size={16}/></a>}
+          <Link to="/settings/customer-website/domains" className="cws-btn cws-secondary">Add My Own Domain / DNS Settings</Link>
         </div>
+        <form className="cws-subdomain-form" onSubmit={updateDefaultSubdomain}>
+          <label className="cws-field"><span>Default Website Subdomain</span>
+            <div className="cws-subdomain-field">
+              <input type="text" value={subdomainDraft} maxLength={63} required
+                autoCapitalize="none" spellCheck={false}
+                aria-label="Default website subdomain name"
+                onChange={event=>setSubdomainDraft(event.target.value.toLowerCase())}/>
+              <span>.{subdomainLabel&&subdomain.startsWith(subdomainLabel+'.')
+                ?subdomain.slice(subdomainLabel.length+1):'your-platform-domain'}</span>
+            </div>
+          </label>
+          <button type="submit" className="cws-btn cws-secondary"
+            disabled={subdomainSaving||!subdomainDraft.trim()||subdomainDraft.trim()===subdomainLabel}>
+            {subdomainSaving?'Saving…':'Update Subdomain'}
+          </button>
+          <small>Names are unique for every workshop. Changing this address does not change your login. Existing customer links on the old hostname must be sent again.</small>
+        </form>
+        {!wildcardReady&&<p className="cws-warning" role="status">
+          Default address reserved in CubeGears. Platform wildcard DNS and HTTPS have not been marked ready yet; do not share this address until activation.
+        </p>}
         <div className="cws-hint"><ShieldCheck size={17}/><span>
           {primaryDomain ? 'Primary verified domain. Default subdomain: '+subdomain : 'Using default subdomain. DNS and HTTPS must be live before the website opens publicly.'}
         </span></div>

@@ -7,13 +7,14 @@ const page = read('src/pages/stock/StockEasyPage.jsx');
 const service = read('src/services/stockCatalog.service.js');
 const css = read('src/styles/stock-form-polish.css');
 
-test('original GST rate dropdown presets and custom choice remain available', () => {
-  assert.match(page, /GST_RATE_PRESETS = \['0', '3', '5', '12', '18', '28', '40'\]/);
-  assert.match(page, /Other rate \(custom %\)/);
-  assert.match(page, /Custom GST Rate \(%\)/);
-  assert.match(page, /validGstRate\(part\.tax\)/);
+test('inventory GST catalog shares invoice component options and custom HSN treatment', () => {
+  assert.ok(page.includes("STOCK_GST_CHOICES = invoiceLineTaxChoices('unknown')"));
+  assert.doesNotMatch(page, /GST_RATE_PRESETS/);
+  assert.ok(page.includes('invoiceTotalRateFromChoice'));
+  assert.ok(page.includes('Saved/Other HSN-Specific Rate (custom %)'));
+  assert.ok(page.includes('Custom GST Rate (%)'));
+  assert.match(page, /validGstRate/);
 });
-
 test('all four 0% classifications are distinct, required and included in stock payload', () => {
   for (const pair of [
     "['exempt', 'Exempt']", "['nil_rated', 'Nil-rated']",
@@ -25,14 +26,13 @@ test('all four 0% classifications are distinct, required and included in stock p
   assert.match(page, /tax: Number\(part\.tax\), zeroTaxClassification: Number\(part\.tax\) === 0 \? part\.zeroTaxClassification : ''/);
 });
 
-test('five and eighteen percent preview identifies correct tax split', () => {
-  assert.match(page, /\['5', '18'\]\.includes\(String\(part\.tax\)\)/);
-  assert.match(page, /Intra-state: \{Number\(part\.tax\) \/ 2\}% CGST \+ \{Number\(part\.tax\) \/ 2\}% SGST\/UTGST/);
-  assert.match(page, /Inter-state: \{part\.tax\}% IGST/);
-  assert.match(page, /invoice place of supply/);
+test('catalog previews paired CGST/SGST or whole IGST without assuming jurisdiction', () => {
+  assert.ok(page.includes('Number(part.tax) > 0 && validGstRate(part.tax)'));
+  assert.ok(page.includes('Intra-state: {Number(part.tax) / 2}% CGST + {Number(part.tax) / 2}% SGST/UTGST'));
+  assert.ok(page.includes('Inter-state: {part.tax}% IGST'));
+  assert.ok(page.includes('invoice place of supply'));
   assert.doesNotMatch(page, /setPart\(\{ \.\.\.part, taxMode:/);
 });
-
 test('inventory item catalogue sends and receives classification with mock support', () => {
   assert.match(service, /zeroTaxClassification: item\.zeroTaxClassification \|\| item\.gst_zero_classification \|\| ''/);
   assert.match(service, /zeroTaxClassification: number\(payload\.tax\) === 0 \? \(payload\.zeroTaxClassification \|\| ''\) : ''/);

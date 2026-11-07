@@ -78,3 +78,22 @@ test('Expenses form uses API service and has retryable errors and permission che
   assert.match(page, /expense-ui-polish\.css/);
   assert.match(page, /minimumFractionDigits: 2/);
 });
+
+test('Finance expense mapper links paid items to an account and reports partial balance', () => {
+  const paid = expenseToApiPayload({
+    title: 'Rent', amount: '120.00', taxAmount: '0.00',
+    expenseDate: '2026-11-06', paymentMethod: 'Bank Transfer',
+    status: 'paid', accountId: 'bank-uuid', requestKey: 'rent-once',
+  });
+  assert.equal(paid.account, 'bank-uuid');
+  assert.equal(paid.idempotencyKey, 'rent-once');
+  assert.equal(paid.status, 'paid');
+  const row = normalizeExpense({
+    amount: '120.00', paidAmount: '45.00', balanceDue: '75.00',
+    status: 'Partially Paid', account: 'bank-uuid',
+  });
+  assert.equal(row.paidAmount, 45);
+  assert.equal(row.balanceDue, 75);
+  assert.equal(row.status, 'partially paid');
+  assert.equal(row.accountId, 'bank-uuid');
+});

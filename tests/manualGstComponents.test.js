@@ -47,9 +47,9 @@ test('0% classification remains explicit rather than automatically exempt', () =
   }, 'igst').status, 'valid');
 });
 
-test('supplier purchase UI guards against duplicate component-rate selection', async () => {
+test('supplier single page rejects mismatched CGST SGST IGST jurisdiction', async () => {
   const { readFileSync } = await import('node:fs');
-  const source = readFileSync(new URL('../src/pages/stock/SupplierFinancePage.jsx', import.meta.url), 'utf8');
-  assert.ok(source.includes("selected.split(':')[0] === choice.split(':')[0]"));
-  assert.match(source, /already has a selected rate/);
+  const source = readFileSync(new URL('../src/components/suppliers/SupplierPurchaseFlow.jsx', import.meta.url), 'utf8');
+  assert.ok(source.includes("row.gstChoice.split(':')[0]"));
+  assert.match(source, /GST component does not match the Supplier State and Place of Supply/);
 });

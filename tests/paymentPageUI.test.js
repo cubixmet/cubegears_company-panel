@@ -21,7 +21,7 @@ const invoice = {
 };
 const form = {
   date: '2026-10-13', invoiceId: invoice.id, method: 'UPI',
-  amount: '500.00', reference: 'UPI123'
+  amount: '500.00', reference: 'UPI123', accountId: 'cash-account-1'
 };
 
 test('normalizes Django Payment API customer/invoice fields without rendering objects', () => {
@@ -53,7 +53,7 @@ test('only outstanding finalized invoices are offered for payment', () => {
 test('backend payment payload uses invoice UUID, customer UUID and completed status', () => {
   assert.deepEqual(makePaymentPayload(form, invoice, 700), {
     date: '2026-10-13', amount: '500.00', method: 'UPI',
-    reference: 'UPI123', status: 'Completed',
+    reference: 'UPI123', status: 'Completed', account: 'cash-account-1',
     customer: invoice.customerId, invoice: invoice.id
   });
   assert.equal(makePaymentPayload(form, invoice, 700, true).invoice, invoice.number);
@@ -71,7 +71,7 @@ test('Payments provides real API posting and safe form/filter states', () => {
   assert.match(page, /makePaymentPayload\(form, selectedInvoice, outstanding, USE_MOCK_API\)/);
   assert.match(page, /await paymentService\.create\(payload\)/);
   assert.match(page, /<strong>Completed<\/strong>/);
-  assert.match(page, /disabled=\{saving \|\| !selectedInvoice\}/);
+  assert.match(page, /form\.direction === "IN" && \(form\.receiptKind === 'advance' \? !form\.customerId : !selectedInvoice\)/);
   assert.match(page, /role="alert"/);
   assert.match(toolbar, /onClear/);
   assert.match(toolbar, /onRefresh/);
@@ -87,4 +87,15 @@ test('Payments UI has readable responsive cards, single search border, and regul
   assert.match(css, /\.payment-form-grid/);
   assert.match(records, /aria-label=\{'View payment ' \+/);
   assert.doesNotMatch(records, /<span>\{row\.id\}<\/span>/);
+});
+
+test('Outgoing payments require an account and do not create an invoice receipt', () => {
+  const outgoing = { ...form, direction: 'OUT', accountId: 'account-1', category: 'Rent', notes: 'Landlord' };
+  const payload = makePaymentPayload(outgoing, null, 0);
+  assert.equal(payload.direction, 'OUT');
+  assert.equal(payload.account, 'account-1');
+  assert.equal(payload.category, 'Rent');
+  assert.equal(payload.notes, 'Landlord');
+  assert.equal('invoice' in payload, false);
+  assert.throws(() => makePaymentPayload({ ...outgoing, accountId: '' }, null, 0), /Choose the account/);
 });

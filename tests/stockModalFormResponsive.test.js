@@ -37,7 +37,8 @@ test('Add New Part, Receive Stock and Internal Use retain current save logic', (
   assert.match(css,/position: sticky/);
   assert.match(css,/safe-area-inset-bottom/);
   assert.match(smoke,/Stock Add Product form UI mismatch/);
-  assert.match(smoke,/Stock Receive form UI mismatch/);
+  assert.match(smoke,/Purchased stock must route to Supplier details workflow/);
+  assert.match(stockPage,/Buy \/ Receive from Supplier/);
 });
 
 test('New Part uses accessible outlined floating fields; search keeps one border', () => {

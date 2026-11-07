@@ -85,11 +85,12 @@ test('Approve & Continue persists fresh and edited estimate drafts without a Sav
   assert.doesNotMatch(panel, /'Save Draft'/);
   assert.doesNotMatch(panel, /Update Draft/);
   assert.match(panel, /Approve & Continue/);
-  assert.match(panel, /latest\?\.status === 'Draft' && !stale \? latest\.id : null/);
+  assert.match(panel, /latest\?\.status === 'Draft' && !stale/);
+  assert.match(panel, /savedEstimateRef\.current\?\.id/);
   assert.match(panel, /await jobService\.saveQuickJobEstimate\(job\.id/);
-  assert.match(panel, /await onApprove\?\.\(\)/);
+  assert.match(panel, /await onApprove\?\.\(target\.id, target\.version\)/);
   assert.match(panel, /, draftId\);/);
-  assert.match(panel, /await onApprove\?\.\(\)/);
+  assert.match(panel, /await onApprove\?\.\(target\.id, target\.version\)/);
   assert.match(stylesheet, /job-quick-group-actions/);
   assert.match(stylesheet, /job-estimate-create-two/);
 });

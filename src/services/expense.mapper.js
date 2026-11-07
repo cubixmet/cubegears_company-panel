@@ -34,7 +34,10 @@ export const normalizeExpense = (row = {}) => {
     referenceNo: row.referenceNo || row.reference || '',
     taxAmount: Number(row.taxAmount ?? row.tax ?? 0),
     receiptUrl,
-    status: String(row.status || 'paid').toLowerCase(),
+    status: String(row.status || 'unpaid').toLowerCase(),
+    accountId: row.accountId || row.account || '',
+    paidAmount: Number(row.paidAmount ?? 0),
+    balanceDue: Number(row.balanceDue ?? row.amount ?? 0),
   };
 };
 
@@ -69,5 +72,7 @@ export const expenseToApiPayload = (values = {}) => {
     reference: String(values.referenceNo || '').trim(),
     attachment: receiptUrl,
     status: values.status || 'approved',
+    ...(values.accountId ? { account: values.accountId } : {}),
+    ...(values.requestKey ? { idempotencyKey: values.requestKey } : {}),
   };
 };

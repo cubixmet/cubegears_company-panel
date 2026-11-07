@@ -4,9 +4,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { customerService } from '../../services/customer.service';
 import { CustomerTrackingLinkPanel } from '../../components/customers/CustomerTrackingLinkPanel';
 import { CustomerWhatsAppConsent } from '../../components/customers/CustomerWhatsAppConsent';
+import { CustomerCreditLedgerPanel } from '../../components/customers/CustomerCreditLedgerPanel';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/customer-tracking-link.css';
 import { paymentService } from '../../services/payment.service';
+import { financeService } from '../../services/finance.service';
 import '../../styles/customer-profile-polished.css';
 import '../../styles/customer-workspace-compact.css';
 import {
@@ -75,6 +77,20 @@ export const CustomerDetails = () => {
   const [payMethod, setPayMethod] = useState('UPI');
   const [payRef, setPayRef] = useState('');
   const [payNotes, setPayNotes] = useState('');
+  const [payAccountId, setPayAccountId] = useState('');
+  const [payAccounts, setPayAccounts] = useState([]);
+  const [payRequestKey, setPayRequestKey] = useState(() => globalThis.crypto?.randomUUID?.() || `customer-payment-${Date.now()}`);
+
+  useEffect(() => {
+    if (!isRecordPaymentOpen) return undefined;
+    let active = true;
+    financeService.listAccounts().then(rows => {
+      if (active) setPayAccounts(Array.isArray(rows) ? rows.filter(a => a.isActive) : []);
+    }).catch(error => {
+      if (active) setPaymentError(error?.message || 'Unable to load Cash / Bank accounts.');
+    });
+    return () => { active = false; };
+  }, [isRecordPaymentOpen]);
 
   // Edit Customer form state
   const [editName, setEditName] = useState('');
@@ -219,6 +235,9 @@ export const CustomerDetails = () => {
     const amount = Number(payAmount);
     const balance = Number(selectedInvoice?.balance ?? selectedInvoice?.balanceDue);
     if (!selectedInvoice) return setPaymentError('Select an existing customer invoice.');
+    if (!payAccountId || !payAccounts.some(a => String(a.id) === String(payAccountId))) {
+      return setPaymentError('Select an active Bank / Cash / UPI account for this collection.');
+    }
     if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(balance) || amount > balance) {
       return setPaymentError('Enter a payment amount greater than zero and not exceeding the invoice balance.');
     }
@@ -234,13 +253,18 @@ export const CustomerDetails = () => {
         reference: payRef.trim(),
         notes: payNotes.trim(),
         status: 'Completed',
+        direction: 'IN',
+        account: payAccountId,
+        idempotency_key: payRequestKey,
       });
       setIsRecordPaymentOpen(false);
       setPayAmount('');
       setPayInvoiceNo('');
       setPayRef('');
       setPayNotes('');
-      showToast('Payment saved successfully.');
+      setPayAccountId('');
+      setPayRequestKey(globalThis.crypto?.randomUUID?.() || `customer-payment-${Date.now()}`);
+      showToast('Customer receipt linked to invoice and account ledger.');
       await loadCustomerData();
     } catch (err) {
       setPaymentError(err?.response?.data?.message || err?.response?.data?.amount?.[0]
@@ -348,6 +372,17 @@ export const CustomerDetails = () => {
     showToast('Customer document removed.');
   };
 
+  const handleRestoreCustomer = async () => {
+    if (!customer || !await appConfirm(`Restore customer ${customer.name} to active status?`)) return;
+    try {
+      await customerService.restoreCustomer(customer.id);
+      showToast('Customer restored.');
+      await loadCustomerData();
+    } catch (cause) {
+      showToast(cause?.message || 'Unable to restore customer.');
+    }
+  };
+
   const handleArchiveCustomer = async () => {
     if (await appConfirm(`Are you sure you want to archive ${customer.name}? This will preserve historical records.`)) {
       await customerService.archiveCustomer(customer.id);
@@ -442,15 +477,22 @@ export const CustomerDetails = () => {
           </div>
 
           <div className="customer-profile-actions">
+            {archived && (
+              <button type="button" className="customer-profile-action is-secondary" onClick={handleRestoreCustomer}>
+                Restore Customer
+              </button>
+            )}
             <button type="button" className="customer-profile-action is-secondary"
               onClick={() => setIsEditCustomerOpen(true)}>
               <Pencil size={16} aria-hidden="true"/> Edit Profile
             </button>
             <button type="button" className="customer-profile-action is-secondary"
+              disabled={archived}
               onClick={() => setIsAddVehicleOpen(true)}>
               <Car size={16} aria-hidden="true"/> Add Vehicle
             </button>
             <button type="button" className="customer-profile-action is-primary"
+              disabled={archived}
               onClick={() => {
                 const targetVehicle = vehicles[0]?.regNo || '';
                 navigate('/jobs/new?customerId=' + customer.id +
@@ -913,6 +955,8 @@ export const CustomerDetails = () => {
 
         {/* 11. PAYMENTS TAB */}
         {activeTab === 'payments' && (
+          <>
+          <CustomerCreditLedgerPanel customerId={customer.id} onChanged={loadCustomerData}/>
           <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
@@ -941,11 +985,14 @@ export const CustomerDetails = () => {
                       Date: {p.date} • Ref: {p.reference} • Recorded by: {p.recordedBy || '—'}
                     </div>
                   </div>
-                  <strong style={{ fontSize: '16px', color: 'var(--success)' }}>+{formatINR(p.amount)}</strong>
+                  <strong style={{ fontSize: '16px', color: p.direction === 'OUT' ? 'var(--danger)' : 'var(--success)' }}>
+                    {p.direction === 'OUT' ? '−' : '+'}{formatINR(p.amount)}
+                  </strong>
                 </div>
               ))}
             </div>
           </div>
+          </>
         )}
 
         {/* 12. NOTES TAB */}
@@ -1067,6 +1114,18 @@ export const CustomerDetails = () => {
             <p className="customer-profile-form-info">No outstanding finalized invoices to pay.</p>
           )}
 
+          <Select label="Receive Into Account *" value={payAccountId}
+            onChange={event => { setPayAccountId(event.target.value); setPaymentError(''); }}>
+            <option value="">Select Cash / Bank / UPI account</option>
+            {payAccounts.map(account => (
+              <option key={account.id} value={account.id}>
+                {account.name} ({account.kind})
+              </option>
+            ))}
+          </Select>
+          {!payAccounts.length && <p className="customer-profile-form-info">
+            No active account available. Create an account under Finance → Bank & Cash Accounts.
+          </p>}
           <AmountInput
             label="Payment Amount"
             required
@@ -1104,7 +1163,7 @@ export const CustomerDetails = () => {
             placeholder="Received advance payment..."
           />
 
-          <button type="submit" disabled={paymentSaving || payableInvoices.length === 0}
+          <button type="submit" disabled={paymentSaving || payableInvoices.length === 0 || !payAccountId}
             className="customer-profile-primary-action">
             {paymentSaving ? 'Saving Payment…' : 'Confirm & Save Payment'}
           </button>

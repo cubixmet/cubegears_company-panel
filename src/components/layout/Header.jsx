@@ -69,12 +69,22 @@ export const Header = () => {
     const onStorage = (event) => {
       if (!event.key || event.key === 'cubixgear:notifications') loadNotificationCount();
     };
+    // Customer decisions are created on the server, so another browser/tab
+    // would not fire a local storage event. Refresh while this workspace is
+    // visible and immediately when it becomes active again.
+    const onVisible = () => {
+      if (!document.hidden) void loadNotificationCount();
+    };
+    const timer = window.setInterval(onVisible, 60000);
     window.addEventListener('storage', onStorage);
     window.addEventListener('cubixgear:notifications-changed', loadNotificationCount);
+    document.addEventListener('visibilitychange', onVisible);
     return () => {
       mounted = false;
+      window.clearInterval(timer);
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('cubixgear:notifications-changed', loadNotificationCount);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, [location.pathname, canViewNotifications]);
 

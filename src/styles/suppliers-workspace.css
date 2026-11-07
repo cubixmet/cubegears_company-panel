@@ -202,3 +202,54 @@
  .cg-suppliers-page .cg-supplier-record b{width:100%;text-align:left}
  .cg-suppliers-page .cg-supplier-profile-head{flex-wrap:wrap}
 }
+
+/* Supplier Directory — same desktop table + mobile cards pattern as All Customers. */
+.cg-suppliers-page .cg-supplier-directory-heading{display:flex;justify-content:space-between;align-items:center;min-width:0}
+.cg-suppliers-page .cg-supplier-directory-heading h2{font-size:16px;line-height:1.4;font-weight:700;margin:0}
+.cg-suppliers-page .cg-supplier-directory-count{font-size:12px;color:var(--text-secondary,#64748b);display:block;margin-top:3px;font-variant-numeric:tabular-nums}
+.cg-suppliers-page .cg-supplier-directory-table-wrap{min-width:0;max-width:100%;overflow-x:auto;border:1px solid var(--border,#dce3ea);border-radius:13px;background:var(--surface,#fff)}
+.cg-suppliers-page .cg-supplier-directory-table{width:100%;min-width:790px;border-collapse:collapse;text-align:left;font-size:13px;color:var(--text-primary,#142037)}
+.cg-suppliers-page .cg-supplier-directory-table thead{background:var(--surface-2,#f8fafc)}
+.cg-suppliers-page .cg-supplier-directory-table th{padding:12px 12px;font-size:12px;font-weight:600;color:var(--text-secondary,#64748b);white-space:nowrap;border-bottom:1px solid var(--border,#dce3ea)}
+.cg-suppliers-page .cg-supplier-directory-table td{padding:13px 12px;vertical-align:middle;border-bottom:1px solid var(--border,#dce3ea);overflow-wrap:anywhere}
+.cg-suppliers-page .cg-supplier-directory-table tbody tr:last-child td{border-bottom:0}
+.cg-suppliers-page .cg-supplier-directory-table tbody tr:hover{background:var(--surface-2,#f8fafc)}
+.cg-suppliers-page .cg-supplier-directory-table th:first-child,.cg-suppliers-page .cg-supplier-directory-table td:first-child{width:23%;min-width:170px}
+.cg-suppliers-page .cg-supplier-directory-table th:nth-child(2){min-width:178px}
+.cg-suppliers-page .cg-supplier-directory-table .cg-supplier-actions-col{text-align:right}
+.cg-suppliers-page .cg-supplier-name-link{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;overflow-wrap:anywhere;font-size:14px;line-height:1.4;font-weight:650;color:var(--text-primary,#142037);text-decoration:none}
+.cg-suppliers-page .cg-supplier-name-link:hover{color:var(--primary,#2563eb);text-decoration:underline}
+.cg-suppliers-page .cg-supplier-secondary-text{display:block;margin-top:3px;color:var(--text-secondary,#64748b);font-size:11px;line-height:1.4;overflow-wrap:anywhere}
+.cg-suppliers-page .cg-supplier-directory-phone{display:block;color:var(--text-primary,#142037);font-size:12px;line-height:1.5;overflow-wrap:anywhere;margin-bottom:5px}
+.cg-suppliers-page .cg-supplier-contact-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.cg-suppliers-page .cg-supplier-contact-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:34px;padding:0 9px;background:var(--surface-2,#f8fafc);border:1px solid var(--border,#dce3ea);border-radius:8px;color:var(--primary,#2563eb);font-weight:600;font-size:12px;text-decoration:none;white-space:nowrap}
+.cg-suppliers-page .cg-supplier-contact-btn.is-whatsapp{background:var(--success-soft,#e8f7f1);color:var(--success,#16803c)}
+.cg-suppliers-page .cg-supplier-contact-btn.is-disabled{opacity:.5;cursor:not-allowed;color:var(--text-secondary,#64748b)}
+.cg-suppliers-page .cg-supplier-gstin-cell{font-size:12px;overflow-wrap:anywhere}
+.cg-suppliers-page .cg-supplier-balance{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--success,#16803c)}
+.cg-suppliers-page .cg-supplier-balance.has-due{color:var(--warning,#c45c09)}
+.cg-suppliers-page .cg-supplier-directory-status{display:inline-flex;align-items:center;justify-content:center;padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;background:var(--success-soft,#e8f7f1);color:var(--success,#16803c);white-space:nowrap}
+.cg-suppliers-page .cg-supplier-directory-status.inactive{background:var(--surface-2,#f8fafc);color:var(--text-secondary,#64748b);opacity:1}
+.cg-suppliers-page .cg-supplier-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;white-space:nowrap}
+.cg-suppliers-page .cg-supplier-row-view,.cg-suppliers-page .cg-supplier-row-edit{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:0 11px;border:1px solid var(--border,#dce3ea);border-radius:8px;background:var(--surface-2,#f8fafc);color:var(--primary,#2563eb);font-weight:600;font-size:12px;text-decoration:none;cursor:pointer}
+.cg-suppliers-page .cg-supplier-row-edit{width:38px;padding:0;color:var(--text-primary,#142037)}
+.cg-suppliers-page :is(.cg-supplier-contact-btn,.cg-supplier-name-link,.cg-supplier-row-view,.cg-supplier-row-edit):focus-visible{outline:2px solid var(--primary,#2563eb);outline-offset:2px}
+.cg-suppliers-page .cg-supplier-mobile-directory{display:none}
+@media(max-width:767px){
+ .cg-suppliers-page .cg-supplier-directory-table-wrap{display:none}
+ .cg-suppliers-page .cg-supplier-mobile-directory{display:grid;gap:10px;min-width:0}
+ .cg-suppliers-page .cg-supplier-mobile-entry{padding:14px;background:var(--surface,#fff);border:1px solid var(--border,#dce3ea);border-radius:13px;min-width:0;display:grid;gap:12px}
+ .cg-suppliers-page .cg-supplier-mobile-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0}
+ .cg-suppliers-page .cg-supplier-mobile-head>div{min-width:0}
+ .cg-suppliers-page .cg-supplier-mobile-head .cg-supplier-name-link{font-size:15px}
+ .cg-suppliers-page .cg-supplier-mobile-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 10px;padding:12px;border-radius:10px;background:var(--surface-2,#f8fafc)}
+ .cg-suppliers-page .cg-supplier-mobile-details>div{min-width:0}
+ .cg-suppliers-page .cg-supplier-mobile-details span{display:block;color:var(--text-secondary,#64748b);font-size:11px;margin-bottom:4px}
+ .cg-suppliers-page .cg-supplier-mobile-details strong{display:block;font-size:13px;font-weight:650;overflow-wrap:anywhere}
+ .cg-suppliers-page .cg-supplier-mobile-bottom{display:flex;justify-content:space-between;align-items:end;gap:10px;flex-wrap:wrap;min-width:0}
+ .cg-suppliers-page .cg-supplier-mobile-bottom>div{min-width:0}
+ .cg-suppliers-page .cg-supplier-contact-btn{min-height:36px}
+}
+@media(max-width:360px){
+ .cg-suppliers-page .cg-supplier-mobile-details{grid-template-columns:1fr}
+}

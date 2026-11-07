@@ -94,7 +94,7 @@ export const VehicleDirectoryPanel = ({
                       onClick={(event) => { event.stopPropagation(); onNavigate(`/vehicles/${vehicle.id}`); }}>
                       View <ChevronRight size={14} aria-hidden="true"/>
                     </button>
-                    {canCreateJob && <button type="button"
+                    {canCreateJob && String(vehicle.status || '').toLowerCase() !== 'archived' && String(vehicle.customerStatus || '').toLowerCase() !== 'archived' && <button type="button"
                       aria-label={`New Job Card for ${vehicle.registration || 'vehicle'}`}
                       onClick={(event) => { event.stopPropagation(); onNavigate(`/jobs/new?customerId=${vehicle.customerId || ''}&vehicle=${encodeURIComponent(vehicle.registration || '')}`); }}>
                       New Job
@@ -161,7 +161,7 @@ export const VehicleDirectoryPanel = ({
                   </button>
                 )}
 
-                {canCreateJob && (
+                {canCreateJob && String(vehicle.status || '').toLowerCase() !== 'archived' && String(vehicle.customerStatus || '').toLowerCase() !== 'archived' && (
                   <button
                     type="button"
                     className="is-primary"

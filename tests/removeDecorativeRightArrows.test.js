@@ -27,7 +27,7 @@ test('removing arrow graphics does not remove navigation and payment actions', (
   const plans = source('pages/saas/PlanMarketplace.jsx');
   assert.match(dashboard, /onNavigate\(path\)/);
   assert.match(staff, /navigate\('\/staff-management\/staff'\)/);
-  assert.match(stock, /beginMove\('in'\)/);
+  assert.match(stock, /to="\/suppliers"/);
   assert.match(stock, /beginMove\('out'\)/);
   assert.match(payroll, /navigate\(\`\/staff\/\$\{w\.id\}\/wages\`\)/);
   assert.match(credits, /onClick=\{\(\) => buy\(pack\)\}/);

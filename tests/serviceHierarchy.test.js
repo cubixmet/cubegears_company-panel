@@ -26,20 +26,21 @@ test('Orphaned and malformed legacy categories remain visible', () => {
   assert.deepEqual(new Set(result.map(x=>x.id)),new Set(['o','z']));
 });
 
-test('Services UI retains existing forms, tree operations, and real API mappings', () => {
+test('Current Services UI retains add-only category hierarchy and real API mappings', () => {
   const page=read('src/pages/services/ServiceList.jsx');
-  const panel=read('src/components/services/ServiceCategoriesPanel.jsx');
+  const header=read('src/components/services/ServicesHeader.jsx');
   const api=read('src/services/service.service.js');
   const css=read('src/styles/service-hierarchy.css');
-  assert.match(panel, /buildCategoryTreeRows\(categories\)/);
-  assert.match(panel, /onAdd\(category\.id\)/);
-  assert.match(panel, /service-category-tree/);
-  assert.match(page, /Parent Category/);
-  assert.match(page, /categoryIsDescendantOf\(categoryEditor\.id/);
-  assert.match(page, /GST Treatment/);
-  assert.match(page, /SAC \/ HSN/);
-  assert.match(api, /categoryPayload/);
-  assert.match(api, /servicePayload/);
-  assert.match(api, /apiClient\.patch\(\`\/services\/categories\/\$\{id\}\`/);
+  assert.ok(page.includes('buildCategoryTreeRows(categories)'));
+  assert.ok(page.includes('Main Category (root)'));
+  assert.ok(page.includes('onSubmit={saveCategory}'));
+  assert.ok(page.includes('serviceService.createServiceCategory({'));
+  assert.ok(header.includes('onAddCategory'));
+  assert.ok(header.includes('Add Category'));
+  assert.ok(page.includes('GST Treatment'));
+  assert.ok(page.includes('SAC / HSN'));
+  assert.ok(api.includes('categoryPayload'));
+  assert.ok(api.includes('servicePayload'));
+  assert.ok(api.includes('apiClient.patch('));
   assert.match(css, /@media\(max-width:700px\)/);
 });

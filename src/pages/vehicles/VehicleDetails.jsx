@@ -142,13 +142,26 @@ export const VehicleDetails = () => {
 
   const latestJob = history[0] || null;
 
+  const archived = String(vehicle?.status || '').toLowerCase() === 'archived';
   const removeVehicle = async () => {
-    if (!canDelete || !vehicle || !await appConfirm(`Delete vehicle ${vehicle.registration}?`)) return;
+    if (!canDelete || !vehicle || archived ||
+      !await appConfirm(`Archive vehicle ${vehicle.registration}? Service and invoice records will be preserved.`)) return;
     try {
-      await vehicleService.deleteVehicle(vehicle.id);
-      navigate('/vehicles');
-    } catch (deleteError) {
-      setError(deleteError?.message || 'Unable to delete this vehicle.');
+      await vehicleService.archiveVehicle(vehicle.id);
+      setReloadKey((value) => value + 1);
+    } catch (archiveError) {
+      setError(archiveError?.message || 'Unable to archive this vehicle.');
+    }
+  };
+
+  const restoreVehicle = async () => {
+    if (!canEdit || !vehicle || !archived ||
+      !await appConfirm(`Restore vehicle ${vehicle.registration} to active service?`)) return;
+    try {
+      await vehicleService.restoreVehicle(vehicle.id);
+      setReloadKey((value) => value + 1);
+    } catch (restoreError) {
+      setError(restoreError?.message || 'Unable to restore this vehicle.');
     }
   };
 
@@ -181,7 +194,7 @@ export const VehicleDetails = () => {
 
         <div className="vehicle-profile-actions">
           {canEdit ? <button type="button" onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}><Edit3 size={16}/> Edit</button> : null}
-          {canCreateJob ? (
+          {canCreateJob && !archived && String(customer?.status || vehicle.customerStatus || '').toLowerCase() !== 'archived' ? (
             <button
               type="button"
               className="is-primary"
@@ -410,9 +423,14 @@ export const VehicleDetails = () => {
         </div>
       ) : null}
 
-      {canDelete ? (
+      {canDelete && !archived ? (
         <button type="button" className="vehicle-delete-button" onClick={removeVehicle}>
-          <Trash2 size={16}/> Delete Vehicle
+          <Trash2 size={16}/> Archive Vehicle
+        </button>
+      ) : null}
+      {archived && canEdit ? (
+        <button type="button" className="vehicle-delete-button" onClick={restoreVehicle}>
+          Restore Vehicle
         </button>
       ) : null}
     </div>

@@ -32,6 +32,9 @@ export function setupRedirect(access, pathname) {
   if (!isAccountOnly(access)) return null;
   if (!access.isCompanyOwner) return pathname === '/access-denied' ? null : '/access-denied';
   const normalized = pathname.replace(/\/+$/, '') || '/';
+  // Initial organization setup remains free for verified owners, including
+  // workshops whose paid modules are not yet activated.
+  if (normalized === '/onboarding') return null;
   if (normalized.startsWith('/account/storage/history/')) return null;
   if (normalized === '/account/storage/history') return null;
   if (access.billingStatus?.blocked && !isAccountPath(normalized)) return '/account';

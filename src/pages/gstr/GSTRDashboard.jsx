@@ -5,6 +5,7 @@ import {
   RefreshCw, Search, ShieldCheck, UploadCloud
 } from 'lucide-react';
 import apiClient from '../../api/apiClient';
+import GSTPart15Workspace from './GSTPart15Workspace';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import './gstr.css';
 
@@ -15,7 +16,9 @@ const MONTHS = [
 const TABS = [
   ['overview', 'Overview'], ['gstr1', 'GSTR-1'],
   ['gstr3b', 'GSTR-3B'], ['gstr2b', 'GSTR-2B Reconciliation'],
-  ['hsn', 'HSN / SAC'], ['exports', 'Exports & Filing']
+  ['hsn', 'HSN / SAC'], ['itc', 'ITC Review'],
+  ['credits', 'GST Credit Notes'], ['ledger', 'Tax Ledger'],
+  ['exports', 'Exports & Filing']
 ];
 const todayPeriod = () => {
   const now = new Date();
@@ -182,9 +185,11 @@ export default function GSTRDashboard() {
     try {
       const form = new FormData();
       form.append('file', upload);
-      const result = await apiClient.post('/gstr/reconcile', form, { params: { period } });
+      const result = await apiClient.post('/gstr/reconcile', form, { params: { period, save: '1' } });
       setReconciliation(result);
-      setNotice('GSTR-2B matched in this session. Source bills were not changed.');
+      setNotice(result.importId
+        ? 'Official GSTR-2B match evidence saved. Supplier invoices remain unchanged.'
+        : 'GSTR-2B reconciled. No source records changed.');
     } catch (error) {
       setIssue(error.fieldErrors?.file || error.message || 'Unable to reconcile the selected file.');
     } finally { setBusy(false); }
@@ -232,7 +237,7 @@ export default function GSTRDashboard() {
       <section className="gstr-stats" aria-label="GST figures">
         <Stat label="Taxable Sales" value={sums.taxable} detail={sums.invoiceCount + ' finalized invoices'} />
         <Stat label="Output GST" value={sums.outputGST} detail="Recorded invoice tax" />
-        <Stat label="Eligible ITC" value={sums.eligibleITC} detail="Eligibility not independently verified" />
+        <Stat label="Eligible ITC" value={sums.eligibleITC} detail="Only separately reviewed, approved purchase GST" />
         <Stat label="Net GST Liability" value={sums.estimatedNetLiability} detail="Not final until ITC review" />
       </section>
       <nav className="gstr-tabs" aria-label="GSTR sections">
@@ -251,14 +256,14 @@ export default function GSTRDashboard() {
             ['Recorded Purchase GST', sums.purchaseGST], ['Verified Purchase Tax Components', sums.verifiedPurchaseTax]]
             .map(([label, value]) => <div key={label}><span>{label}</span><strong>{currency(value)}</strong></div>)}
         </div>
-        <p className="gstr-note">Purchase GST is not the same as eligible ITC. Cash liability, reverse charge, and tax-head adjustments require independent verification.</p>
+        <p className="gstr-note">Purchase GST is not the same as eligible ITC. ITC reversals and sales credit notes are tracked separately. Cash liability and GST Portal utilization need independent verification.</p>
       </section>}
 
       {tab === 'gstr1' && <section className="gstr-panel">
         <div className="gstr-panel-heading"><h2>GSTR-1 · Outward Supplies</h2><span>{invoices.length} invoices</span></div>
         <div className="gstr-search"><Search size={17} /><input aria-label="Search outward invoices" placeholder="Search invoice, customer or GSTIN" value={search} onChange={(e) => setSearch(e.target.value)} /></div>
         <DataTable key={'sales-' + period} rows={invoices} columns={invoiceColumns} search={search} />
-        <p className="gstr-note">Source: finalized GST invoices only. Credit/debit notes, amendments and document summary must be reviewed separately before official submission.</p>
+        <p className="gstr-note">Source: finalized GST invoices only. Sales credit notes are recorded separately under GST Credit Notes; amendments and document summary require independent review.</p>
       </section>}
 
       {tab === 'gstr3b' && <section className="gstr-panel">
@@ -266,20 +271,20 @@ export default function GSTRDashboard() {
         <div className="gstr-breakdown">
           {[['Outward Taxable Supplies', sums.taxable], ['Output IGST', sums.igst],
             ['Output CGST', sums.cgst], ['Output SGST / UTGST', sums.sgst],
-            ['Eligible Input Tax Credit', null], ['ITC Reversals', null],
+            ['Internally Approved ITC', sums.eligibleITC], ['ITC Reversals', sums.reversedITC],
             ['Reverse Charge Liabilities', null], ['Estimated Net GST Liability', null]]
             .map(([label, value]) => <div key={label}><span>{label}</span><strong>{currency(value)}</strong></div>)}
         </div>
-        <p className="gstr-note">This is a preparation view, not an official GSTR-3B return. Do not pay or file using an unverified net liability.</p>
+        <p className="gstr-note">Indicative tax gap before credit utilization: {currency(sums.indicativeGapBeforeUtilization)}. This is NOT payable net GST. GST Portal electronic ledgers, utilization rules and reverse charge require review.</p>
       </section>}
 
       {tab === 'gstr2b' && <section className="gstr-panel">
         <div className="gstr-panel-heading"><h2>GSTR-2B · Purchase ITC Reconciliation</h2><span>{purchases.length} posted supplier bills</span></div>
-        <p className="gstr-note">Download your GSTR-2B JSON from the official GST Portal. Import matches B2B invoices only, in this session; it does not change Supplier Bills or confirm ITC eligibility.</p>
+        <p className="gstr-note">Upload the official GST Portal GSTR-2B JSON. Matching B2B invoice evidence is now saved by upload fingerprint, but purchase bills remain unchanged. ITC must still be reviewed and approved separately.</p>
         {access.can('gstr.reconcile') && <form className="gstr-upload" onSubmit={reconcile}>
           <label><UploadCloud size={18} /> Official GSTR-2B JSON
             <input type="file" accept=".json,application/json" onChange={(e) => setUpload(e.target.files?.[0] || null)} /></label>
-          <button type="submit" disabled={busy || !upload}>{busy ? 'Reconciling…' : 'Reconcile File'}</button>
+          <button type="submit" disabled={busy || !upload}>{busy ? 'Matching…' : 'Reconcile & Save Evidence'}</button>
         </form>}
         {reconciliation && <>
           <div className="gstr-reconcile-counts">
@@ -297,6 +302,10 @@ export default function GSTRDashboard() {
           <DataTable key={'purchases-' + period} rows={purchases} columns={purchaseColumns} search={search} /></>}
       </section>}
 
+      {['itc', 'credits', 'ledger'].includes(tab) && (
+        <GSTPart15Workspace tab={tab} period={period} report={data}
+          onChanged={() => setReload(n => n + 1)} />
+      )}
       {tab === 'hsn' && <section className="gstr-panel">
         <div className="gstr-panel-heading"><h2>HSN / SAC Summary</h2><span>Provisional values</span></div>
         <p className="gstr-note">B2B and B2C are separated. This preview is not official Table 12: existing InvoiceItem records do not store immutable line-level CGST/SGST/IGST snapshots.</p>
@@ -311,8 +320,19 @@ export default function GSTRDashboard() {
             <button type="button" disabled={busy || !access.can('gstr.export')} onClick={() => exportCsv('gstr1')}><Download size={16} /> Download CSV</button></div>
           <div><FileText size={22} /><strong>HSN / SAC Preview CSV</strong><span>Provisional line taxable amounts, not portal compatible.</span>
             <button type="button" disabled={busy || !access.can('gstr.export')} onClick={() => exportCsv('hsn')}><Download size={16} /> Download CSV</button></div>
+          <div><FileSpreadsheet size={22} /><strong>GSTR-3B Reviewed Preparation</strong>
+            <span>Output GST, approved ITC and reversals; not payable tax.</span>
+            <button type="button" disabled={busy || !access.can('gstr.export')} onClick={() => exportCsv('gstr3b')}><Download size={16} /> Download CSV</button></div>
+          <div><FileText size={22} /><strong>Sales GST Credit Notes</strong>
+            <span>Original-invoice linked credit note tax heads.</span>
+            <button type="button" disabled={busy || !access.can('gstr.export')} onClick={() => exportCsv('credits')}><Download size={16} /> Download CSV</button></div>
+          <div><FileSpreadsheet size={22} /><strong>ITC Approval Audit</strong>
+            <span>Claims reviewed against official GSTR-2B evidence.</span>
+            <button type="button" disabled={busy || !access.can('gstr.export')} onClick={() => exportCsv('itc')}><Download size={16} /> Download CSV</button></div>
         </div>
-        <p className="gstr-note">PDF, XLSX, GST offline-tool JSON, filing status evidence and portal submission require additional verified integrations. These files are never labelled portal-compatible.</p>
+        <p className="gstr-note">These CSV files are preparation exports only, never GST Portal-compatible. PDF, XLSX and official portal filing are not connected.</p>
+        <GSTPart15Workspace tab="exports" period={period} report={data}
+          onChanged={() => setReload(n => n + 1)} />
       </section>}
 
       <section className="gstr-panel" aria-label="Review alerts">

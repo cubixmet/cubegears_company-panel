@@ -57,7 +57,8 @@ export const validateInvoiceDraft = (draft) => {
     try { numberField(value, label, options); }
     catch (error) { errors[path] = error.message; }
   };
-  check('paid', draft.paid, 'Received amount');
+  // Receipts can only come from the real Payments workflow after finalization.
+  // A draft's input must not change paid/balance in Django.
   check('discount', draft.discount, 'Invoice discount');
   check('adjustment', draft.adjustment, 'Adjustment', { min: -9999999999 });
   for (const key of ['cgstRate', 'sgstRate', 'igstRate']) {
@@ -122,10 +123,16 @@ export const prepareInvoicePayloadForApi = (draft) => {
   // taxMode is calculated by Django from workshop GSTIN and legal place of supply.
   // A new draft may contain taxMode: '' for display; never send that blank or a
   // user-edited tax mode to the invoice serializer.
-  const { taxMode: _ignoredTaxMode, ...editableDraft } = draft;
+  const {
+    taxMode: _ignoredTaxMode, paid: _serverPaid, balance: _serverBalance,
+    status: _serverStatus, total: _serverTotal, taxable: _serverTaxable,
+    cgst: _serverCgst, sgst: _serverSgst, igst: _serverIgst,
+    finalizedAt: _serverFinalized, cancelledAt: _serverCancelled,
+    finalized_at: _finalized, cancelled_at: _cancelled,
+    templateSnapshot: _serverTemplate, ...editableDraft
+  } = draft;
   return {
     ...editableDraft,
-    paid: numberField(draft.paid, 'Received amount'),
     discount: numberField(draft.discount, 'Invoice discount'),
     adjustment: numberField(draft.adjustment, 'Adjustment', { min: -9999999999 }),
     cgstRate: numberField(draft.cgstRate, 'CGST rate', { max: 100, integerDigits: 3 }),

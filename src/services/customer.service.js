@@ -14,6 +14,23 @@ import { getMockVehicles } from '../mock/vehicles.mock';
 
 const delay = (ms = 250) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Match the Django CustomerSerializer fields for every entry point
+// (directory modal, add page and customer profile) without dropping GSTIN.
+const toCustomerPayload = (data = {}) => {
+  const payload = { ...data };
+  if (Object.prototype.hasOwnProperty.call(payload, 'gstNo')) {
+    payload.gstin = payload.gstNo;
+    delete payload.gstNo;
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, 'customerType')) {
+    const value = String(payload.customerType || '').toLowerCase();
+    payload.customerType = value === 'individual' ? 'individual' : 'business';
+  }
+  // Messaging is managed by the separate consent/integration workflow.
+  delete payload.sendWhatsappUpdate;
+  return payload;
+};
+
 export const getCustomers = async (params = {}) => {
   if (USE_MOCK_API) {
     await delay();
@@ -67,7 +84,7 @@ export const createCustomer = async (data) => {
     await delay();
     return Promise.resolve(addMockCustomer(data));
   }
-  return apiClient.post(API_ENDPOINTS.CUSTOMERS, data);
+  return apiClient.post(API_ENDPOINTS.CUSTOMERS, toCustomerPayload(data));
 };
 
 export const updateCustomer = async (id, data) => {
@@ -75,7 +92,15 @@ export const updateCustomer = async (id, data) => {
     await delay();
     return Promise.resolve(updateMockCustomer(id, data));
   }
-  return apiClient.put(`${API_ENDPOINTS.CUSTOMERS}/${id}`, data);
+  return apiClient.patch(`${API_ENDPOINTS.CUSTOMERS}/${id}`, toCustomerPayload(data));
+};
+
+export const restoreCustomer = async (id) => {
+  if (USE_MOCK_API) {
+    await delay();
+    return updateMockCustomer(id, { status: 'active' });
+  }
+  return apiClient.post(`${API_ENDPOINTS.CUSTOMERS}/${id}/restore`, {});
 };
 
 export const archiveCustomer = async (id) => {
@@ -236,6 +261,7 @@ export const customerService = {
   createCustomer,
   updateCustomer,
   archiveCustomer,
+  restoreCustomer,
   checkDuplicateCustomer,
   getCustomerVehicles,
   getCustomerJobs,

@@ -18,9 +18,9 @@ import {
 import '../../styles/notifications.css';
 
 const service = notificationInboxService;
-const categories = ['All', 'Operational', 'Approvals & People', 'Finance', 'Stock', 'Website & Account'];
+const categories = ['All', 'Customer Responses', 'Operational', 'Approvals & People', 'Finance', 'Stock', 'Website & Account'];
 const priorities = ['All', 'Critical', 'High', 'Normal', 'Low'];
-const iconFor = (category) => ({ Finance: '₹', Stock: 'ST', 'Approvals & People': 'HR', 'Website & Account': 'AC' })[category] || 'OP';
+const iconFor = (category) => ({ Finance: '₹', Stock: 'ST', 'Approvals & People': 'HR', 'Website & Account': 'AC', 'Customer Responses': 'EST' })[category] || 'OP';
 
 const timeLabel = (value) => {
   if (!value) return '—';
@@ -46,20 +46,38 @@ export function Notifications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const load = async () => {
-    setLoading(true);
-    setError('');
+  const load = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError('');
+    }
     try {
       const data = await service.list();
-      setRows((Array.isArray(data) ? data : []).map(normalizeNotification));
+      const normalized = (Array.isArray(data) ? data : []).map(normalizeNotification);
+      setRows(normalized);
+      setSelected((old) => old
+        ? normalized.find((item) => item.id === old.id) || null : null);
     } catch (e) {
-      setError(e?.message || 'Unable to load notifications.');
+      if (!silent) setError(e?.message || 'Unable to load notifications.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    void load();
+    // A decision may arrive from a customer's separate device. Update the
+    // inbox quietly without replacing the user's current category/search.
+    const refreshWhenVisible = () => {
+      if (!document.hidden) void load(true);
+    };
+    const timer = window.setInterval(refreshWhenVisible, 60000);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -74,6 +92,9 @@ export function Notifications() {
   }, [rows, query, category, priority, status]);
 
   const unread = unreadNotificationCount(rows);
+  const newCustomerResponses = rows.filter((row) =>
+    row.isCustomerEstimateResponse && row.status === 'Unread'
+  ).length;
   const high = rows.filter((row) => ['High', 'Critical'].includes(row.priority)).length;
   const today = new Date().toLocaleDateString('en-CA');
   const todayCount = rows.filter((row) => String(row.created || row.createdAt || '').slice(0, 10) === today).length;
@@ -123,7 +144,7 @@ export function Notifications() {
 
   return (
     <div className="notifications-page">
-      <NotificationsHeader unread={unread} onMarkAll={markAllRead} onRefresh={load} loading={loading} />
+      <NotificationsHeader unread={unread} onMarkAll={markAllRead} onRefresh={() => load()} loading={loading} />
 
       <NotificationStats
         unread={unread}
@@ -131,6 +152,19 @@ export function Notifications() {
         today={todayCount}
         total={rows.length}
       />
+
+      {newCustomerResponses > 0 && (
+        <div className="notification-customer-response-strip" role="status">
+          <span>
+            <strong>{newCustomerResponses} new customer estimate response{newCustomerResponses === 1 ? '' : 's'}</strong>
+            <small>Review accepted or declined quotes and open the related Job Card.</small>
+          </span>
+          <button type="button" onClick={() => {
+            setCategory('Customer Responses');
+            setStatus('Unread');
+          }}>View responses</button>
+        </div>
+      )}
 
       <NotificationToolbar
         query={query}
@@ -164,6 +198,7 @@ export function Notifications() {
                   <span className="notification-meta">
                     <span>{row.category || 'General'}</span><span>{row.priority || 'Normal'}</span>
                     {row.reference && <span>{String(row.reference)}</span>}
+                    {row.isCustomerEstimateResponse && <span>{row.customerEstimateDecision}</span>}
                   </span>
                 </span>
               </button>
@@ -211,6 +246,10 @@ export function Notifications() {
                   <div><span>Created</span><strong>{timeLabel(selected.created || selected.createdAt)}</strong></div>
                   <div><span>Category</span><strong>{selected.category || 'General'}</strong></div>
                   <div><span>Status</span><strong>{selected.status || '—'}</strong></div>
+                  {selected.isCustomerEstimateResponse && <>
+                    <div><span>Customer decision</span><strong>{selected.customerEstimateDecision}</strong></div>
+                    <div><span>Decision receipt</span><strong>{selected.receiptId || '—'}</strong></div>
+                  </>}
                 </div>
               </div>
 
@@ -218,7 +257,7 @@ export function Notifications() {
                 {selected.status === 'Unread' && <button type="button" onClick={() => updateStatus(selected, 'Read')}>Mark read</button>}
                 {selected.status === 'Read' && <button type="button" onClick={() => updateStatus(selected, 'Unread')}>Mark unread</button>}
                 {typeof selected.route === 'string' && selected.route.startsWith('/') && !selected.route.startsWith('//') && (
-                  <button type="button" onClick={() => navigate(selected.route)}><ExternalLink size={14}/>Open related page</button>
+                  <button type="button" onClick={() => navigate(selected.route)}><ExternalLink size={14}/>{selected.isCustomerEstimateResponse ? 'Review Job Card' : 'Open related page'}</button>
                 )}
                 <button type="button" className="danger" onClick={() => remove(selected)}><Trash2 size={14}/>Delete</button>
               </div>

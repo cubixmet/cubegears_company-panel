@@ -1,0 +1,216 @@
+/* =========================================================
+   CUBEGEARS — FINANCE LEDGER / TRANSACTIONS
+   ========================================================= */
+
+/* Shared .finance-page and common classes are in finance-accounts.css.
+   This file adds ledger-specific styles only. */
+
+/* ---- Filters ---- */
+.finance-ledger-filters {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+.finance-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.finance-search-wrap {
+  min-height: 40px;
+  flex: 1 1 200px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.finance-search-wrap svg {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.finance-search-wrap input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  color: var(--text-primary);
+  font-size: 11px;
+}
+
+.finance-filter-row > select,
+.finance-filter-row > input[type="date"] {
+  min-height: 40px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font-size: 10px;
+}
+
+/* ---- Ledger Table ---- */
+.finance-ledger-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+}
+
+.finance-ledger-table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+  font-size: 10px;
+}
+
+.finance-ledger-table th {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-size: 7px;
+  font-weight: 700;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+  letter-spacing: .04em;
+}
+
+.finance-ledger-table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 10px;
+  vertical-align: middle;
+}
+
+.finance-ledger-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.finance-ledger-table tbody tr:hover {
+  background: var(--surface-2);
+}
+
+.finance-ledger-table th.is-num,
+.finance-ledger-table td.is-num {
+  text-align: right;
+}
+
+.finance-ledger-table td.is-credit { color: var(--success, #22c55e); font-weight: 700; }
+.finance-ledger-table td.is-debit  { color: var(--danger, #ef4444); font-weight: 700; }
+
+.finance-loading-cell,
+.finance-empty-cell {
+  padding: 32px !important;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.finance-entry-type {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border-radius: 6px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  padding: 0 6px;
+  font-size: 7px;
+  font-weight: 750;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.finance-account-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.finance-account-pill.finance-kind-bank   { background: #eff6ff; color: #3b82f6; }
+.finance-account-pill.finance-kind-cash   { background: #f0fdf4; color: #22c55e; }
+.finance-account-pill.finance-kind-upi    { background: #faf5ff; color: #a855f7; }
+.finance-account-pill.finance-kind-wallet { background: #fff7ed; color: #f97316; }
+
+.finance-ref-cell {
+  color: var(--text-muted);
+  font-size: 9px;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- Pagination ---- */
+.finance-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.finance-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.finance-page-btn {
+  min-width: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.finance-page-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+  .finance-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .finance-search-wrap {
+    flex: 1 1 auto;
+  }
+
+  .finance-pagination {
+    flex-direction: column;
+    text-align: center;
+  }
+}
+

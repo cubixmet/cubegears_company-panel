@@ -3,9 +3,10 @@ const envBaseUrl =
   import.meta.env.VITE_API_BASE_URL ||
   '';
 
-const configuredBaseUrl =
+const configuredBaseUrl = String(
   envBaseUrl ||
-  (import.meta.env.DEV ? 'http://127.0.0.1:8000/api/v1' : '');
+  (import.meta.env.DEV ? 'http://127.0.0.1:8000/api/v1' : '')
+).trim().replace(/\/+$/, '');
 
 const explicitMockMode = import.meta.env.VITE_USE_MOCK_API;
 const requestedMockMode =

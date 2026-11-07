@@ -1,38 +1,37 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+const page = read('src/components/suppliers/SupplierPurchaseFlow.jsx');
+const stock = read('src/pages/stock/StockEasyPage.jsx');
 
-const page = readFileSync(new URL('../src/pages/stock/SupplierFinancePage.jsx', import.meta.url), 'utf8');
-const api = readFileSync(new URL('../src/services/supplierFinance.service.js', import.meta.url), 'utf8');
-
-test('supplier purchases select legal place of supply using backend states', () => {
-  assert.match(page, /Place of Supply \*/);
-  assert.match(page, /gstOptions\.states\.map/);
-  assert.match(api, /getGSTOptions: \(\) => live\('get', '\/gst-options'\)/);
-  assert.match(page, /placeOfSupply: draft\.placeOfSupply/);
+test('supplier purchases select actual place of supply from backend state list', () => {
+  assert.match(page, /supplierFinanceService\.getGSTOptions\(\)/);
+  assert.match(page, /setStates\(gst\.states \|\| \[\]\)/);
+  assert.match(page, /value=\{placeOfSupply\}/);
+  assert.match(page, /placeOfSupply: placeOfSupply \|\| undefined/);
+  assert.match(page, /Supplier GSTIN/);
 });
 
-test('GST rate presets split into CGST plus SGST or UTGST and IGST', () => {
-  assert.match(page, /purchaseTaxMode === 'cgst_sgst'/);
-  assert.match(page, /purchaseTaxMode === 'igst'/);
-  assert.match(page, /purchaseCGST/);
-  assert.match(page, /purchaseStateTax/);
-  assert.match(page, /purchaseIGST/);
-  assert.match(page, /Purchase GST Breakdown/);
+test('shared CGST SGST IGST options map to a total rate and server jurisdiction check', () => {
+  assert.match(page, /invoiceLineTaxChoices\('unknown'\)/);
+  assert.match(page, /invoiceTotalRateFromChoice/);
+  assert.match(page, /The server determines CGST \+ SGST\/UTGST or IGST/);
+  assert.match(page, /gstRate: row\.gstRate/);
+  assert.match(stock, /invoiceTotalRateFromChoice/);
 });
 
-test('0% requires explicit treatment without inferring exemption from rate', () => {
-  assert.match(page, /0% GST Treatment/);
-  assert.match(page, /value="exempt"/);
-  assert.match(page, /value="nil_rated"/);
-  assert.match(page, /value="zero_rated"/);
-  assert.match(page, /value="non_gst"/);
-  assert.match(page, /gstTreatment: event\.target\.value/);
+test('0% purchase GST requires a valid product classification', () => {
+  assert.match(page, /zeroClassification/);
+  assert.match(page, /Choose why this product has 0% GST/);
+  assert.match(page, /gstTreatment: rate === 0 \? part\.zeroClassification : 'taxable'/);
+  assert.match(page, /zeroClasses\.map/);
 });
 
-test('existing payment and supplier bill posting flows remain in use', () => {
-  assert.match(page, /finance\.createBill\(/);
-  assert.match(page, /finance\.recordPayment\(/);
-  assert.match(page, /finance\.postBill\(bill\.id\)/);
-  assert.match(page, /Cash \/ Bank \/ UPI Account/);
+test('tax amount and purchase/selling price remain distinct', () => {
+  assert.match(page, /purchaseRate: fixed\(cost\)/);
+  assert.match(page, /sellingPrice: fixed\(selling\)/);
+  assert.match(page, /Update catalogue purchase\/selling prices/);
+  assert.match(page, /Purchase Total/);
+  assert.match(page, /GST \/ Tax for this product/);
 });

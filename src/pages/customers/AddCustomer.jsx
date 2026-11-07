@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { FormPage } from '../../components/common/forms/FormPage';
 import { FormSection } from '../../components/common/forms/FormSection';
@@ -7,7 +7,6 @@ import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { Textarea } from '../../components/common/Textarea';
 import { PhoneInput } from '../../components/common/PhoneInput';
-import { Checkbox } from '../../components/common/Checkbox';
 import { customerService } from '../../services/customer.service';
 import { CustomerManagementTabs } from '../../components/customers/CustomerManagementTabs';
 import { User, Mail, Building, CheckCircle2 } from "lucide-react";
@@ -16,6 +15,17 @@ export const AddCustomer = () => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  const [formError, setFormError] = useState('');
+  const [branches, setBranches] = useState([]);
+  const [branchError, setBranchError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    customerService.getCustomerBranches()
+      .then((rows) => { if (active) setBranches(Array.isArray(rows) ? rows : []); })
+      .catch((cause) => { if (active) setBranchError(cause?.message || 'Unable to load workshop branches.'); });
+    return () => { active = false; };
+  }, []);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -26,26 +36,50 @@ export const AddCustomer = () => {
     companyName: '',
     gstNo: '',
     address: '',
-    city: 'Kochi',
-    state: 'Kerala',
-    pincode: '682031',
-    branch: 'Main Garage Branch',
-    notes: '',
-    sendWhatsappUpdate: true
+    city: '',
+    state: '',
+    pincode: '',
+    branch: '',
+    notes: ''
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+    setFormError('');
+    if (!formData.name.trim() || !formData.phone.trim()) {
+      setFormError('Customer name and contact number are required.');
+      return;
+    }
     try {
       setSubmitting(true);
-      await customerService.createCustomer({
-        ...formData,
-        whatsapp: formData.whatsapp || formData.phone
+      const duplicate = await customerService.checkDuplicateCustomer({
+        phone: formData.phone.trim(), email: formData.email.trim(),
       });
+      if (duplicate) {
+        setFormError('This contact already belongs to an existing customer. Open the existing profile instead of creating a duplicate.');
+        return;
+      }
+      const created = await customerService.createCustomer({
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        whatsapp: (formData.whatsapp || formData.phone).trim(),
+        email: formData.email.trim(),
+        customerType: formData.customerType === 'Individual' ? 'individual' : 'business',
+        companyName: formData.companyName.trim(),
+        gstin: formData.gstNo.trim().toUpperCase(),
+        address: formData.address.trim(),
+        city: formData.city.trim(),
+        state: formData.state.trim(),
+        pincode: formData.pincode.trim(),
+        ...(formData.branch ? { branch: formData.branch } : {}),
+        notes: formData.notes.trim(),
+      });
+      if (!created?.id) throw new Error('The customer API did not return a saved customer reference.');
       setToastMsg('Customer created successfully.');
-      setTimeout(() => navigate('/customers/all'), 1000);
+      navigate(`/customers/${created.id}`);
     } catch (err) {
-      console.error("Error creating customer:", err);
+      setFormError(err?.message || 'Unable to create customer. Check the entered details and try again.');
     } finally {
       setSubmitting(false);
     }
@@ -58,6 +92,8 @@ export const AddCustomer = () => {
     >
       <CustomerManagementTabs />
 
+      {formError && <p role="alert" className="customer-directory-message is-error">{formError}</p>}
+      {branchError && <p role="alert" className="customer-directory-message is-error">{branchError}</p>}
       {toastMsg && (
         <div style={{ backgroundColor: 'var(--success)', color: '#ffffff', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <CheckCircle2 size={16} />
@@ -176,8 +212,10 @@ export const AddCustomer = () => {
             value={formData.branch}
             onChange={(e) => setFormData({ ...formData, branch: e.target.value })}
           >
-            <option value="Main Garage Branch">Main Garage Branch</option>
-            <option value="Kochi South Branch">Kochi South Branch</option>
+            <option value="">Workshop default branch</option>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>{branch.name}</option>
+            ))}
           </Select>
         </FormSection>
 
@@ -196,13 +234,10 @@ export const AddCustomer = () => {
             />
           </div>
 
-          <div className="form-grid-full" style={{ marginTop: '8px' }}>
-            <Checkbox
-              label="Send automated WhatsApp updates & receipts to customer"
-              checked={formData.sendWhatsappUpdate}
-              onChange={(e) => setFormData({ ...formData, sendWhatsappUpdate: e.target.checked })}
-            />
-          </div>
+          <p className="customer-form-note">
+            WhatsApp messages are sent only through the configured workshop messaging workflow.
+            Saving a customer does not automatically send a message.
+          </p>
         </FormSection>
 
         {/* STICKY FOOTER */}

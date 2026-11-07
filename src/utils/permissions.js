@@ -36,6 +36,7 @@ const CRUD_PREFIXES = {
 };
 
 const SPECIAL_PATH_PERMISSIONS = [
+  ['/onboarding', 'company.manage'],
   ['/stock/suppliers', 'payments.view'],
   ['/suppliers/credits', 'payments.view'],
   ['/suppliers/payments', 'payments.view'],
@@ -52,6 +53,8 @@ const SPECIAL_PATH_PERMISSIONS = [
   ['/staff-management', 'staff.view'],
   ['/payroll', 'payroll.view'],
   ['/gstr', 'gstr.view'],
+  ['/finance/accounting', 'payments.view'],
+  ['/finance', 'payments.view'],
   ['/reports', 'reports.view'],
   ['/notifications', 'notifications.view'],
   ['/settings/customer-website', 'company.manage'],

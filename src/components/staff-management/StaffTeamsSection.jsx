@@ -22,6 +22,7 @@ export const StaffTeamsSection = ({ staff = [], teams = [], setTeams, setStaff }
   const [teamStaffTarget, setTeamStaffTarget] = useState(null);
   const [teamStaffSelection, setTeamStaffSelection] = useState([]);
   const [savingTeamStaff, setSavingTeamStaff] = useState(false);
+  const [teamStaffError, setTeamStaffError] = useState('');
   const [teamForm, setTeamForm] = useState({
     name: '',
     leadUserId: '',
@@ -109,6 +110,7 @@ export const StaffTeamsSection = ({ staff = [], teams = [], setTeams, setStaff }
     if (!teamStaffTarget || !teamStaffSelection.length || savingTeamStaff) return;
 
     setSavingTeamStaff(true);
+    setTeamStaffError('');
     try {
       await staffManagementService.assignStaffToTeam(
         teamStaffTarget.id,
@@ -122,6 +124,8 @@ export const StaffTeamsSection = ({ staff = [], teams = [], setTeams, setStaff }
       ]);
       setTeams(nextTeams);
       if (setStaff) setStaff(nextStaff);
+    } catch (cause) {
+      setTeamStaffError(cause?.message || 'Team assignment was not saved.');
     } finally {
       setSavingTeamStaff(false);
     }
@@ -129,7 +133,7 @@ export const StaffTeamsSection = ({ staff = [], teams = [], setTeams, setStaff }
 
   const assignedCount = teams.reduce(
     (sum, team) =>
-      sum + staff.filter((person) => person.department === team.name).length,
+      sum + staff.filter((person) => String(person.teamId || '') === String(team.id)).length,
     0,
   );
 
@@ -173,7 +177,7 @@ export const StaffTeamsSection = ({ staff = [], teams = [], setTeams, setStaff }
 
       <div className="staff-team-grid">
         {teams.map((team) => {
-          const members = staff.filter((item) => item.department === team.name);
+          const members = staff.filter((item) => String(item.teamId || '') === String(team.id));
           return (
             <article key={team.id} className="staff-workshop-panel staff-team-card">
               <div className="staff-team-card__head">
@@ -265,7 +269,7 @@ export const StaffTeamsSection = ({ staff = [], teams = [], setTeams, setStaff }
               >
                 <option value="">Not Assigned</option>
                 {activeStaff
-                  .filter((person) => person.user)
+                  .filter((person) => person.user && (!teamForm.branchId || String(person.branchId || '') === String(teamForm.branchId)))
                   .map((person) => (
                     <option key={person.id} value={person.user}>
                       {person.name} · {person.role || 'No role'}
@@ -283,6 +287,8 @@ export const StaffTeamsSection = ({ staff = [], teams = [], setTeams, setStaff }
                     setTeamForm((old) => ({
                       ...old,
                       branchId: e.target.value,
+                      leadUserId: '',
+                      leadName: '',
                     }))
                   }
                 >
@@ -346,20 +352,23 @@ export const StaffTeamsSection = ({ staff = [], teams = [], setTeams, setStaff }
         onClose={() => {
           setTeamStaffTarget(null);
           setTeamStaffSelection([]);
+          setTeamStaffError('');
         }}
         title={teamStaffTarget ? `Add Staff to ${teamStaffTarget.name}` : 'Add Staff'}
         maxWidth="620px"
       >
         <form className="staff-crud-form" onSubmit={assignTeamStaff}>
           <div className="staff-assignment-note">
-            Selected staff will move to <strong>{teamStaffTarget?.name}</strong>.
+            Selected staff will move to <strong>{teamStaffTarget?.name}</strong>. Staff must belong to the team's branch.
           </div>
+          {teamStaffError && <div className="staff-directory-message is-error" role="alert">{teamStaffError}</div>}
 
           <fieldset className="staff-crud-assignment-fieldset">
             <legend>Select Staff</legend>
             <div className="staff-crud-check-grid">
               {activeStaff
-                .filter((person) => person.department !== teamStaffTarget?.name)
+                .filter((person) => String(person.teamId || '') !== String(teamStaffTarget?.id) &&
+                  (!teamStaffTarget?.branchId || String(person.branchId || '') === String(teamStaffTarget.branchId)))
                 .map((person) => (
                   <label key={person.id} className="staff-crud-check">
                     <input

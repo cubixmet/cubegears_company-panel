@@ -12,7 +12,7 @@ test('Add New Part does not show editable SKU input or hold SKU in new-part stat
   assert.match(catalog, /payload\.sku\?\.trim\(\) \? \{ sku:/);
 });
 
-test('Opening Stock Quantity accepts nonnegative values to two decimal places', () => {
+test('Supplier purchase quantity accepts nonnegative values to two decimal places', () => {
   assert.match(page, /const openingText = String\(part\.stockQuantity \?\? ''\)\.trim\(\)/);
   assert.match(page, /!\s*\/\^\\d\+\(\?:\\\.\\d\{1,2\}\)\?\$\//);
   const pattern = /^\d+(?:\.\d{1,2})?$/;
