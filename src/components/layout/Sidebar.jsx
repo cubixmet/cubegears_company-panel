@@ -78,7 +78,7 @@ export const Sidebar = () => {
           <span className="sidebar-logo">CG</span>
           {!collapsed && (
             <span className="sidebar-brand-copy">
-              <strong>CubeGears</strong>
+              <strong>cubixgear</strong>
               <small>Workshop Management</small>
             </span>
           )}

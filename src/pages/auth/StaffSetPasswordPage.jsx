@@ -84,7 +84,7 @@ export default function StaffSetPasswordPage() {
       <div className="login-shell">
         <section className="login-card auth-recovery-card">
           <div className="login-brand-row"><div className="login-brand-mark">CG</div>
-            <div><strong className="login-brand-name">CubeGears</strong>
+            <div><strong className="login-brand-name">cubixgear</strong>
               <span className="login-brand-subtitle">Secure Workshop Staff Access</span></div>
           </div>
           {state === 'checking' && <p role="status">Checking your one-time password setup link…</p>}

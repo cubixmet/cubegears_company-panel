@@ -194,7 +194,7 @@ export const Header = () => {
           <button type="button" className="mobile-brand" onClick={() => navigate(homePath)} aria-label="Go to workspace">
             <span>CG</span>
             <span className="mobile-brand-copy">
-              <strong>CubixGear</strong>
+              <strong>cubixgear</strong>
               <small>{pageTitle}</small>
             </span>
           </button>

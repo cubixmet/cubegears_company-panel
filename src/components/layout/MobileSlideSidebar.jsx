@@ -67,7 +67,7 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
           <div className="mobile-drawer-brand">
             <span className="mobile-drawer-logo">CG</span>
             <span className="mobile-drawer-brand-copy">
-              <strong>CubeGears</strong>
+              <strong>cubixgear</strong>
               <small>Workshop Management</small>
             </span>
           </div>

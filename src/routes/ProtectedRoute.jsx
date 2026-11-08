@@ -26,7 +26,7 @@ export const ProtectedRoute = () => {
           fontSize: '14px'
         }}
       >
-        Loading CubixGear…
+        Loading cubixgear…
       </div>
     );
   }

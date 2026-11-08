@@ -72,7 +72,7 @@ export function SaaSAccountLayout({ children }) {
         >{menuOpen ? <X size={21}/> : <Menu size={21}/>}</button>
         <NavLink to="/account" className="saas-account-brand">
           <span className="saas-account-logo" aria-hidden="true"><Wallet size={21}/></span>
-          <span><strong>CubeGears</strong><small>Account workspace</small></span>
+          <span><strong>cubixgear</strong><small>Account workspace</small></span>
         </NavLink>
       </div>
       <div className="saas-account-identity">
@@ -104,7 +104,7 @@ export function SaaSAccountLayout({ children }) {
         </div>
         <div className="saas-owner-sidebar-foot">
           <ShieldCheck size={16} aria-hidden="true"/>
-          <span>Company access verified by CubeGears</span>
+          <span>Company access verified by cubixgear</span>
         </div>
       </nav>
       {menuOpen && <button className="saas-owner-menu-backdrop" type="button" aria-label="Close navigation" onClick={() => setMenuOpen(false)}/>}

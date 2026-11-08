@@ -67,7 +67,7 @@ export default function WorkshopMobileSignup() {
     <div className="login-shell">
       <section className="login-card">
         <div className="login-brand-row"><div className="login-brand-mark">CG</div>
-          <div><strong className="login-brand-name">CubeGears</strong>
+          <div><strong className="login-brand-name">cubixgear</strong>
             <span className="login-brand-subtitle">Workshop Management</span></div></div>
         {registered ? <>
           <CheckCircle2 size={32} aria-hidden="true"/>
@@ -139,7 +139,7 @@ export default function WorkshopMobileSignup() {
               <input type="checkbox" checked={form.whatsappConsent}
                 onChange={(event) => change('whatsappConsent',event.target.checked)}
                 style={{width:'20px',height:'20px',minWidth:'20px',marginTop:'2px'}}/>
-              I agree to receive workshop account messages through the official CubeGears WhatsApp Business channel (optional).
+              I agree to receive workshop account messages through the official cubixgear WhatsApp Business channel (optional).
             </label>
             <button className="login-submit" type="submit" disabled={submitting}>
               {submitting ? 'Creating workshop…' : 'Register Workshop'}

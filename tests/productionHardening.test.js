@@ -21,7 +21,7 @@ test('react error stack and raw error message are development-only', () => {
 test('deploy branding and security headers are configured', () => {
   const html = source('../index.html');
   const config = JSON.parse(source('../vercel.json'));
-  assert.match(html, /CubeGears \| Workshop Management/);
+  assert.match(html, /cubixgear \| Workshop Management/);
   assert.ok(config.headers.some(rule =>
     rule.headers.some(header => header.key === 'X-Frame-Options' && header.value === 'DENY')));
   assert.ok(config.headers.some(rule => rule.source === '/index.html' &&

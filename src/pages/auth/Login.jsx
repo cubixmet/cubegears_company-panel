@@ -86,7 +86,7 @@ export const Login = () => {
             <div className="login-brand-row">
               <div className="login-brand-mark">CG</div>
               <div>
-                <div className="login-brand-name">CubixGear</div>
+                <div className="login-brand-name">cubixgear</div>
                 <div className="login-brand-subtitle">Workshop Management</div>
               </div>
             </div>
@@ -200,7 +200,7 @@ export const Login = () => {
           <div className="login-footer">
             <div className="login-secure">
               <span className="login-secure-dot" />
-              Secure CubixGear workspace access
+              Secure cubixgear workspace access
             </div>
 
             {isMockMode && <div className="login-mock">Development mock mode</div>}

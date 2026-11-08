@@ -23,7 +23,7 @@ test('mandatory account details and wallet credit balance are server sourced', (
   assert.match(wizard, /state\.account\?\.companyName/);
   assert.match(wizard, /state\.account\?\.ownerName/);
   assert.match(wizard, /state\.account\.walletBalanceCredits/);
-  assert.match(wizard, /Read-only balance from CubeGears billing/);
+  assert.match(wizard, /Read-only balance from cubixgear billing/);
   assert.match(wizard, /window\.location\.replace\('\/account'\)/);
 });
 

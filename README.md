@@ -1,7 +1,7 @@
-# CubeGears — Company Panel
+# cubixgear — Company Panel
 
 Production-oriented React 19 + Vite 6 company/workshop management frontend for
-the CubeGears multi-tenant SaaS product. Django provides authentication,
+the cubixgear multi-tenant SaaS product. Django provides authentication,
 entitlements, payments, invoices, credits, storage and tenant-scoped APIs.
 
 ## Development

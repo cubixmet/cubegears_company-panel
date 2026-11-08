@@ -187,7 +187,7 @@ export function OwnerOnboarding() {
   return (
     <main className="cg-setup">
       <header className="cg-setup-heading">
-        <div><span className="cg-setup-eyebrow">CUBEGEARS · WORKSHOP SETUP</span>
+        <div><span className="cg-setup-eyebrow">cubixgear · WORKSHOP SETUP</span>
           <h1>Set up your workshop</h1>
           <p>Real company settings saved securely to your workshop account. Continue where you left off.</p>
         </div>
@@ -209,7 +209,7 @@ export function OwnerOnboarding() {
           <strong>{state.account?.walletAvailable
             ? `${state.account.walletBalanceCredits} credits`
             : 'Not available'}</strong>
-          <small>Read-only balance from CubeGears billing</small>
+          <small>Read-only balance from cubixgear billing</small>
         </div>
       </section>
       <p className="cg-setup-lock-note">Complete the required workshop details to unlock your Account,
