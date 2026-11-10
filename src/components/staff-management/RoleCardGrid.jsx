@@ -1,63 +1,48 @@
+import { Pencil, ShieldCheck, Trash2, Users } from 'lucide-react';
 
-import { ShieldCheck, Users } from 'lucide-react';
-
-export const RoleCardGrid = ({
-  roles,
-  countPermissions,
-  onOpen,
-  canManage = false,
-  onDelete,
-}) => (
-  <section className="roles-dashboard-grid">
-    {roles.map((role) => (
-      <article key={role.id} className="roles-dashboard-card">
-        <div className="roles-dashboard-card-head">
+export const RoleCardGrid = ({ roles, countPermissions, onOpen, canManage = false, onDelete }) => (
+  <section className="roles-dashboard-grid roles-simple-list" aria-label="Company roles">
+    <div className="roles-simple-list-head" aria-hidden="true">
+      <span>Role</span><span>Staff</span><span>Permissions</span><span>Status</span><span>Actions</span>
+    </div>
+    {roles.map(role => (
+      <article key={role.id} className="roles-dashboard-card roles-simple-row">
+        <div className="roles-simple-title">
+          <span className="roles-simple-icon"><ShieldCheck size={17} aria-hidden="true" /></span>
           <div>
-            <div className="roles-dashboard-card-title">
-              <ShieldCheck size={15} />
-              <strong>{role.name}</strong>
-              {role.isProtected && <span>Protected</span>}
-            </div>
-            <p>{role.isProtected ? 'Protected workshop owner role' : role.code}</p>
+            <strong>{role.name}</strong>
+            <small>{role.isProtected ? 'Owner · protected' : role.code}</small>
           </div>
-
+        </div>
+        <span className="roles-simple-count" data-label="Staff">
+          <Users size={15} aria-hidden="true" /> {Number(role.usersCount || 0)}
+        </span>
+        <span className="roles-simple-count" data-label="Permissions">
+          {countPermissions(role.permissions)} allowed
+        </span>
+        <span className="roles-simple-state" data-label="Status">
           <b className={(role.status || 'Active') === 'Active' ? 'is-active' : 'is-inactive'}>
             {role.status || 'Active'}
           </b>
-        </div>
-
-        <div className="roles-dashboard-card-meta">
-          <div>
-            <Users size={13} />
-            <span>Users Assigned</span>
-            <strong>{role.usersCount || 0}</strong>
-          </div>
-          <div>
-            <ShieldCheck size={13} />
-            <span>Permissions</span>
-            <strong>{countPermissions(role.permissions)} Enabled</strong>
-          </div>
-        </div>
-
-        {canManage && (
-          <div className="roles-dashboard-card-actions">
-            <button type="button" onClick={() => onOpen(role)}>
-              {role.isProtected ? 'View Owner Role' : 'Edit Permissions'}
-            </button>
-            {!role.isProtected && (
-              <button type="button" disabled={Number(role.usersCount) > 0}
-                title={Number(role.usersCount) > 0 ? 'Reassign assigned staff before deleting this role' : undefined}
-                onClick={() => onDelete(role)}>
-                Delete
+        </span>
+        {canManage && <div className="roles-dashboard-card-actions roles-simple-actions">
+          {(
+            <>
+              <button type="button" onClick={() => onOpen(role)}>
+                <Pencil size={14} aria-hidden="true" /> {role.isProtected ? 'View' : 'Edit'}
               </button>
-            )}
-          </div>
-        )}
+              {!role.isProtected && (
+                <button type="button" disabled={Number(role.usersCount) > 0}
+                  title={Number(role.usersCount) > 0 ? 'Reassign staff before deleting' : 'Delete role'}
+                  onClick={() => onDelete(role)}>
+                  <Trash2 size={14} aria-hidden="true" /> Delete
+                </button>
+              )}
+            </>
+          )}
+        </div>}
       </article>
     ))}
-
-    {!roles.length && (
-      <div className="roles-dashboard-empty">No roles configured yet.</div>
-    )}
+    {!roles.length && <div className="roles-dashboard-empty">No roles match this search.</div>}
   </section>
 );

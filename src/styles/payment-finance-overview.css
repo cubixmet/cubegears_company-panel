@@ -43,3 +43,56 @@
 .cg-pay-finance-ledger-pagination{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;margin-top:6px;font-size:13px;color:var(--text-secondary,var(--muted,#64748b))}
 .cg-pay-finance-ledger-pagination button:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:600px){.cg-pay-finance-ledger-controls>label{flex:1 1 100%}.cg-pay-finance-ledger-controls .cg-pay-finance-buttons{width:100%}}
+
+/* Finance clarity: show bank, today out and today expenses together first. */
+.cg-pay-finance-cards {
+  grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 12px;
+}
+.cg-pay-finance-cards article {
+  min-width: 0;
+  padding: 16px;
+  border-radius: 12px;
+}
+.cg-pay-finance-card-label span { font-size: 14px; font-weight: 650; }
+.cg-pay-finance-cards article > strong {
+  font-size: clamp(21px,2vw,27px);
+  line-height: 1.3; overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.cg-pay-finance-cards article > small { font-size: 12px; line-height: 1.45; }
+.cg-pay-finance-extra {
+  border: 1px solid var(--border,#dae0e8);
+  border-radius: 11px; background: var(--surface,#fff);
+  padding: 8px 12px;
+}
+.cg-pay-finance-extra > summary {
+  cursor: pointer; font-size: 14px; font-weight: 700;
+  min-height: 42px; display: flex; align-items: center;
+  color: var(--text-primary,#162235);
+}
+.cg-pay-finance-extra[open] > summary { margin-bottom: 12px; }
+.cg-pay-finance-extra .cg-pay-finance-cards { grid-template-columns: repeat(4,minmax(0,1fr)); }
+.cg-pay-finance-footnotes p { font-size: 12px; line-height: 1.55; }
+@media(max-width: 950px) {
+  .cg-pay-finance-cards,
+  .cg-pay-finance-extra .cg-pay-finance-cards { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(max-width: 540px) {
+  .cg-pay-finance-cards,
+  .cg-pay-finance-extra .cg-pay-finance-cards { grid-template-columns: 1fr; }
+  .cg-pay-finance-cards article { padding: 13px; }
+}
+
+.cg-pay-finance :is(input,select,textarea)[aria-invalid="true"],
+.payments-page :is(input,select,textarea)[aria-invalid="true"] {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 2px rgb(220 38 38 / 12%) !important;
+  background: #fff6f6 !important;
+}
+.cg-pay-finance .cg-pay-finance-error,
+.payments-page .payments-error {
+  border: 1px solid #ef4444 !important;
+  color: #b91c1c !important; background: #fef2f2 !important;
+  border-radius: 10px;
+}

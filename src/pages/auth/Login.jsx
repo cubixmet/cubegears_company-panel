@@ -1,3 +1,4 @@
+import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
 import { useState } from "react";
 import { Eye, EyeOff, Lock, Phone } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -84,7 +85,7 @@ export const Login = () => {
         <section className="login-card">
           <div>
             <div className="login-brand-row">
-              <div className="login-brand-mark">CG</div>
+              <div className="login-brand-mark" aria-hidden="true"><CubixgearLogo /></div>
               <div>
                 <div className="login-brand-name">cubixgear</div>
                 <div className="login-brand-subtitle">Workshop Management</div>

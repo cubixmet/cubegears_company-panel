@@ -9,11 +9,22 @@ import { hasPermission } from '../../utils/permissions';
 import { clearFieldValidation, showFormFieldError, showServerFormErrors } from '../../utils/formValidation';
 import { copyManualStaffInvite, shareManualStaffInvite } from '../../utils/staffManualInvite';
 import '../../styles/staff-mobile-onboarding.css';
+import './staffPhoneCountry.css';
 
+const staffCountryCodes = [
+  { code: '+91', country: 'India', flag: '🇮🇳', digits: 10 },
+  { code: '+971', country: 'UAE', flag: '🇦🇪', digits: 9 },
+  { code: '+966', country: 'Saudi Arabia', flag: '🇸🇦', digits: 9 },
+  { code: '+974', country: 'Qatar', flag: '🇶🇦', digits: 8 },
+  { code: '+968', country: 'Oman', flag: '🇴🇲', digits: 8 },
+  { code: '+965', country: 'Kuwait', flag: '🇰🇼', digits: 8 },
+  { code: '+973', country: 'Bahrain', flag: '🇧🇭', digits: 8 },
+];
 const statuses = ['Active', 'Probation', 'Notice Period', 'Inactive', 'Suspended', 'Resigned', 'Terminated'];
+const DEFAULT_WHATSAPP_CONSENT_SOURCE = 'Staff consented in person during onboarding';
 const consentSources = [
   { value: '', label: 'Choose consent source' },
-  { value: 'Staff consented in person during onboarding', label: 'In person' },
+  { value: DEFAULT_WHATSAPP_CONSENT_SOURCE, label: 'In person' },
   { value: 'Signed staff WhatsApp consent form', label: 'Signed consent form' },
   { value: 'Staff consented through approved digital form', label: 'Approved digital form' },
 ];
@@ -30,6 +41,9 @@ export const StaffAddPage = () => {
   const { user } = useAuth();
   const canManageLogins = hasPermission(user, 'company.manage');
   const [form, setForm] = useState(() => emptyStaff(canManageLogins));
+  const [countryCode, setCountryCode] = useState('+91');
+  const currentCountry = staffCountryCodes.find(country => country.code === countryCode);
+  const localPhone = form.phone.startsWith(countryCode) ? form.phone.slice(countryCode.length) : form.phone;
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loadingOptions, setLoadingOptions] = useState(true);
@@ -67,9 +81,9 @@ export const StaffAddPage = () => {
       showFormFieldError(formRef.current, 'name', 'Full name is required.');
       return;
     }
-    const mobile = form.phone.replace(/[\s().-]/g, '');
-    if (!/^\+[1-9]\d{7,14}$/.test(mobile)) {
-      showFormFieldError(formRef.current, 'phone', 'Enter a valid mobile number with country code.');
+    const mobile = `${countryCode}${localPhone.replace(/\D/g, '')}`;
+    if (localPhone.length !== currentCountry.digits || !/^\+[1-9]\d{7,14}$/.test(mobile)) {
+      showFormFieldError(formRef.current, 'phone', `Enter a valid ${currentCountry.digits}-digit ${currentCountry.country} mobile number.`);
       return;
     }
     if (!form.roleId || !roles.some(role => String(role.id) === String(form.roleId))) {
@@ -182,6 +196,7 @@ export const StaffAddPage = () => {
             </button>
             <button type="button" className="staff360-secondary-button" onClick={() => {
               setForm(emptyStaff(canManageLogins));
+              setCountryCode('+91');
               setCreatedStaff(null);
               setShareError('');
               setShareMessage('');
@@ -212,11 +227,29 @@ export const StaffAddPage = () => {
                 <input name="name" required autoComplete="name" value={form.name}
                   onChange={event => set('name', event.target.value)} placeholder="Full name"/>
               </label>
-              <label>Mobile Number with Country Code *
-                <input name="phone" type="tel" required autoComplete="tel" inputMode="tel"
-                  value={form.phone} onChange={event => set('phone', event.target.value)}
-                  placeholder="+919876543210"/>
-              </label>
+              <div className="staff-phone-field">
+                <label htmlFor="staff-mobile-number">Mobile Number with Country Code *</label>
+                <div className="staff-phone-field__row">
+                  <select aria-label="Mobile country code" value={countryCode}
+                    onChange={event => {
+                      const nextCode = event.target.value;
+                      setCountryCode(nextCode);
+                      set('phone', localPhone ? nextCode + localPhone : '');
+                    }}>
+                    {staffCountryCodes.map(country => (
+                      <option key={country.code} value={country.code}>
+                        {country.flag} {country.code} {country.country}
+                      </option>
+                    ))}
+                  </select>
+                  <input id="staff-mobile-number" name="phone" type="tel" required
+                    autoComplete="tel-national" inputMode="numeric"
+                    value={localPhone}
+                    maxLength={currentCountry.digits}
+                    onChange={event => set('phone', countryCode + event.target.value.replace(/\D/g, '').slice(0, currentCountry.digits))}
+                    placeholder={`${currentCountry.digits}-digit mobile number`}/>
+                </div>
+              </div>
               <label>Branch
                 <select name="branchId" value={form.branchId} onChange={event => set('branchId', event.target.value)}>
                   <option value="">Unassigned</option>
@@ -251,7 +284,8 @@ export const StaffAddPage = () => {
               <input type="checkbox" checked={form.whatsappConsent} onChange={event => setForm(current => ({
                 ...current,
                 whatsappConsent: event.target.checked,
-                whatsappConsentSource: event.target.checked ? current.whatsappConsentSource : '',
+                whatsappConsentSource: event.target.checked
+                  ? (current.whatsappConsentSource || DEFAULT_WHATSAPP_CONSENT_SOURCE) : '',
               }))}/>
               Staff agreed to receive manual WhatsApp setup links
             </label>

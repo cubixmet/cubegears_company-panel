@@ -28,8 +28,18 @@
 .cg-setup-wide { grid-column: 1 / -1; }
 .cg-setup-help { display: flex; gap: 9px; align-items: flex-start; color: #475569; font-size: 12px; line-height: 1.6; margin-top: 19px; }
 .cg-setup-help svg { flex: none; margin-top: 1px; }
-.cg-setup-logo { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 22px; padding: 13px; border: 1px dashed #94a3b8; border-radius: 12px; font-size: 13px; }
-.cg-setup-logo input { max-width: 100%; font-size: 13px; }
+.cg-setup-logo { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; justify-content: space-between; margin-top: 22px; padding: 16px; border: 1px dashed #94a3b8; border-radius: 12px; background: #fbfdff; font-size: 13px; }
+.cg-setup-logo-picker { display: flex; flex: 1 1 240px; min-width: 0; flex-direction: column; align-items: flex-start; gap: 8px; }
+.cg-setup-logo-title { display: inline-flex; align-items: center; gap: 10px; font-weight: 700; line-height: 1.5; }
+.cg-setup-logo-title svg { flex: none; color: #0f766e; }
+.cg-setup-logo-hint { color: #64748b; font-size: 12px; line-height: 1.5; }
+.cg-setup-logo input[type="file"] { display: block; max-width: 100%; font-size: 13px; color: #334155; }
+.cg-setup-logo input[type="file"]::file-selector-button { margin-right: 12px; padding: 9px 12px; min-height: 40px; border: 1px solid #bfd2df; border-radius: 8px; background: #fff; color: #123046; font: inherit; cursor: pointer; }
+.cg-setup-logo input[type="file"]:focus-visible { outline: 3px solid #99f6e4; outline-offset: 3px; }
+.cg-setup-logo-selected { display: block; font-size: 12px; color: #475569; overflow-wrap: anywhere; }
+.cg-setup-logo-preview { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: 132px; font-size: 11px; color: #475569; text-align: center; }
+.cg-setup-logo-preview img { display: block; width: 100px; height: 100px; object-fit: contain; padding: 8px; border: 1px solid #d9e7ef; border-radius: 12px; background: #fff; }
+.cg-setup-logo-preview span { display: block; line-height: 1.4; }
 .cg-setup-actions { display: flex; gap: 12px; justify-content: space-between; margin-top: 26px; }
 .cg-setup-actions button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 46px; padding: 10px 18px; border-radius: 11px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .cg-setup-back { background: #fff; border: 1px solid #cbd5e1; color: #334155; }
@@ -43,18 +53,126 @@
 @media (max-width: 540px) { .cg-setup-heading { flex-direction: column; } .cg-setup-fields { grid-template-columns: 1fr; } .cg-setup-card { padding: 18px 15px; } .cg-setup-actions { flex-wrap: wrap; } .cg-setup-actions button { flex: 1; min-width: 135px; } }
 
 /* The setup route mounts without the dashboard sidebar/header/bottom nav. */
-.cg-setup { min-height: 100dvh; color: #123046; background: #f6fafc; }
+/* The wizard has its own scroll area because global html/body/#root are
+   scroll-locked for the dashboard. Keep scrolling, but hide the visual bar. */
+.cg-setup {
+  height: 100dvh;
+  min-height: 0;
+  max-height: 100dvh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-top: 22px;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  color: #123046;
+  background: #f6fafc;
+}
+.cg-setup::-webkit-scrollbar { display: none; width: 0; height: 0; }
+@media (max-width: 800px) {
+  .cg-setup { scroll-padding-top: 14px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg-setup { scroll-behavior: auto; }
+}
 .cg-setup-account { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
 .cg-setup-account>div { display: flex; flex-direction: column; gap: 6px; min-width: 0; border: 1px solid #d9e7ef; border-radius: 14px; padding: 15px 17px; background: white; }
 .cg-setup-account span { font-size: 12px; font-weight: 650; color: #65758b; }
 .cg-setup-account strong { font-size: 17px; overflow-wrap: anywhere; }
 .cg-setup-account small { font-size: 12px; color: #69778b; overflow-wrap: anywhere; }
 .cg-setup-lock-note { margin: 0 0 20px; color: #486078; font-size: 13px; line-height: 1.6; }
-.cg-setup-gst-exempt { display: flex; gap: 12px; align-items: flex-start; margin: 16px 0 0; padding: 14px; border: 1px solid #bdd7e8; background: #f3f9fc; border-radius: 12px; cursor: pointer; }
-.cg-setup-gst-exempt input { width: 22px; height: 22px; flex: none; margin: 1px 0 0; accent-color: #096c90; }
-.cg-setup-gst-exempt span { display: flex; flex-direction: column; gap: 5px; }
-.cg-setup-gst-exempt strong { font-size: 14px; }
-.cg-setup-gst-exempt small { font-size: 12px; line-height: 1.5; color: #486078; }
+/* Keep the checkbox and its two text lines separated even when shared form
+   label/span rules apply. The entire GST option remains one click target. */
+#root .cg-setup-gst-exempt { display: grid; grid-template-columns: 22px minmax(0, 1fr); column-gap: 14px; align-items: start; margin: 20px 0 0; padding: 15px 16px; border: 1px solid #bdd7e8; background: #f3f9fc; border-radius: 12px; cursor: pointer; }
+#root .cg-setup-gst-exempt input[type="checkbox"] { width: 22px; height: 22px; margin: 1px 0 0; accent-color: #096c90; }
+#root .cg-setup-gst-copy { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; min-width: 0; }
+#root .cg-setup-gst-copy strong { display: block; margin: 0; font-size: 14px; line-height: 1.4; }
+#root .cg-setup-gst-copy small { display: block; margin: 0; font-size: 12px; line-height: 1.6; color: #486078; }
 .cg-setup-fields input:disabled { background: #eaf0f4; opacity: .72; }
 .cg-setup-step:disabled { opacity: .48; cursor: not-allowed; }
 @media(max-width: 750px) { .cg-setup-account { grid-template-columns: 1fr; } .cg-setup-account>div { padding: 12px 14px; } }
+
+@media (max-width: 540px) {
+  .cg-setup-logo { align-items: flex-start; }
+  .cg-setup-logo-preview { flex-direction: row; max-width: 100%; gap: 12px; text-align: left; }
+  .cg-setup-logo-preview img { width: 76px; height: 76px; }
+}
+
+/* Onboarding branch geolocation: capture a real device fix without manual
+   latitude/longitude/radius text entry; preserve the existing API payload. */
+.cg-setup-location {
+  margin-top: 20px;
+  padding: clamp(16px, 2.5vw, 22px);
+  border: 1px solid #c5dce7;
+  border-radius: 14px;
+  background: #f3f9fc;
+}
+.cg-setup-location-heading { display: flex; align-items: flex-start; gap: 12px; color: #123046; }
+.cg-setup-location-heading > svg { flex: 0 0 19px; margin-top: 3px; color: #0f766e; }
+.cg-setup-location-heading strong { display: block; font-size: 15px; font-weight: 700; }
+.cg-setup-location-heading p { margin: 5px 0 0; color: #486078; font-size: 13px; line-height: 1.5; }
+.cg-setup-location-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.cg-setup-location-actions button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+  min-height: 44px; border-radius: 10px; padding: 10px 14px;
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.cg-setup-locate { border: 1px solid #0f766e; color: #fff; background: #0f766e; }
+.cg-setup-clear-location { border: 1px solid #bacfdb; color: #334155; background: #fff; }
+.cg-setup-location-actions button:disabled { opacity: .55; cursor: progress; }
+.cg-setup-location-error { margin: 12px 0 0; font-size: 13px; line-height: 1.5; color: #b91c1c; }
+.cg-setup-location-status {
+  display: flex; flex-direction: column; gap: 5px;
+  margin-top: 14px; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid #d5e7ee; background: #fff; overflow-wrap: anywhere;
+  font-size: 13px; line-height: 1.5; color: #334155;
+}
+.cg-setup-location-status strong { color: #065f46; font-size: 13px; }
+.cg-setup-location-status small { display: block; color: #64748b; font-size: 12px; }
+.cg-setup-radius { display: flex; flex-direction: column; gap: 7px; margin-top: 18px; }
+.cg-setup-radius select {
+  width: min(100%, 260px); min-height: 46px; padding: 9px 12px;
+  border: 1px solid #bfd2df; border-radius: 10px;
+  background: #fff; color: #123046; font: inherit; font-size: 15px;
+}
+.cg-setup-radius small { color: #486078; font-size: 12px; line-height: 1.5; }
+@media (max-width: 540px) {
+  .cg-setup-location-actions button { width: 100%; }
+  .cg-setup-radius select { width: 100%; }
+}
+
+/* Optional bank onboarding uses the same financial account model, not a
+   duplicate account balance in local storage or a parallel bank ledger. */
+.cg-setup-bank { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cg-setup-bank-intro { margin: 0; color: #486078; font-size: 14px; line-height: 1.6; }
+.cg-setup-bank-modes { display: flex; flex-wrap: wrap; gap: 10px; }
+.cg-setup-bank-modes label {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 10px 13px;
+  background: #f3f9fc; border: 1px solid #bfd2df; border-radius: 11px;
+  cursor: pointer; font-size: 13px; color: #123046; font-weight: 650;
+}
+.cg-setup-bank-modes input[type="radio"] { width: 18px; height: 18px; accent-color: #0f766e; }
+.cg-setup-bank-fields { padding-top: 6px; }
+.cg-setup-bank-fields label { min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+.cg-setup-bank-note { margin: 4px 0 0; color: #486078; font-size: 12px; line-height: 1.6; }
+.cg-setup-bank-existing { display: flex; flex-direction: column; gap: 8px; }
+.cg-setup-bank-existing select {
+  display: block; width: 100%; max-width: 520px;
+  min-height: 46px; padding: 10px 12px; border: 1px solid #bfd2df;
+  border-radius: 10px; background: #fff; color: #123046;
+}
+.cg-setup-bank-existing small { color: #64748b; font-size: 12px; }
+.cg-setup-bank-saved {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 18px; background: #edf9f5; border: 1px solid #99d5c7; border-radius: 12px;
+}
+.cg-setup-bank-saved > svg { flex: 0 0 20px; color: #0f766e; }
+.cg-setup-bank-saved strong { font-size: 16px; color: #065f46; }
+.cg-setup-bank-saved p { margin: 5px 0; font-size: 13px; color: #334155; }
+.cg-setup-bank-saved small { display: block; margin-top: 8px; font-size: 12px; line-height: 1.5; color: #486078; }
+@media (max-width: 540px) {
+  .cg-setup-bank-modes { display: grid; grid-template-columns: 1fr; }
+  .cg-setup-bank-modes label { width: 100%; }
+}

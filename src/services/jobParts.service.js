@@ -403,7 +403,8 @@ export const buyOutsideJobPart = async (jobId, payload) => {
   if (found) return found;
   const requested = {
     ...payload, id: `OUT-${Date.now()}`, status: 'Pending Approval',
-    quotedTotal: (Number(payload.quantity) * Number(payload.unitCost)).toFixed(2),
+    quotedTotal: (Number(payload.quantity) * Number(payload.unitCost) *
+      (1 + Number(payload.purchaseGstRate || 0) / 100)).toFixed(2),
     totalCost: '0.00', totalSelling: '0.00',
     createdAt: now(), createdBy: 'Current User'
   };
@@ -433,6 +434,8 @@ export const completeOutsideJobPart = async (jobId, purchaseId, form) => {
     const payload = new FormData();
     payload.append('invoiceNo', form.invoiceNo);
     payload.append('unitCost', String(form.unitCost));
+    payload.append('paymentType', String(form.paymentType || 'Credit'));
+    if (form.accountId) payload.append('accountId', String(form.accountId));
     payload.append('bill', form.bill);
     return apiClient.post(`/job-cards/${jobId}/outside-parts/${purchaseId}/complete`, payload, {
       headers: { 'Content-Type': undefined }
@@ -445,10 +448,15 @@ export const completeOutsideJobPart = async (jobId, purchaseId, form) => {
   if (!form.bill) throw new Error('Supplier invoice file is required.');
   const qty = Number(purchase.quantity);
   const actualCost = Number(form.unitCost);
-  if (qty * actualCost > Number(purchase.quotedTotal)) throw new Error('Actual amount exceeds approved quote.');
+  const gstRate = Number(purchase.purchaseGstRate || 0);
+  const gross = qty * actualCost * (1 + gstRate / 100);
+  if (gross > Number(purchase.quotedTotal)) throw new Error('Actual amount exceeds approved quote.');
   const result = {
     ...purchase, status: 'Purchased', invoiceNo: form.invoiceNo,
-    unitCost: String(actualCost), totalCost: (qty * actualCost).toFixed(2),
+    unitCost: String(actualCost), totalCost: gross.toFixed(2),
+    purchaseGstAmount: (qty * actualCost * gstRate / 100).toFixed(2),
+    paymentType: form.paymentType || 'Credit', paymentStatus: form.paymentType === 'Credit' ? 'Unpaid' : 'Paid',
+    accountId: form.accountId || '',
     totalSelling: (qty * Number(purchase.sellingPrice)).toFixed(2),
     usedAt: now(), billId: 'demo-upload'
   };

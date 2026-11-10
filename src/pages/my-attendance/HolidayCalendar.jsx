@@ -9,6 +9,7 @@ import {
 } from '../../components/my-attendance';
 import { minutesToHours, parseAttendanceLocalDate } from '../../components/my-attendance/attendance.utils';
 import { attendanceService } from '../../services/attendance.service';
+import { MySalaryPayments } from './MySalaryPayments';
 import '../../styles/attendance-calendar.css';
 import '../../styles/attendance-punch-readable.css';
 
@@ -241,6 +242,8 @@ export const HolidayCalendar = () => {
       />
 
       <EmployeeAttendanceCard employee={attendanceStatus?.employee || null} />
+
+      <MySalaryPayments />
 
       <AttendancePunchPanel onChanged={() => setRefreshKey((value) => value + 1)} />
 

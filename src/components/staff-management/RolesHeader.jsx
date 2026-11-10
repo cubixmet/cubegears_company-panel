@@ -1,25 +1,14 @@
-
-import { Plus, ShieldCheck } from 'lucide-react';
+import { Plus } from 'lucide-react';
 
 export const RolesHeader = ({ onAdd, canManage = false }) => (
   <section className="roles-dashboard-header">
-    <div>
-      <h2>Company User Roles</h2>
-      <p>Company Owner creates staff roles and chooses their module permissions.</p>
-    </div>
-
-    <div className="roles-dashboard-header-actions">
-      <div className="roles-dashboard-badge">
-        <ShieldCheck size={13} />
-        <span>RBAC</span>
-      </div>
-
-      {canManage && (
+    <div><h2>Roles &amp; Permissions</h2></div>
+    {canManage && (
+      <div className="roles-dashboard-header-actions">
         <button type="button" className="roles-primary-button" onClick={onAdd}>
-          <Plus size={14} />
-          Add New Role
+          <Plus size={16} aria-hidden="true" /> Add Role
         </button>
-      )}
-    </div>
+      </div>
+    )}
   </section>
 );

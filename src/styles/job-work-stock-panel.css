@@ -133,3 +133,36 @@
   .cg-job-detail .job-work-stock-issue{grid-column:1}
   .cg-job-detail .job-work-stock-history-item{align-items:flex-start;flex-wrap:wrap}
 }
+
+/* Add New Part: catalogue registration, separate from the stock issue form. */
+.cg-job-detail .job-work-stock-header-actions {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cg-job-detail .job-work-stock-new-part {
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  min-height:46px;padding:9px 13px;border:1px solid var(--primary);
+  border-radius:10px;background:var(--primary);color:#fff;font-weight:700;cursor:pointer
+}
+.cg-job-detail .job-work-new-part-form {
+  display:grid;gap:13px;padding:14px;border:1px solid var(--border);
+  border-radius:12px;background:var(--surface-2)
+}
+.cg-job-detail .job-work-new-part-fields {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.cg-job-detail .job-work-new-part-fields label {display:grid;gap:6px;font-size:13px;color:var(--text-secondary)}
+.cg-job-detail.job-workspace-dashboard .job-work-simple .job-work-new-part-fields :is(input,select) {
+  width:100%;min-width:0;min-height:46px;padding:9px 11px;
+  border:1px solid var(--border);border-radius:10px;background:var(--surface);
+  color:var(--text-primary);font-size:16px!important
+}
+.cg-job-detail .job-work-new-part-actions {display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.cg-job-detail .job-work-new-part-actions button {
+  min-height:44px;padding:9px 15px;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface);cursor:pointer
+}
+.cg-job-detail .job-work-new-part-actions button[type="submit"] {background:var(--primary);border-color:var(--primary);color:#fff}
+.cg-job-detail .job-work-new-part-actions button:disabled,
+.cg-job-detail .job-work-stock-new-part:disabled {opacity:.55;cursor:not-allowed}
+@media(max-width:600px) {
+  .cg-job-detail .job-work-stock-header-actions {width:100%}
+  .cg-job-detail .job-work-stock-header-actions button {flex:1;min-width:0}
+  .cg-job-detail .job-work-new-part-form {padding:11px}
+}
+@media(max-width:390px) {.cg-job-detail .job-work-new-part-fields {grid-template-columns:1fr}}

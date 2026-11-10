@@ -11,6 +11,7 @@ const DEFAULT_COUNTRIES = [
 export const PhoneInput = ({
   label, error, helper, success, required = false, disabled = false,
   countryCode = '+91', onCountryCodeChange, countries = DEFAULT_COUNTRIES,
+  labelPosition = 'floating',
   containerStyle, className = '', id, placeholder, ...props
 }) => {
   const generatedId = useId();
@@ -18,10 +19,12 @@ export const PhoneInput = ({
   const [selectedCode, setSelectedCode] = useState(countryCode);
   useEffect(() => setSelectedCode(countryCode), [countryCode]);
   const message = error || success || helper;
+  const labelAbove = labelPosition === 'above';
   return (
     <div className={'ui-field form-field cubegears-field-group ' +
-      (label ? 'cg-floating-field cg-floating-phone ' : '') + className}
+      (label && !labelAbove ? 'cg-floating-field cg-floating-phone ' : '') + className}
       style={containerStyle}>
+      {label && labelAbove && <Label htmlFor={inputId} required={required} className="ui-phone__label">{label}</Label>}
       <div data-cg-input-shell="true"
         className={'cg-field-shell ui-input-shell ui-phone form-control' +
           (error ? ' ui-input-shell--error has-error' : '') +
@@ -38,12 +41,12 @@ export const PhoneInput = ({
               {country.flag} {country.label} {country.code}
             </option>)}
         </select>
-        {label && <Label htmlFor={inputId} required={required} className="cg-floating-label">{label}</Label>}
+        {label && !labelAbove && <Label htmlFor={inputId} required={required} className="cg-floating-label">{label}</Label>}
         <input id={inputId} className="cg-floating-control ui-input"
           type="tel" inputMode="tel" autoComplete="tel-national"
           required={required} disabled={disabled} aria-invalid={Boolean(error)}
           aria-describedby={message ? inputId + '-message' : undefined}
-          placeholder={label ? (placeholder || ' ') : placeholder} {...props} />
+          placeholder={label && !labelAbove ? (placeholder || ' ') : placeholder} {...props} />
       </div>
       {message && <span id={inputId + '-message'}
         className={'ui-field__message' +

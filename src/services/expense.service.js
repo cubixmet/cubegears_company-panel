@@ -76,8 +76,31 @@ export const deleteExpense = async (id) => {
   return apiClient.delete(`${API_ENDPOINTS.EXPENSES}/${id}`);
 };
 
+export const getExpenseBudgets = async (month) => {
+  if (USE_MOCK_API) return [];
+  const response = await apiClient.get(`${API_ENDPOINTS.EXPENSES}/budgets`, {
+    params: { month },
+  });
+  const rows = Array.isArray(response) ? response : response?.results;
+  if (!Array.isArray(rows)) throw new Error('Unable to load budget items.');
+  return rows;
+};
+
+export const createExpenseBudget = async (values) => {
+  if (USE_MOCK_API) throw new Error('Budget creation requires the live Django backend.');
+  return apiClient.post(`${API_ENDPOINTS.EXPENSES}/budgets`, values);
+};
+
+export const updateExpenseBudget = async (id, values) => {
+  if (USE_MOCK_API) throw new Error('Budget updates require the live Django backend.');
+  return apiClient.patch(`${API_ENDPOINTS.EXPENSES}/budgets/${encodeURIComponent(id)}`, values);
+};
+
 export const expenseService = {
   getExpenses,
+  getExpenseBudgets,
+  createExpenseBudget,
+  updateExpenseBudget,
   getExpenseById,
   createExpense,
   updateExpense,

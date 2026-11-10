@@ -30,3 +30,9 @@
 .cws-subdomain-form>small{flex-basis:100%;opacity:.75;line-height:1.5}
 .cws-warning{border-left:3px solid #b67c24;padding:11px 12px;font-size:13px;line-height:1.5;margin:10px 0}
 @media(max-width:600px){.cws-subdomain-form>.cws-btn{width:100%;justify-content:center}.cws-subdomain-field{flex-wrap:wrap}}
+
+/* In local dev, the primary URL is the workshop's .localhost website.
+   Keep the reserved production address visible without implying HTTPS is live. */
+.cws-local-domain-info{display:grid;gap:4px;margin:12px 2px 0;font-size:13px;line-height:1.6;color:var(--text-secondary,#70848a);overflow-wrap:anywhere}
+.cws-local-domain-info strong{color:var(--text-primary,#34535a);font-weight:750}
+.cws-domain-url>span{min-width:0;overflow-wrap:anywhere}

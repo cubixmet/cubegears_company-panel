@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, PackageCheck, PackagePlus, RefreshCw, Search } from 'lucide-react';
+import { CheckCircle2, PackageCheck, PackagePlus, Plus, RefreshCw, Search, X } from 'lucide-react';
 import { stockService } from '../../services/stock.service';
+import { stockCatalogService } from '../../services/stockCatalog.service';
+import { Link } from 'react-router-dom';
 import { jobService } from '../../services/job.service';
 import { appConfirm } from '../common/appDialogs';
 import { useAuth } from '../../hooks/useAuth';
@@ -10,15 +12,25 @@ const money = new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 2,
 });
 const num = (value) => Number(value || 0);
+const blankNewPart = {
+  partName: '', partNumber: '', brand: '', unit: 'Piece', category: '',
+  costPrice: '', sellingPrice: '', hsnCode: '', tax: '',
+  zeroTaxClassification: '', minimumStock: '0', location: '',
+};
+const unitOptions = ['Piece', 'Bottle', 'Litre', 'Millilitre', 'Kilogram', 'Gram', 'Set', 'Pair', 'Box', 'Pack', 'Metre', 'Can'];
+const zeroGstOptions = [
+  ['exempt', 'Exempt'], ['nil_rated', 'Nil-rated'],
+  ['zero_rated', 'Zero-rated'], ['non_gst', 'Non-GST'],
+];
 const available = item => Math.max(0, num(item.available ?? (num(item.onHand) - num(item.reserved))));
 
 /** Stock entries are issued through Django's atomic Job.issue_part action.
  * Selecting/searching a part never deducts inventory.
  */
-export function JobWorkStockPanel({ jobId, issuedParts = [], onChanged, focusSearchToken = 0 }) {
+export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onChanged, focusSearchToken = 0 }) {
   const { user } = useAuth();
   const canView = hasPermission(user, 'stock.view');
-  const canIssue = hasPermission(user, 'stock.edit') && hasPermission(user, 'jobs.edit');
+  const canIssue = canEdit && hasPermission(user, 'stock.edit') && hasPermission(user, 'jobs.edit');
   const [inventory, setInventory] = useState([]);
   const searchInputRef = useRef(null);
   useEffect(() => {
@@ -31,6 +43,12 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], onChanged, focusSea
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [newPart, setNewPart] = useState(blankNewPart);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [createNotice, setCreateNotice] = useState('');
 
   const refresh = async () => {
     if (!canView) return;
@@ -51,15 +69,21 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], onChanged, focusSea
     setLookup('');
     setQuantity('1');
     setSuccess('');
+    setShowCreate(false);
+    setNewPart(blankNewPart);
+    setCreateError('');
+    setCreateNotice('');
     refresh();
   }, [jobId, canView]);
 
   const matches = useMemo(() => {
     const term = lookup.trim().toLowerCase();
-    if (!term) return [];
-    return inventory.filter(item => [
+    const list = inventory.filter(item => !term || [
       item.partName, item.name, item.sku, item.barcode, item.brand,
-    ].some(value => String(value || '').toLowerCase().includes(term))).slice(0, 8);
+    ].some(value => String(value || '').toLowerCase().includes(term)));
+    // Make the add form useful without requiring a search first.
+    // The server remains authoritative for branch-specific stock on issue.
+    return (term ? list : [...list].sort((a, b) => Number(available(b) > 0) - Number(available(a) > 0))).slice(0, 8);
   }, [inventory, lookup]);
 
   const selected = inventory.find(item => String(item.id) === String(selectedId));
@@ -105,6 +129,74 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], onChanged, focusSea
     }
   };
 
+  const openCreate = async () => {
+    setShowCreate(true);
+    setCreateError('');
+    try {
+      const result = await stockCatalogService.getCategories();
+      setCategories(Array.isArray(result) ? result : result?.results || []);
+    } catch {
+      setCategories([]);
+      // Catalogue creation still works without a category.
+    }
+  };
+
+  const createPart = async event => {
+    event.preventDefault();
+    if (!canIssue || creating || busy) return;
+    const name = newPart.partName.trim();
+    const purchase = Number(newPart.costPrice);
+    const selling = Number(newPart.sellingPrice);
+    const tax = Number(newPart.tax);
+    if (!name || !newPart.costPrice.trim() || !newPart.sellingPrice.trim() ||
+        !Number.isFinite(purchase) || purchase < 0 ||
+        !Number.isFinite(selling) || selling < 0) {
+      setCreateError('Enter a part name, purchase price and selling price (zero or more).');
+      return;
+    }
+    if (newPart.partNumber.trim() && !/^[A-Za-z0-9][A-Za-z0-9._/+#() -]*$/.test(newPart.partNumber.trim())) {
+      setCreateError('Enter a valid manufacturer part number.');
+      return;
+    }
+    if (!newPart.tax.trim() || !/^\d{1,3}(?:\.\d{1,2})?$/.test(newPart.tax) ||
+        !Number.isFinite(tax) || tax < 0 || tax > 100 ||
+        (tax === 0 && !newPart.zeroTaxClassification)) {
+      setCreateError('Choose a valid GST rate and a classification for 0% GST.');
+      return;
+    }
+    setCreating(true);
+    setCreateError('');
+    setCreateNotice('');
+    try {
+      // Product registration is not a supplier receipt or opening balance.
+      const created = await stockCatalogService.createItem({
+        ...newPart,
+        partName: name,
+        partNumber: newPart.partNumber.trim(),
+        costPrice: purchase,
+        sellingPrice: selling,
+        tax,
+        minimumStock: Number(newPart.minimumStock) || 0,
+        stockQuantity: 0,
+      });
+      setInventory(previous => [
+        created, ...previous.filter(item => String(item.id) !== String(created.id)),
+      ]);
+      setSelectedId(String(created.id));
+      setLookup(created.partName || name);
+      setNewPart(blankNewPart);
+      setShowCreate(false);
+      setCreateNotice('Part saved in inventory catalogue with zero stock. Receive stock before issuing it to this job.');
+    } catch (cause) {
+      const response = cause?.response?.data;
+      const message = response && typeof response === 'object'
+        ? Object.values(response).flat().join(' ') : '';
+      setCreateError(message || cause?.message || 'Unable to create the part.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (!canView) return null;
 
   return (
@@ -114,19 +206,94 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], onChanged, focusSea
           <span className="job-work-stock-icon" aria-hidden="true"><PackagePlus size={18}/></span>
           <div>
             <h3>Stock & Parts Used</h3>
-            
+            <p>Add parts from existing inventory and review stock issued to this job.</p>
           </div>
         </div>
-        <button type="button" className="job-work-stock-refresh" onClick={refresh} disabled={loading || busy}>
-          <RefreshCw size={16} aria-hidden="true"/> {loading ? 'Loading…' : 'Refresh Stock'}
-        </button>
+        <div className="job-work-stock-header-actions">
+          {canIssue && (
+            <button type="button" className="job-work-stock-new-part"
+              aria-expanded={showCreate} aria-controls="job-work-new-part-form"
+              disabled={busy || creating}
+              onClick={() => showCreate ? setShowCreate(false) : openCreate()}>
+              {showCreate ? <X size={16} aria-hidden="true"/> : <Plus size={16} aria-hidden="true"/>}
+              {showCreate ? 'Cancel New Part' : 'Add New Part'}
+            </button>
+          )}
+          <button type="button" className="job-work-stock-refresh" onClick={refresh} disabled={loading || busy || creating}>
+            <RefreshCw size={16} aria-hidden="true"/> {loading ? 'Loading…' : 'Refresh Stock'}
+          </button>
+        </div>
       </header>
 
       {error && <p className="job-work-stock-error" role="alert">{error}</p>}
       {success && <p className="job-work-stock-success" role="status"><CheckCircle2 size={16} aria-hidden="true"/>{success}</p>}
+      {createNotice && <p className="job-work-stock-success" role="status">{createNotice} <Link to="/stock">Receive Stock</Link></p>}
 
+      {canIssue && showCreate && (
+        <form id="job-work-new-part-form" className="job-work-new-part-form" onSubmit={createPart}>
+          <div className="job-work-stock-history-head">
+            <h4>Create New Inventory Part</h4>
+            <span>Catalogue registration only · Does not add stock or supplier debt</span>
+          </div>
+          {createError && <p className="job-work-stock-error" role="alert">{createError}</p>}
+          <div className="job-work-new-part-fields">
+            <label>Part Name *<input required maxLength="180" value={newPart.partName}
+              onChange={e => setNewPart(v => ({ ...v, partName: e.target.value }))}/></label>
+            <label>Part Number<input maxLength="100" value={newPart.partNumber}
+              onChange={e => setNewPart(v => ({ ...v, partNumber: e.target.value }))}/></label>
+            <label>Brand<input maxLength="100" value={newPart.brand}
+              onChange={e => setNewPart(v => ({ ...v, brand: e.target.value }))}/></label>
+            <label>Unit<select value={newPart.unit} onChange={e => setNewPart(v => ({ ...v, unit: e.target.value }))}>
+              {unitOptions.map(value => <option key={value} value={value}>{value}</option>)}
+            </select></label>
+            <label>Category<select value={newPart.category} onChange={e => setNewPart(v => ({ ...v, category: e.target.value }))}>
+              <option value="">Uncategorized</option>
+              {categories.filter(c => c.is_active !== false).map(category =>
+                <option key={category.id} value={category.id}>{category.name}</option>)}
+            </select></label>
+            <label>HSN / SAC<input maxLength="20" value={newPart.hsnCode}
+              onChange={e => setNewPart(v => ({ ...v, hsnCode: e.target.value }))}/></label>
+            <label>Purchase Price (₹) *<input type="number" inputMode="decimal" min="0" step="0.01" required
+              value={newPart.costPrice} onChange={e => setNewPart(v => ({ ...v, costPrice: e.target.value }))}/></label>
+            <label>Selling Price (₹) *<input type="number" inputMode="decimal" min="0" step="0.01" required
+              value={newPart.sellingPrice} onChange={e => setNewPart(v => ({ ...v, sellingPrice: e.target.value }))}/></label>
+            <label>GST Rate (%) *<input type="number" inputMode="decimal" min="0" max="100" step="0.01" required
+              value={newPart.tax} onChange={e => setNewPart(v => ({
+                ...v, tax: e.target.value, zeroTaxClassification: '',
+              }))}/></label>
+            {newPart.tax !== '' && Number(newPart.tax) === 0 && (
+              <label>0% GST Classification *<select required value={newPart.zeroTaxClassification}
+                onChange={e => setNewPart(v => ({ ...v, zeroTaxClassification: e.target.value }))}>
+                <option value="">Choose classification</option>
+                {zeroGstOptions.map(([value, title]) => <option key={value} value={value}>{title}</option>)}
+              </select></label>
+            )}
+            <label>Minimum Stock<input type="number" inputMode="decimal" min="0" step="0.01"
+              value={newPart.minimumStock} onChange={e => setNewPart(v => ({ ...v, minimumStock: e.target.value }))}/></label>
+            <label>Rack / Location<input maxLength="80" value={newPart.location}
+              onChange={e => setNewPart(v => ({ ...v, location: e.target.value }))}/></label>
+          </div>
+          <p className="job-work-stock-note">Saving creates the product at 0 available stock. To use it on this job, first record an actual purchase/receipt through inventory or the supplier ledger, then issue it below.</p>
+          <div className="job-work-new-part-actions">
+            <button type="button" disabled={creating} onClick={() => setShowCreate(false)}>Cancel</button>
+            <button type="submit" disabled={creating || busy}>{creating ? 'Saving…' : 'Save New Part'}</button>
+          </div>
+        </form>
+      )}
+
+      {!canIssue && (
+        <p className="job-work-stock-note" role="status">
+          {canEdit
+            ? 'To add a part, your role needs both Jobs Edit and Stock Edit permissions.'
+            : 'Parts are read-only after the Work stage is locked or completed.'}
+        </p>
+      )}
       {canIssue && (
         <form className="job-work-stock-form" onSubmit={issue}>
+          <div className="job-work-stock-history-head">
+            <h4>Add Part to Job</h4>
+            <span>Select inventory item, enter quantity, then confirm stock issue.</span>
+          </div>
           <div className="job-work-stock-search-wrap">
             <label htmlFor="job-work-stock-search">Find Stock Item</label>
             <div className="job-work-stock-search">
@@ -135,7 +302,7 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], onChanged, focusSea
                 disabled={busy} placeholder="Search part name, SKU, barcode or brand"
                 onChange={event => { setLookup(event.target.value); setSelectedId(''); setSuccess(''); }}/>
             </div>
-            {lookup.trim() && !selected && (
+            {!selected && !loading && (
               <div className="job-work-stock-results" aria-label="Matching stock items">
                 {matches.length ? matches.map(item => (
                   <button type="button" key={item.id} disabled={busy}
@@ -147,7 +314,9 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], onChanged, focusSea
                       {available(item)} {item.unit || 'units'} available
                     </span>
                   </button>
-                )) : <p>No matching stock product. Add it on the Stock page first.</p>}
+                )) : <p>{lookup.trim()
+                  ? 'No matching stock product. Add it on the Stock page first.'
+                  : 'No stock items available. Create a product in Stock before adding parts to a job.'}</p>}
               </div>
             )}
           </div>
@@ -176,7 +345,7 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], onChanged, focusSea
               <PackageCheck size={17} aria-hidden="true"/> {busy ? 'Issuing…' : 'Issue Stock to Job'}
             </button>
           </div>
-          <p className="job-work-stock-note">Stock is deducted only after confirming Issue Stock.</p>
+          <p className="job-work-stock-note">Stock is deducted only after confirming Issue Stock. Available quantity is checked against this job's branch again when you issue.</p>
         </form>
       )}
 

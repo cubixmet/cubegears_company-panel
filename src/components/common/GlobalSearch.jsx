@@ -2,14 +2,17 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Search, X, Users, Car, ClipboardList, FileText, Package, UserCheck,
-  CreditCard, Truck, AlertCircle, Loader2
+  CreditCard, Truck, AlertCircle, Loader2, LayoutGrid, Receipt, Wrench, Landmark, ShoppingBag
 } from 'lucide-react';
 import { searchWorkspace } from '../../services/globalSearch.service';
+import { searchWorkspacePages } from '../../utils/workspacePageSearch';
+import { routeConfig } from '../../routes/routeConfig';
 import { getPermissionForPath } from '../../utils/permissions';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/global-search.css';
 
 const GROUP_ICONS = {
+  'Pages & Features': LayoutGrid,
   Customers: Users,
   Vehicles: Car,
   'Job Cards': ClipboardList,
@@ -19,6 +22,11 @@ const GROUP_ICONS = {
   Inventory: Package,
   Invoices: FileText,
   Payments: CreditCard,
+  Services: Wrench,
+  Expenses: Receipt,
+  Accounts: Landmark,
+  'Supplier Bills': FileText,
+  Purchases: ShoppingBag,
 };
 
 // Exactly one mounted search input for desktop and mobile. No modal or portal.
@@ -39,14 +47,17 @@ export const GlobalSearch = () => {
   const [activeIndex, setActiveIndex] = useState(-1);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Django enforces tenancy and RBAC, and the header checks route permissions.
-  const permitted = useMemo(() => results.filter((item) => {
+  // Local navigation suggestions never require reading tenant data. Live
+  // Django results remain separately tenant-scoped and permission-gated.
+  const pages = useMemo(() => searchWorkspacePages(query, routeConfig, can), [query, can]);
+  const permittedRecords = useMemo(() => results.filter((item) => {
     const path = item?.route;
     if (typeof path !== 'string' || !path.startsWith('/') ||
         path.startsWith('//') || path.includes('\\')) return false;
     const permission = getPermissionForPath(path.split(/[?#]/)[0]);
     return Boolean(permission && can(permission));
   }), [results, can]);
+  const permitted = useMemo(() => [...pages, ...permittedRecords], [pages, permittedRecords]);
 
   const groups = useMemo(() => {
     const map = new Map();
@@ -178,12 +189,12 @@ export const GlobalSearch = () => {
           ref={inputRef}
           type="search"
           role="combobox"
-          aria-label="Search customers, vehicles, jobs, complaints, staff, suppliers, inventory, invoices and payments"
+          aria-label="Search pages, features and workshop records including suppliers, staff, jobs and finance"
           aria-autocomplete="list"
           aria-expanded={expanded}
           aria-controls={resultsId}
           aria-activedescendant={expanded && activeIndex >= 0 ? instanceId + '-option-' + activeIndex : undefined}
-          placeholder="Search customers, vehicles, jobs…"
+          placeholder="Search pages, suppliers, customers, jobs…"
           autoComplete="off"
           maxLength={100}
           value={query}
@@ -207,7 +218,7 @@ export const GlobalSearch = () => {
         <div ref={resultsRef} className="global-search-results" id={resultsId} role="listbox" aria-label="Workspace search results">
           {loading && <div className="global-search-feedback" role="status">
             <Loader2 className="global-search-spin" size={18} aria-hidden="true" />
-            Searching workspace…
+            Searching workshop records…
           </div>}
           {!loading && error && <div className="global-search-feedback is-error" role="alert">
             <AlertCircle size={18} aria-hidden="true" />
@@ -215,12 +226,12 @@ export const GlobalSearch = () => {
             <button type="button" onClick={() => setRetryCount((value) => value + 1)}>Retry</button>
           </div>}
           {!loading && !error && trimmed.length < 2 && (
-            <div className="global-search-feedback">Type at least 2 characters to search your workshop.</div>
+            <div className="global-search-feedback">Search pages, features and workshop records (2+ characters).</div>
           )}
           {!loading && !error && trimmed.length >= 2 && !options.length && (
-            <div className="global-search-feedback" role="status">No matching records found.</div>
+            <div className="global-search-feedback" role="status">No matching pages or records found.</div>
           )}
-          {!loading && !error && groups.map((group) => {
+          {groups.map((group) => {
             const Icon = GROUP_ICONS[group.name] || Search;
             return <div className="global-search-group" role="group" aria-label={group.name} key={group.name}>
               <div className="global-search-group-title">{group.name} ({group.items.length})</div>

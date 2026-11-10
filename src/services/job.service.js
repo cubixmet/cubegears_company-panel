@@ -203,6 +203,14 @@ export const addJobService = async (id, values) => {
   return apiClient.post(`${API_ENDPOINTS.JOBS}/${id}/work/services`, values);
 };
 
+export const removeJobService = async (id, workId) => {
+  if (USE_MOCK_API) throw new Error('Removing a saved service requires the live backend.');
+  if (!id || !/^[0-9a-f-]{36}$/i.test(String(workId))) {
+    throw new Error('Select a valid saved service.');
+  }
+  return apiClient.delete(`${API_ENDPOINTS.JOBS}/${encodeURIComponent(id)}/work/services/${encodeURIComponent(workId)}`);
+};
+
 export const skipJobWork = async (id, reason, options = {}) => {
   const normalized = String(reason || '').trim();
   if (normalized.length < 3 || normalized.length > 160) {
@@ -281,6 +289,13 @@ export const updateJobComplaintStatus = async (jobId, complaintId, { status, not
   );
 };
 
+export const reopenJobEstimate = async (id) => {
+  if (USE_MOCK_API) {
+    throw new Error('Reopening a skipped estimate requires the live Django backend.');
+  }
+  return apiClient.post(`${API_ENDPOINTS.JOBS}/${id}/estimate/reopen`);
+};
+
 export const skipJobEstimate = async (id, { reason, details = '' }) => {
   if (USE_MOCK_API) throw new Error('Skip Estimate requires the live backend audit workflow.');
   return apiClient.post(`${API_ENDPOINTS.JOBS}/${id}/estimate/skip`, { reason, details });
@@ -336,8 +351,10 @@ export const jobService = {
   completeJobStage,
   skipJobWork,
   addJobService,
+  removeJobService,
   createJobEstimate,
   saveQuickJobEstimate,
+  reopenJobEstimate,
   skipJobEstimate,
   rejectJobEstimate,
   shareJobEstimate,

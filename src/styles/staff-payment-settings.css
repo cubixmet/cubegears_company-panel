@@ -1,0 +1,100 @@
+/* Staff profile payment settings + wage-rate validation, including portal modals. */
+.staff-payment-settings-menu { display: grid; gap: 14px; padding: 8px 0 4px; }
+.staff-payment-settings-menu > p {
+  margin: 0; font-size: 14px; line-height: 1.55;
+  color: var(--text-secondary, #475569);
+}
+.staff-payment-settings-menu > button,
+.staff-payment-settings-ways > button {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 50px; padding: 12px 14px; border: 1px solid var(--border, #d7dfe8);
+  border-radius: 11px; background: var(--surface, #fff);
+  color: var(--text-primary, #17283d); cursor: pointer;
+  font-size: 15px; font-weight: 650; text-align: left;
+}
+.staff-payment-settings-menu > button:hover,
+.staff-payment-settings-ways > button:hover {
+  border-color: var(--primary, #4f46e5);
+  background: var(--primary-soft, #f5f3ff);
+}
+.staff-payment-settings-menu > button > span { display: grid; gap: 3px; }
+.staff-payment-settings-menu > button strong { font-size: 15px; }
+.staff-payment-settings-menu > button small { font-size: 13px; font-weight: 400; }
+.staff-payment-settings-ways { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+.staff-payment-settings-ways > button { justify-content: center; }
+.employee-pay-config-form { display: grid; gap: 14px; }
+.employee-pay-config-form .pay-config-revision-note {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 12px; line-height: 1.5;
+  color: var(--text-secondary, #475569);
+  background: var(--surface-2, #f7f9fc); border-radius: 10px;
+  font-size: 14px;
+}
+.employee-pay-config-form .pay-config-field { display: grid; gap: 7px; }
+.employee-pay-config-form .pay-config-field > span { font-size: 14px; font-weight: 700; }
+.employee-pay-config-form .pay-config-field > :is(input,textarea) {
+  display: block; width: 100%; min-width: 0; min-height: 46px;
+  padding: 10px 12px; border: 1px solid var(--border, #d7dfe8);
+  border-radius: 9px; background: var(--surface, #fff);
+  color: var(--text-primary, #17283d); font-size: 16px;
+}
+.employee-pay-config-form .pay-config-field.has-error > :is(input,textarea),
+.employee-pay-config-form .pay-config-field :is(input,textarea)[aria-invalid="true"] {
+  border-color: #dc2626 !important;
+  outline-color: #dc2626 !important;
+  background: #fff6f6 !important;
+}
+.employee-pay-config-form .pay-config-field.has-error > span,
+.employee-pay-config-form .pay-config-field.has-error > small {
+  color: #b91c1c !important;
+}
+.employee-pay-config-form .pay-config-field > small { font-size: 13px; line-height: 1.45; }
+.employee-pay-config-form .staff-directory-message.is-error,
+.staff-payment-settings-menu .staff-directory-message.is-error {
+  background: #fef2f2; color: #b91c1c !important;
+  padding: 10px 12px; border: 1px solid #ef4444 !important; border-radius: 9px;
+}
+.employee-pay-config-form .pay-config-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.employee-pay-config-form .pay-config-actions button { min-height: 44px; min-width: 115px; font-size: 14px; }
+.cg-staff-management .staff360-overview-commandbar { display: none; }
+.cg-staff-management .staff360-panel { padding: 12px !important; min-width: 0; }
+.cg-staff-management .staff360-section__title { font-size: 15px !important; }
+.cg-staff-management .staff360-info-item span { font-size: 12px !important; line-height: 1.45; }
+.cg-staff-management .staff360-info-item strong { font-size: 15px !important; line-height: 1.45; }
+.cg-staff-management .staff360-pay-config-command {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; border: 1px solid var(--border, #d7dfe8);
+  background: var(--surface, #fff); border-radius: 11px;
+}
+.cg-staff-management .staff360-pay-config-command > div { display: flex; align-items: center; gap: 10px; }
+.cg-staff-management .staff360-pay-config-command button {
+  display: inline-flex; align-items: center; gap: 8px;
+  min-height: 44px; padding: 10px 14px;
+  color: #fff; background: var(--primary, #4f46e5);
+  border: 0; border-radius: 9px; font-size: 14px; font-weight: 700;
+}
+.cg-staff-management .staff360-tabs button {
+  min-height: 46px !important; font-size: 14px !important;
+}
+.cg-staff-management .staff360-metric-grid strong,
+.cg-staff-management .staff360-work-summary strong { font-size: 20px !important; }
+.cg-staff-management .staff360-metric-grid span,
+.cg-staff-management .staff360-work-summary span { font-size: 13px !important; }
+.cg-staff-management .staff360-document-head > div > span { font-size: 13px; }
+@media (max-width: 640px) {
+  .staff-payment-settings-ways { grid-template-columns: 1fr; }
+  .cg-staff-management .staff360-pay-config-command button { width: 100%; justify-content: center; }
+  .cg-staff-management .staff360-panel { padding: 9px !important; }
+  .employee-pay-config-form .pay-config-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .employee-pay-config-form .pay-config-actions button { min-width: 0; }
+}
+
+/* Existing staff-edit sheets use the shared formValidation aria-invalid state. */
+.staff-profile-edit-form :is(input,select,textarea)[aria-invalid="true"] {
+  border: 1px solid #dc2626 !important;
+  box-shadow: 0 0 0 2px rgb(220 38 38 / 12%) !important;
+  background: #fff6f6 !important;
+}
+.staff-profile-edit-form [data-cg-field-error="true"] .cg-inline-field-error {
+  color: #b91c1c !important; font-size: 13px;
+}

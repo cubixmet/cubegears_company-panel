@@ -268,9 +268,9 @@ export const staffService = {
     return normalizeStaff(await apiClient.patch(`/employees/${id}/login-access`, { enabled }));
   },
 
-  sendLoginInvite: async (id) => {
+  sendLoginInvite: async (id, options = {}) => {
     if (USE_MOCK_API) throw new Error('One-time setup links require the real Django backend.');
-    return apiClient.post(`/employees/${id}/invite`);
+    return apiClient.post(`/employees/${id}/invite`, options);
   },
 
 };

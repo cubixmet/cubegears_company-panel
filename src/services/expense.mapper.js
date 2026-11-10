@@ -36,6 +36,7 @@ export const normalizeExpense = (row = {}) => {
     receiptUrl,
     status: String(row.status || 'unpaid').toLowerCase(),
     accountId: row.accountId || row.account || '',
+    budgetItemId: row.budgetItemId || row.budget_item || '',
     paidAmount: Number(row.paidAmount ?? 0),
     balanceDue: Number(row.balanceDue ?? row.amount ?? 0),
   };
@@ -73,6 +74,9 @@ export const expenseToApiPayload = (values = {}) => {
     attachment: receiptUrl,
     status: values.status || 'approved',
     ...(values.accountId ? { account: values.accountId } : {}),
+    ...(Object.prototype.hasOwnProperty.call(values, 'budgetItemId')
+      ? { budget_item: values.budgetItemId || null }
+      : {}),
     ...(values.requestKey ? { idempotencyKey: values.requestKey } : {}),
   };
 };

@@ -1,6 +1,6 @@
 import { appConfirm, appPrompt } from '../../components/common/appDialogs';
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CalendarCheck2, CheckCircle2, ClipboardList, History, Pencil, Plus, Wallet, WalletCards } from "lucide-react";
+import { CalendarCheck2, CheckCircle2, ClipboardList, History, Pencil, Plus, Wallet, WalletCards } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
@@ -74,18 +74,52 @@ export const DailyWageAccountPage = () => {
     return () => { mounted = false; };
   }, [canView, id, reload]);
 
-  const open = (kind) => {
+  const open = (kind, method = 'Cash') => {
     setError('');
     setNotice('');
-    setForm(empty(kind, account || {}));
+    setForm({ ...empty(kind, account || {}), method });
     setModal(kind);
   };
+
+  // Staff Profile payment shortcuts open the SAME audited wage payout form.
+  // They never create or post a payment until this form is explicitly saved.
+  useEffect(() => {
+    if (!location.state?.openPayment || !account || !canView || !actionAccess.pay) return;
+    const method = location.state.paymentMethod === 'Bank Transfer'
+      ? 'Bank Transfer' : 'Cash';
+    navigate(location.pathname, { replace: true, state: null });
+    if (Number(account.currentBalance || 0) > 0) {
+      open('pay', method);
+    } else {
+      setNotice('There is no outstanding wage to pay.');
+    }
+  }, [location.state, location.pathname, account, id, canView, actionAccess.pay, navigate]);
   const set = (name, value) => setForm((old) => ({ ...old, [name]: value }));
   const close = () => { if (!saving) setModal(''); };
 
   const submit = async (event) => {
     event.preventDefault();
     if (!actionAccess[modal] || saving || !modal) return;
+    if (modal === 'pay') {
+      const accountId = form.account;
+      const chosen = financialAccounts.find((item) => String(item.id) === String(accountId));
+      if (!chosen || !chosen.isActive) {
+        setError('Choose an active Cash or Bank account before recording a payment.');
+        return;
+      }
+      const bankMethod = ['Bank Transfer', 'Cheque'].includes(form.method);
+      const allowedKinds = bankMethod ? ['Bank'] :
+        form.method === 'Cash' ? ['Cash'] :
+          form.method === 'UPI' ? ['Bank', 'UPI'] : ['Bank', 'Cash', 'UPI', 'Wallet', 'Other'];
+      if (!allowedKinds.includes(chosen.kind)) {
+        setError(`Payment method ${form.method} does not match the selected ${chosen.kind} account.`);
+        return;
+      }
+      if (chosen.currentBalance != null && Number(chosen.currentBalance) < Number(form.amount)) {
+        setError('Insufficient account balance for this wage payment.');
+        return;
+      }
+    }
     setSaving(true);
     setError('');
     setNotice('');
@@ -114,7 +148,7 @@ export const DailyWageAccountPage = () => {
       setModal('');
       setNotice(modal === 'extra'
         ? 'Extra earning saved as Pending. Approve it to credit the employee account.'
-        : modal === 'pay' ? 'Payment recorded. The outstanding balance has been recalculated.'
+        : modal === 'pay' ? 'Wage payment recorded. The selected Cash/Bank account was debited in the audited ledger.'
           : 'Daily Wage account updated.');
       setReload((v) => v + 1);
     } catch (err) {
@@ -169,7 +203,6 @@ export const DailyWageAccountPage = () => {
     <main className="dw-page dashboard-page">
       <header className="dw-header dashboard-heading">
         <div className="dashboard-heading-copy">
-          <button type="button" className="dw-text-link dw-back" onClick={() => navigate('/payroll/daily-wages')}><ArrowLeft size={16}/> Daily Wages</button>
           <h1>{account?.employee?.name || 'Daily Wage Account'}</h1>
           <p>{account?.employee?.employeeCode || ''} · {account?.employee?.designation || 'Workshop Staff'} · Daily Wage Ledger</p>
         </div>
@@ -307,21 +340,35 @@ export const DailyWageAccountPage = () => {
             <label>Pay Amount (₹)<input name="amount" type="number" required min="0.01" max={account?.currentBalance} step="0.01" value={form.amount || ''} onChange={(e) => set('amount', e.target.value)}/></label>
             <label>Payment Date<input type="date" max={todayISO()} required value={form.paymentDate || ''} onChange={(e) => set('paymentDate', e.target.value)}/></label>
             <label>Pay From Bank / Cash Account
-              <select value={form.account || ''} required={financialAccounts.length > 0}
+              <select value={form.account || ''} required
                 onChange={(e) => set('account', e.target.value)}>
                 <option value="">Select account {financialAccounts.length ? '*' : '(not configured)'}</option>
-                {financialAccounts.filter((item) => item.isActive).map((item) => (
+                {financialAccounts.filter((item) => {
+                  if (!item.isActive) return false;
+                  if (form.method === 'Cash') return item.kind === 'Cash';
+                  if (['Bank Transfer', 'Cheque'].includes(form.method)) return item.kind === 'Bank';
+                  if (form.method === 'UPI') return ['Bank', 'UPI'].includes(item.kind);
+                  return true;
+                }).map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.name} ({item.kind}) — {rupees(item.currentBalance)}
+                    {item.name} ({item.kind}){item.currentBalance == null ? '' : ` — ${rupees(item.currentBalance)}`}
                   </option>
                 ))}
               </select>
             </label>
-            <label>Payment Method<select value={form.method || 'Cash'} onChange={(e) => set('method', e.target.value)}>
+            <label>Payment Method<select value={form.method || 'Cash'} onChange={(e) => {
+              setForm((old) => ({ ...old, method: e.target.value, account: '' }));
+              setError('');
+            }}>
               {['Cash','UPI','Bank Transfer','Cheque','Other'].map((m) => <option key={m}>{m}</option>)}
             </select></label>
             <label>Reference (optional)<input maxLength={150} value={form.reference || ''} onChange={(e) => set('reference', e.target.value)} placeholder="Transaction or receipt number"/></label>
-            <p className="dw-modal-help">Full payment sets the current balance to ₹0. Earnings and payment history remain unchanged.</p>
+            <p className="dw-modal-help">
+              Choose the Cash or Bank account that actually pays this wage. The balance decreases only after confirmation; payment history is preserved.
+            </p>
+            {!financialAccounts.some((item) => item.isActive) && (
+              <p className="dw-alert" role="alert">No active financial accounts. Create a Cash or Bank account under Accounts before paying staff.</p>
+            )}
           </>}
           {modal !== 'pay' && (
             <label>Reason<input value={form.reason || ''} required onChange={(e) => set('reason', e.target.value)} placeholder="Reason and authorizing detail"/></label>

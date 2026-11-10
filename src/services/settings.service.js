@@ -24,7 +24,7 @@ const defaults = {
   inventory: { defaultMinimumStock: 5, defaultReorderQty: 10, lowStockAlerts: true, negativeStock: false },
   attendance: { graceMinutes: 15, overtimeAfterMinutes: 540, locationRequired: false, correctionApproval: true },
   payroll: { payrollDay: 30, overtimeMultiplier: 1.5, managerApproval: true },
-  notifications: { lowStock: true, overdueInvoice: true, jobReady: true, leaveDecision: true, email: false, whatsapp: false, browserPush: true },
+  notifications: { jobCreated: true, jobAssigned: true, jobStatus: true, jobReady: true, lowStock: true, overdueInvoice: true, leaveDecision: true, email: false, whatsapp: false, browserPush: true },
   security: { sessionHours: 12, requireStrongPassword: true, auditExports: true, twoFactor: false },
   integrations: { razorpayEnabled: false, whatsappEnabled: false, emailEnabled: false, webhookUrl: '' }
 };

@@ -50,6 +50,8 @@ import './styles/workspace-responsive-polish.css';
 // Connection banner CSS must precede the final global typography/form layers.
 import './styles/backend-connection.css';
 import './styles/responsive-typography.css';
+// Ensure product branding is scoped and loaded before final form/typography layers.
+import './styles/cubixgear-branding.css';
 // Last shared layers: preserve regular text and a single clean search border.
 import './styles/form-typography.css';
 import './styles/form-controls-unified.css';

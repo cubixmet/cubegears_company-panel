@@ -10,6 +10,7 @@ import {
 import { notificationInboxService } from '../../services/notificationInbox.service';
 import { normalizeNotification, unreadNotificationCount } from '../../utils/notificationInbox';
 import { useNavigate } from 'react-router-dom';
+import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import {
   NotificationStats,
   NotificationToolbar,
@@ -18,9 +19,9 @@ import {
 import '../../styles/notifications.css';
 
 const service = notificationInboxService;
-const categories = ['All', 'Customer Responses', 'Operational', 'Approvals & People', 'Finance', 'Stock', 'Website & Account'];
+const categories = ['All', 'New Vehicles', 'Assignments', 'Job Updates', 'Customer Responses', 'Operational', 'Approvals & People', 'Finance', 'Stock', 'Website & Account'];
 const priorities = ['All', 'Critical', 'High', 'Normal', 'Low'];
-const iconFor = (category) => ({ Finance: '₹', Stock: 'ST', 'Approvals & People': 'HR', 'Website & Account': 'AC', 'Customer Responses': 'EST' })[category] || 'OP';
+const iconFor = (category) => ({ Finance: '₹', Stock: 'ST', 'Approvals & People': 'HR', 'Website & Account': 'AC', 'Customer Responses': 'EST', 'New Vehicles': 'CAR', Assignments: 'JOB', 'Job Updates': 'UP' })[category] || 'OP';
 
 const timeLabel = (value) => {
   if (!value) return '—';
@@ -37,6 +38,7 @@ const timeLabel = (value) => {
 
 export function Notifications() {
   const navigate = useNavigate();
+  const { can } = useFeatureAccess();
   const [rows, setRows] = useState([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
@@ -144,7 +146,8 @@ export function Notifications() {
 
   return (
     <div className="notifications-page">
-      <NotificationsHeader unread={unread} onMarkAll={markAllRead} onRefresh={() => load()} loading={loading} />
+      <NotificationsHeader unread={unread} onMarkAll={markAllRead} onRefresh={() => load()} loading={loading}
+        onSettings={can('settings.view') ? () => navigate('/settings?section=notifications') : undefined} />
 
       <NotificationStats
         unread={unread}

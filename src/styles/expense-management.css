@@ -1496,3 +1496,36 @@ button.expense-data-row {
   .cg-expenses .expense-dashboard-stat-card {padding:11px}
   .cg-expenses .expense-dashboard-tabs button {font-size:11px}
 }
+
+/* Operational expense figures: recorded, actually paid and outstanding. */
+.cg-expenses .expense-dashboard-stats {
+  display: grid; grid-template-columns: repeat(3,minmax(0,1fr));
+  gap: 12px; width: 100%;
+}
+.cg-expenses .expense-dashboard-stat-card { min-width: 0; padding: 15px; border-radius: 12px; }
+.cg-expenses .expense-dashboard-stat-top strong {
+  font-size: clamp(19px,2vw,25px) !important;
+  line-height: 1.35; overflow-wrap: anywhere;
+}
+.cg-expenses .expense-dashboard-stat-card small { font-size: 12px; line-height: 1.5; }
+.cg-expenses .expense-dashboard-header p { font-size: 14px !important; }
+.cg-expenses .expense-dashboard-header h1 { font-size: 23px !important; }
+.cg-expenses .expense-dashboard-tabs button { min-height: 44px; font-size: 14px !important; }
+@media(max-width: 950px) {
+  .cg-expenses .expense-dashboard-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(max-width: 540px) {
+  .cg-expenses .expense-dashboard-stats { grid-template-columns: 1fr; }
+  .cg-expenses .expense-dashboard-stat-card { padding: 12px; }
+}
+
+.cg-expenses :is(input,select,textarea)[aria-invalid="true"] {
+  border: 1px solid #dc2626 !important;
+  box-shadow: 0 0 0 2px rgb(220 38 38 / 12%) !important;
+  background: #fff6f6 !important;
+}
+.cg-expenses .expense-alert[role="alert"],
+.cg-expenses .expense-field [data-cg-field-error="true"] {
+  color: #b91c1c !important;
+  border-color: #ef4444 !important;
+}

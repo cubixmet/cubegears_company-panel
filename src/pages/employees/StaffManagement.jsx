@@ -10,6 +10,7 @@ import { SimpleStaffOverview } from '../staff-management/SimpleStaffOverview';
 import '../../styles/staff-management.css';
 import '../../styles/staff-simple-overview.css';
 import '../../styles/staff-management-readable.css';
+import '../../styles/staff-management-compact.css';
 
 const resolveSection = (pathname) => {
   if (pathname.endsWith('/overview')) return 'overview';
@@ -64,8 +65,8 @@ export const StaffManagement = () => {
           <h1>Staff Overview</h1>
           <p>Current staff records from your workshop database.</p>
         </header>
-      ) : <StaffManagementHeader />}
-      <StaffManagementTabs />
+      ) : activeSection === 'profile' ? null : <StaffManagementHeader />}
+      {activeSection !== 'profile' && <StaffManagementTabs />}
 
       <main className="staff-management-content">
         {renderSection()}

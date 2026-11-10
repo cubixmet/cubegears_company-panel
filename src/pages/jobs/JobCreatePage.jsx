@@ -14,7 +14,7 @@ import { customerService } from '../../services/customer.service';
 import { branchService } from '../../services/branch.service';
 import { JobComplaintEntries } from '../../components/jobs/JobComplaintEntries';
 import { JobCardReview } from '../../components/jobs/JobCardReview';
-import { JOB_COUNTRY_CODES, splitInternationalPhone, joinInternationalPhone, validInternationalPhone, splitVehicleMakeModel, newComplaint, buildJobComplaints } from '../../utils/jobCreateAdapters';
+import { JOB_PHONE_COUNTRIES, splitInternationalPhone, joinInternationalPhone, validInternationalPhone, splitVehicleMakeModel, newComplaint, buildJobComplaints } from '../../utils/jobCreateAdapters';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/job-create-professional.css';
 import { showFormFieldError, showServerFormErrors, findFormField, clearFieldValidation } from '../../utils/formValidation';
@@ -64,6 +64,7 @@ export const JobCreatePage = () => {
   const [uploadedPhotosCount, setUploadedPhotosCount] = useState(0);
   const [staff, setStaff] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+91');
   const [customerVehicles, setCustomerVehicles] = useState([]);
   const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
@@ -100,6 +101,7 @@ export const JobCreatePage = () => {
 
   const chooseCustomer = (customer) => {
     setSelectedCustomer(customer);
+    setPhoneCountryCode(customer?.phone ? splitInternationalPhone(customer.phone).country : '+91');
     setSelectedVehicleId('');
     setCustomerVehicles([]);
     setHistory([]);
@@ -390,7 +392,7 @@ export const JobCreatePage = () => {
 
   const inputClass = 'mt-1 h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-sm font-normal text-content outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/10';
   const labelClass = 'text-xs font-semibold text-secondary';
-  const phoneParts = splitInternationalPhone(form.customerPhone);
+  const phoneParts = splitInternationalPhone(form.customerPhone, phoneCountryCode);
 
   if (createdJob && pendingPhotos.length === 0) {
     return <div className="job-management-page job-create-page" data-job-creation-success>
@@ -448,12 +450,15 @@ export const JobCreatePage = () => {
             <label className={labelClass}>Customer Name *
               <input name="customerName" required readOnly={Boolean(selectedCustomer)} autoComplete="name" value={form.customerName} onChange={(e) => set('customerName', e.target.value)} placeholder="Customer name" className={inputClass}/>
             </label>
-            <PhoneInput label="Phone *" name="customerPhone" required
-              value={phoneParts.national} countryCode={phoneParts.country} countries={JOB_COUNTRY_CODES.map(([code, label]) => ({code, label, flag:''}))}
+            <PhoneInput label="Phone Number" labelPosition="above" name="customerPhone" required
+              value={phoneParts.national} countryCode={phoneParts.country} countries={JOB_PHONE_COUNTRIES}
               readOnly={Boolean(selectedCustomer)} disabled={saving || Boolean(selectedCustomer)}
-              onCountryCodeChange={(code) => set('customerPhone', joinInternationalPhone(code, phoneParts.national))}
+              onCountryCodeChange={(code) => {
+                setPhoneCountryCode(code);
+                set('customerPhone', joinInternationalPhone(code, phoneParts.national));
+              }}
               onChange={(e) => set('customerPhone', joinInternationalPhone(phoneParts.country, e.target.value))}
-              placeholder="9876543210" className="job-create-phone"/>
+              placeholder="Mobile number" className="job-create-phone"/>
             <label className={labelClass}>Email
               <input name="customerEmail" readOnly={Boolean(selectedCustomer)} type="email" autoComplete="email" value={form.customerEmail} onChange={(e) => set('customerEmail', e.target.value)} placeholder="Optional" className={inputClass}/>
             </label>

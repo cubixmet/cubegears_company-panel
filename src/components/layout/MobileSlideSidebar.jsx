@@ -1,3 +1,4 @@
+import { CubixgearLogo } from '../branding/CubixgearLogo';
 import { useEffect, useRef } from "react";
 import { NavLink, useLocation } from 'react-router-dom';
 import { routeConfig, ROUTE_SECTIONS } from '../../routes/routeConfig';
@@ -47,6 +48,8 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
     (route.id !== 'credits' || featureAccess.isCompanyOwner));
   const isRouteActive = (route) => {
     if (route.path === '/dashboard') return location.pathname === '/dashboard';
+    // Customer Website has its own menu item, separate from Settings.
+    if (route.path === '/settings' && location.pathname.startsWith('/settings/customer-website')) return false;
     return location.pathname === route.path || location.pathname.startsWith(`${route.path}/`);
   };
 
@@ -65,7 +68,7 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
       >
         <header className="mobile-drawer-head">
           <div className="mobile-drawer-brand">
-            <span className="mobile-drawer-logo">CG</span>
+            <span className="mobile-drawer-logo" aria-hidden="true"><CubixgearLogo /></span>
             <span className="mobile-drawer-brand-copy">
               <strong>cubixgear</strong>
               <small>Workshop Management</small>
@@ -116,6 +119,7 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
                       <NavLink
                         key={route.id}
                         to={route.path}
+                        end={route.path === '/settings'}
                         onClick={onClose}
                         ref={isActive ? activeItemRef : null}
                         className={`mobile-drawer-item ${isActive ? 'is-active' : ''}`}

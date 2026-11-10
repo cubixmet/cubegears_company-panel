@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { BarChart3, Calendar, CheckCircle2, CircleDollarSign, Edit3, FileText, IndianRupee, Layers3, Receipt, Trash2, Link2, WalletCards } from "lucide-react";
 import { expenseService } from '../../services/expense.service';
+import { ExpenseBudgetPanel } from '../../components/expenses/ExpenseBudgetPanel';
 import { financeService } from '../../services/finance.service';
 import { localDate } from '../../services/expense.mapper';
 import {
@@ -25,9 +26,6 @@ const money = new Intl.NumberFormat('en-IN', {
 });
 
 const expenseCategories = [
-  'Staff Salary',
-  'Daily Wages',
-  'Overtime',
   'Workshop Rent',
   'Electricity',
   'Water',
@@ -63,8 +61,15 @@ const emptyForm = {
   notes: '',
   receiptUrl: '',
   accountId: '',
-  requestKey: globalThis.crypto?.randomUUID?.() || `expense-${Date.now()}-${Math.random()}`
+  budgetItemId: '',
+  requestKey: ''
 };
+
+const freshExpenseForm = () => ({
+  ...emptyForm,
+  expenseDate: today(),
+  requestKey: globalThis.crypto?.randomUUID?.() || `expense-${Date.now()}-${Math.random()}`,
+});
 
 const Metric = ({ label, value, icon: Icon, tone = 'primary', note }) => (
   <article className="expense-metric-card">
@@ -92,7 +97,9 @@ const ExpenseForm = ({
   onCancel,
   submitting,
   error,
-  accounts = []
+  accounts = [],
+  budgetItems = [],
+  budgetError = ''
 }) => (
   <div className="expense-form-page cg-expenses">
     <header className="expense-form-header">
@@ -118,13 +125,28 @@ const ExpenseForm = ({
 
         <div className="expense-form-grid">
           <Field label="Expense Date">
-            <input type="date" required value={values.expenseDate} onChange={(e)=>setValues({...values,expenseDate:e.target.value})}/>
+            <input type="date" required value={values.expenseDate} onChange={(e)=>setValues({...values,expenseDate:e.target.value,budgetItemId:''})}/>
           </Field>
 
           <Field label="Category">
-            <select value={values.category} onChange={(e)=>setValues({...values,category:e.target.value})}>
+            <select value={values.category} onChange={(e)=>setValues({...values,category:e.target.value,budgetItemId:''})}>
               {expenseCategories.map((category)=><option key={category}>{category}</option>)}
             </select>
+          </Field>
+
+          <Field label="Monthly Budget Item (optional)">
+            <select value={values.budgetItemId || ''}
+              onChange={e => setValues({ ...values, budgetItemId: e.target.value })}>
+              <option value="">Unbudgeted expense</option>
+              {budgetItems.filter(item => item.isActive && item.category === values.category &&
+                item.month === values.expenseDate.slice(0, 7)).map(item => (
+                <option value={item.id} key={item.id}>
+                  {item.name} (₹{Number(item.remainingAmount).toLocaleString('en-IN')} remaining)
+                </option>
+              ))}
+            </select>
+            <small>Budget use increases when the expense is approved. Paying it later only reduces the chosen Cash/Bank balance.</small>
+            {budgetError && <small role="alert">{budgetError}</small>}
           </Field>
 
           <Field label="Expense Title" wide>
@@ -243,6 +265,8 @@ export const ExpenseList = () => {
 
   const [expenses, setExpenses] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [budgetItems, setBudgetItems] = useState([]);
+  const [budgetError, setBudgetError] = useState('');
   const [linkedSupplierTotals, setLinkedSupplierTotals] = useState(null);
   const [linkedSupplierError, setLinkedSupplierError] = useState('');
   const canViewSupplierAccounting = hasPermission(user, 'payments.view') && hasPermission(user, 'stock.view');
@@ -272,7 +296,7 @@ export const ExpenseList = () => {
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [form, setForm] = useState(() => ({ ...emptyForm, expenseDate: today() }));
+  const [form, setForm] = useState(freshExpenseForm);
 
   const load = async () => {
     setLoading(true);
@@ -300,6 +324,21 @@ export const ExpenseList = () => {
   }, [canEdit]);
 
   useEffect(() => {
+    if (!isNew && !isEdit) return undefined;
+    let alive = true;
+    const month = String(form.expenseDate || today()).slice(0, 7);
+    expenseService.getExpenseBudgets(month).then(rows => {
+      if (alive) { setBudgetItems(rows); setBudgetError(''); }
+    }).catch(err => {
+      if (alive) {
+        setBudgetItems([]);
+        setBudgetError(err?.message || 'Unable to load monthly budget items.');
+      }
+    });
+    return () => { alive = false; };
+  }, [isNew, isEdit, form.expenseDate]);
+
+  useEffect(() => {
     if (!isEdit || !id || !expenses.length) return;
     const expense = expenses.find((item)=>String(item.id)===String(id));
     if (!expense) return;
@@ -316,6 +355,7 @@ export const ExpenseList = () => {
       notes: expense.notes || '',
       receiptUrl: expense.receiptUrl || '',
       accountId: expense.accountId || '',
+      budgetItemId: expense.budgetItemId || '',
       requestKey: ''
     });
   }, [isEdit, id, expenses]);
@@ -386,6 +426,7 @@ export const ExpenseList = () => {
       } else {
         const created = await expenseService.createExpense(payload);
         if (created?.id) setExpenses((current) => [created, ...current]);
+        setForm(freshExpenseForm());
         navigate(created?.id ? `/expenses/${created.id}` : '/expenses');
       }
     } catch (error) {
@@ -464,6 +505,8 @@ export const ExpenseList = () => {
         submitting={submitting}
         error={actionError}
         accounts={accounts}
+        budgetItems={budgetItems}
+        budgetError={budgetError}
       />
     );
   }
@@ -480,6 +523,8 @@ export const ExpenseList = () => {
         submitting={submitting}
         error={actionError}
         accounts={accounts}
+        budgetItems={budgetItems}
+        budgetError={budgetError}
       />
     );
   }
@@ -675,11 +720,18 @@ export const ExpenseList = () => {
         currentMonthTotal={currentMonthRows.reduce((sum,item)=>sum+item.amount,0)}
         approvedTotal={approvedRows.reduce((sum,item)=>sum+item.amount,0)}
         pendingCount={pendingRows.length}
-        todayTotal={todayRows.reduce((sum,item)=>sum+item.amount,0)}
+        todayTotal={todayRows.reduce((sum,item)=>sum+Number(item.amount || 0),0)}
+        paidTotal={expenses.reduce((sum,item)=>sum+Number(item.paidAmount || 0),0)}
+        outstandingTotal={expenses.filter(item=>!['draft','rejected','cancelled'].includes(item.status))
+          .reduce((sum,item)=>sum+Number(item.balanceDue ?? Math.max(0,Number(item.amount || 0)-Number(item.paidAmount || 0))),0)}
         formatMoney={(value)=>money.format(value || 0)}
       />
 
       <ExpenseTabs active={activeView} onChange={setActiveView} />
+
+      {activeView === 'budgets' ? (
+        <ExpenseBudgetPanel categories={expenseCategories} canEdit={canEdit} />
+      ) : null}
 
       {activeView === 'overview' ? (
         <ExpenseOverview

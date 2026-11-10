@@ -1,3 +1,4 @@
+import { CubixgearLogo } from '../branding/CubixgearLogo';
 import { useEffect, useRef, useState } from "react";
 import { Bell, BellRing, CalendarDays, ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -192,7 +193,7 @@ export const Header = () => {
       <div className="mobile-header">
         <div className="mobile-header-row">
           <button type="button" className="mobile-brand" onClick={() => navigate(homePath)} aria-label="Go to workspace">
-            <span>CG</span>
+            <span className="mobile-brand-icon" aria-hidden="true"><CubixgearLogo /></span>
             <span className="mobile-brand-copy">
               <strong>cubixgear</strong>
               <small>{pageTitle}</small>

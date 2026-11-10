@@ -31,3 +31,59 @@
 .vehicle-camera-lightbox-caption{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 12px;text-align:center;color:#f8fafc;font-size:13px;line-height:1.5;overflow-wrap:anywhere}
 @media(min-width:768px) and (max-width:1100px){.vehicle-camera-queue-grid,.vehicle-photo-gallery-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:767px){.vehicle-camera-queue,.vehicle-photo-gallery{padding:12px}.vehicle-camera-queue-grid,.vehicle-photo-gallery-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}}
+
+/* Staff-only upload actions on existing vehicle and job galleries. */
+.vehicle-photo-gallery .vehicle-camera-heading>div:first-child{min-width:0}
+.vehicle-photo-gallery .vehicle-photo-add-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.vehicle-photo-gallery .vehicle-gallery-upload-label{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  gap:8px;padding:10px 14px;min-height:44px;max-width:100%;
+  border:1px solid var(--border);border-radius:10px;background:var(--surface-2);
+  color:var(--text-primary);font-size:14px;font-weight:700;cursor:pointer
+}
+.vehicle-photo-gallery .vehicle-gallery-upload-label input{
+  position:absolute;inset:0;width:100%;height:100%;
+  opacity:0;cursor:pointer;font-size:0
+}
+.vehicle-photo-gallery .vehicle-gallery-upload-label:focus-within{
+  outline:3px solid var(--primary);outline-offset:2px
+}
+.vehicle-photo-gallery .vehicle-gallery-upload-label:has(input:disabled){opacity:.6;cursor:not-allowed}
+.vehicle-photo-gallery .vehicle-gallery-upload-metadata{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;min-width:0
+}
+.vehicle-photo-gallery .vehicle-gallery-upload-metadata label{
+  display:grid;gap:7px;min-width:0;font-size:13px;
+  color:var(--text-secondary);font-weight:650
+}
+.vehicle-photo-gallery .vehicle-gallery-upload-metadata :is(input,select){
+  min-width:0;width:100%;max-width:100%;min-height:44px;
+  border:1px solid var(--border);border-radius:10px;padding:9px 11px;
+  background:var(--surface-2);color:var(--text-primary);font-size:16px
+}
+.vehicle-photo-gallery-progress{font-size:14px;color:var(--text-secondary);margin:0;line-height:1.5}
+@media(max-width:650px){
+  .vehicle-photo-gallery .vehicle-photo-add-actions{width:100%}
+  .vehicle-photo-gallery .vehicle-photo-add-actions>*{flex:1 1 130px;min-width:0}
+  .vehicle-photo-gallery .vehicle-gallery-upload-metadata{grid-template-columns:minmax(0,1fr)}
+  .vehicle-photo-gallery .vehicle-gallery-upload-label{width:100%}
+}
+@media(max-width:380px){
+  .vehicle-photo-gallery .vehicle-photo-add-actions>*{flex-basis:100%}
+}
+
+/* The inspection publishing choice is ON for new job photos and opt-out.
+   Keep regular vehicle uploads private until explicitly chosen. */
+.vehicle-photo-gallery .vehicle-gallery-upload-metadata .vehicle-photo-upload-publish{
+  grid-column:1/-1;display:flex;align-items:center;gap:10px;
+  min-height:48px;border:1px solid var(--border);border-radius:11px;
+  padding:11px 13px;background:var(--surface-2);
+  font-size:14px;color:var(--text-primary);cursor:pointer
+}
+.vehicle-photo-gallery .vehicle-photo-upload-publish input[type=checkbox]{
+  width:20px;min-width:20px;height:20px;min-height:20px;
+  margin:0;accent-color:var(--primary)
+}
+.vehicle-photo-gallery .vehicle-photo-upload-publish:focus-within{
+  outline:2px solid var(--primary);outline-offset:2px
+}

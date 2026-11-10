@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
 import { API_BASE_URL } from '../../api/apiConfig';
+import { getStaffLandingPath } from '../../utils/staffLanding';
 import '../../styles/login-system.css';
 import '../../styles/auth-recovery.css';
 
@@ -33,6 +34,7 @@ export default function StaffSetPasswordPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [landingPath, setLandingPath] = useState('/login');
 
   useEffect(() => {
     if (!token) { setState('invalid'); return; }
@@ -68,10 +70,36 @@ export default function StaffSetPasswordPage() {
     }
     setSaving(true);
     try {
-      await publicPasswordRequest('consume', { token, password, confirmPassword: confirm });
+      const result = await publicPasswordRequest('consume', { token, password, confirmPassword: confirm });
       setPassword('');
       setConfirm('');
-      setState('success');
+
+      const accessToken = result?.access;
+      const refreshToken = result?.refresh;
+      const user = result?.user;
+      // A password may be saved for a restricted account without granting
+      // access. Require the complete Django-verified JWT session; unlike
+      // legacy owner accounts, mobile-only staff need not have an email.
+      if (typeof accessToken !== 'string' || !accessToken ||
+          typeof refreshToken !== 'string' || !refreshToken ||
+          !user?.id || !(user?.phone || user?.email)) {
+        setState('success');
+        return;
+      }
+
+      // Replace any older user's saved login rather than mixing sessions.
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_refresh_token');
+      localStorage.removeItem('auth_user');
+      localStorage.setItem('auth_token', accessToken);
+      localStorage.setItem('auth_refresh_token', refreshToken);
+      localStorage.setItem('auth_user', JSON.stringify(user));
+
+      const destination = getStaffLandingPath(user);
+      setLandingPath(destination);
+      setState('signed-in');
+      // Full navigation remounts AuthProvider and rechecks /auth/me.
+      window.location.replace(destination);
     } catch (cause) {
       setError(cause?.message || 'Could not set password.');
     } finally {
@@ -93,11 +121,17 @@ export default function StaffSetPasswordPage() {
             <p role="alert" className="login-description">This secure link has expired, was already used, or was replaced. Ask your workshop administrator to resend it.</p>
             <Link className="login-submit" to="/login">Go to Login</Link>
           </>}
-          {state === 'success' && <div className="auth-success-state">
+          {(state === 'success' || state === 'signed-in') && <div className="auth-success-state">
             <CheckCircle2 size={32} aria-hidden="true"/>
             <h1 className="login-title">Password created</h1>
-            <p className="login-description">You can now sign in using your registered mobile number with country code and your password.</p>
-            <Link className="login-submit" to="/login">Continue to Login</Link>
+            <p className="login-description">
+              {state === 'signed-in'
+                ? 'Signing you in securely and opening your workshop…'
+                : 'Your password is saved. Sign in with your registered mobile number and password, or contact your workshop administrator if access is restricted.'}
+            </p>
+            {state === 'signed-in'
+              ? <a className="login-submit" href={landingPath}>Continue to Workspace</a>
+              : <Link className="login-submit" to="/login">Continue to Login</Link>}
           </div>}
           {state === 'ready' && <>
             <h1 className="login-title">{purpose === 'reset' ? 'Reset your password' : 'Set your account password'}</h1>
@@ -113,7 +147,9 @@ export default function StaffSetPasswordPage() {
                     onChange={(event) => setPassword(event.target.value)} required/>
                   <button type="button" className="login-password-toggle"
                     onClick={() => setShowPassword((value) => !value)}
-                    aria-label={showPassword ? 'Hide new password' : 'Show new password'}>
+                    aria-label={showPassword ? 'Hide new password' : 'Show new password'}
+                    aria-pressed={showPassword}
+                    title={showPassword ? 'Hide new password' : 'Show new password'}>
                     {showPassword ? <EyeOff size={17}/> : <Eye size={17}/>}
                   </button>
                 </div>
@@ -126,7 +162,9 @@ export default function StaffSetPasswordPage() {
                     onChange={(event) => setConfirm(event.target.value)} required/>
                   <button type="button" className="login-password-toggle"
                     onClick={() => setShowConfirm((value) => !value)}
-                    aria-label={showConfirm ? 'Hide confirmation' : 'Show confirmation'}>
+                    aria-label={showConfirm ? 'Hide confirmation' : 'Show confirmation'}
+                    aria-pressed={showConfirm}
+                    title={showConfirm ? 'Hide confirmation' : 'Show confirmation'}>
                     {showConfirm ? <EyeOff size={17}/> : <Eye size={17}/>}
                   </button>
                 </div>

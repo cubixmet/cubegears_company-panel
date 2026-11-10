@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, CheckCircle2, ShieldCheck } from "lucide-react";
+import { CheckCircle2, ShieldCheck } from "lucide-react";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { resourceConfigs } from '../operations/resourceConfigs';
 import { billingService, calculateDocumentTotals } from '../../services/billing.service';
@@ -285,9 +285,7 @@ export function PaymentList() {
               </button>
             </div>
           </div>
-          <button type="button" className="payments-secondary-btn" onClick={() => navigate('/payments')}>
-            <ArrowLeft size={16} aria-hidden="true" /> Back to Payments
-          </button>
+
         </header>
 
         {error && <div className="payments-error" role="alert">{error}</div>}
@@ -434,9 +432,7 @@ export function PaymentList() {
             <h1>{record?.receiptNo || 'Payment Details'}</h1>
             <p>Saved payment information and invoice reference.</p>
           </div>
-          <button type="button" className="payments-secondary-btn" onClick={() => navigate('/payments')}>
-            <ArrowLeft size={16} aria-hidden="true"/> Back to Payments
-          </button>
+
         </header>
         {error && <div className="payments-error" role="alert">{error}</div>}
         {loading ? <div className="payments-empty">Loading payment…</div> : record ? (

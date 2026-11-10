@@ -111,6 +111,7 @@ export const AppRoutes = () => (
       <Route path="/my-attendance/leave" element={<MyAttendance />} />
       <Route path="/my-attendance/overtime" element={<MyAttendance />} />
       <Route path="/my-attendance/summary" element={<MyAttendance />} />
+      <Route path="/my-attendance/salary" element={<Navigate to="/my-attendance/calendar" replace />} />
 
       <Route path="/attendance-manager" element={<Navigate to="/attendance-manager/overview" replace />} />
       <Route path="/attendance-manager/overview" element={<AttendanceManager />} />

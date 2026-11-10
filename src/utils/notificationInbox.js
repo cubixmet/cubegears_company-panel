@@ -20,7 +20,13 @@ export const normalizeNotification = (row = {}) => {
   const type = String(row.notification_type || row.notificationType || '');
   const attendanceAlert = type.startsWith('attendance_');
   const estimateResponse = isCustomerEstimateResponse(row);
-  const priority = row.priority ||
+  const jobCategories = {
+    job_created: 'New Vehicles',
+    job_assigned: 'Assignments',
+    job_status_changed: 'Job Updates',
+    job_ready: 'Job Updates',
+  };
+  const priority = row.priority || data.priority ||
     (estimateResponse || ['attendance_leave_request', 'attendance_overtime_request',
       'attendance_missing_punch'].includes(type) ? 'High' : 'Normal');
 
@@ -37,9 +43,9 @@ export const normalizeNotification = (row = {}) => {
     description: typeof row.description === 'string'
       ? row.description : String(row.message || ''),
     category: estimateResponse ? 'Customer Responses'
-      : row.category || (attendanceAlert ? 'Approvals & People' : 'Operational'),
+      : jobCategories[type] || row.category || (attendanceAlert ? 'Approvals & People' : 'Operational'),
     priority,
-    reference: row.reference || (estimateResponse ? data.jobNumber : '') ||
+    reference: row.reference || data.jobNumber ||
       data.requestId || data.recordId || '',
     status: isNotificationUnread(row) ? 'Unread' : 'Read',
     created: row.created || row.created_at || row.createdAt || '',

@@ -15,6 +15,7 @@ export const hasFreeWorkspace = (access) => Boolean(
     || (access.freeModules.includes('staff') && access.permissions.includes('staff.view'))
     || (access.freeModules.includes('settings') && access.permissions.includes('settings.view'))
     || (access.freeModules.includes('roles') && access.permissions.includes('company.manage'))
+    || access.permissions.includes('attendance.self')
   )
 );
 

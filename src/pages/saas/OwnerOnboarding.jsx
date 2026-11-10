@@ -46,6 +46,18 @@ const STEPS = [
     ],
   },
   {
+    key: 'bank', title: 'Bank & opening balance', subtitle: 'Connect an existing bank or add a new one (optional)',
+    fields: [
+      ['name', 'Account display name', 'text', true],
+      ['bankName', 'Bank name', 'text', true],
+      ['accountNumber', 'Bank account number', 'text'],
+      ['ifsc', 'IFSC / routing code', 'text'],
+      ['branchName', 'Bank branch', 'text'],
+      ['openingBalance', 'Opening balance (₹)', 'number'],
+      ['openingDate', 'Opening balance date', 'date'],
+    ],
+  },
+  {
     key: 'billing', title: 'Invoice defaults', subtitle: 'Set payment terms and tax defaults for new invoices',
     fields: [
       ['invoicePrefix', 'Invoice Number Prefix', 'text', true],
@@ -58,8 +70,29 @@ const STEPS = [
 
 const integerFields = new Set(['punchRadiusMeters', 'bookingSlotMinutes', 'paymentTermsDays']);
 const numberFields = new Set(['latitude', 'longitude', 'defaultTaxRate']);
+const LOCATION_FIELDS = new Set(['latitude', 'longitude', 'punchRadiusMeters']);
+const PUNCH_RADIUS_OPTIONS = [50, 100, 150, 200, 300, 500, 1000];
 
 const apiDataFor = (step, draft) => {
+  if (step.key === 'bank') {
+    if (draft?.configured) return { mode: 'existing', accountId: draft.accountId };
+    const mode = draft?.mode || 'new';
+    if (mode === 'skip') return { mode: 'skip' };
+    if (mode === 'existing') {
+      return { mode: 'existing', accountId: draft?.selectedAccountId || '' };
+    }
+    // Never send a masked account number from snapshot back as raw bank data.
+    return {
+      mode: 'new',
+      name: String(draft?.name || '').trim(),
+      bankName: String(draft?.bankName || '').trim(),
+      accountNumber: String(draft?.accountNumber || '').trim(),
+      ifsc: String(draft?.ifsc || '').trim(),
+      branchName: String(draft?.branchName || '').trim(),
+      openingBalance: draft?.openingBalance === '' ? '0.00' : String(draft?.openingBalance ?? '0.00'),
+      openingDate: draft?.openingDate || null,
+    };
+  }
   const values = {};
   for (const [name, , type] of step.fields) {
     const input = draft?.[name];
@@ -94,10 +127,29 @@ export function OwnerOnboarding() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [logoFile, setLogoFile] = useState(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState('');
+  const [savedLogoUrl, setSavedLogoUrl] = useState('');
+  const [logoVersion, setLogoVersion] = useState(0);
+  const [locating, setLocating] = useState(false);
+  const [locationError, setLocationError] = useState('');
+  const [locationAccuracy, setLocationAccuracy] = useState(null);
+  const locationRequestRef = useRef(0);
   const firstField = useRef(null);
+  const previousActive = useRef(active);
   const current = STEPS[active];
   const completed = useMemo(() => new Set(state?.completedSteps || []), [state]);
   const completedCount = completed.size;
+  const branchDraft = drafts.branch || {};
+  const hasWorkshopLocation = (
+    branchDraft.latitude !== null && branchDraft.latitude !== undefined &&
+    String(branchDraft.latitude).trim() !== '' &&
+    branchDraft.longitude !== null && branchDraft.longitude !== undefined &&
+    String(branchDraft.longitude).trim() !== ''
+  );
+  const radius = Number(branchDraft.punchRadiusMeters ?? 100);
+  const radiusChoices = PUNCH_RADIUS_OPTIONS.includes(radius)
+    ? PUNCH_RADIUS_OPTIONS
+    : [...PUNCH_RADIUS_OPTIONS, radius].sort((a, b) => a - b);
 
   const load = async () => {
     setLoading(true);
@@ -105,7 +157,13 @@ export function OwnerOnboarding() {
     try {
       const result = await onboardingService.get();
       setState(result);
-      setDrafts(Object.fromEntries(STEPS.map(({ key }) => [key, result[key] || {}])));
+      setDrafts(Object.fromEntries(STEPS.map(({ key }) => [
+        key,
+        key === 'bank'
+          ? { ...(result.bank || {}), mode: result.bank?.skipped ? 'skip' : 'new',
+              selectedAccountId: '' }
+          : result[key] || {},
+      ])));
       const next = STEPS.findIndex(({ key }) => !(result.completedSteps || []).includes(key));
       setActive(next < 0 ? 0 : next);
     } catch (cause) {
@@ -116,6 +174,119 @@ export function OwnerOnboarding() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Ignore GPS callbacks after this page unmounts (or a newer request starts).
+  useEffect(() => () => { locationRequestRef.current += 1; }, []);
+
+  const locateWorkshop = () => {
+    if (!window.isSecureContext || !navigator.geolocation) {
+      setLocationError('Location access needs HTTPS or localhost and a browser with location services.');
+      return;
+    }
+    const requestId = ++locationRequestRef.current;
+    setLocating(true);
+    setLocationError('');
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        if (locationRequestRef.current !== requestId) return;
+        const { latitude, longitude, accuracy } = coords;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+            Math.abs(latitude) > 90 || Math.abs(longitude) > 180) {
+          setLocationError('The device returned an invalid location. Please try again.');
+          setLocating(false);
+          return;
+        }
+        setDrafts(previous => ({
+          ...previous,
+          branch: {
+            ...(previous.branch || {}),
+            latitude: latitude.toFixed(6),
+            longitude: longitude.toFixed(6),
+            punchRadiusMeters: previous.branch?.punchRadiusMeters ?? 100,
+          },
+        }));
+        setLocationAccuracy(Number.isFinite(accuracy) ? Math.round(accuracy) : null);
+        setLocating(false);
+      },
+      (locationFailure) => {
+        if (locationRequestRef.current !== requestId) return;
+        const errors = {
+          1: 'Location permission was denied. Allow location access in your browser settings and retry.',
+          2: 'Your device could not determine its location. Check location services and retry.',
+          3: 'Location request timed out. Move to an area with better GPS reception and retry.',
+        };
+        setLocationError(errors[locationFailure?.code] || 'Unable to read your location. Please retry.');
+        setLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+    );
+  };
+
+  const clearWorkshopLocation = () => {
+    locationRequestRef.current += 1;
+    setLocating(false);
+    setLocationError('');
+    setLocationAccuracy(null);
+    setDrafts(previous => ({
+      ...previous,
+      branch: { ...(previous.branch || {}), latitude: null, longitude: null },
+    }));
+  };
+
+  // Browser object URLs keep large logo files out of React state and are
+  // revoked as soon as the selected file changes or the page unmounts.
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreviewUrl('');
+      return undefined;
+    }
+    const previewUrl = URL.createObjectURL(logoFile);
+    setLogoPreviewUrl(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [logoFile]);
+
+  // Existing uploaded logos are private; fetch via the authenticated Django
+  // endpoint instead of constructing a public media URL.
+  useEffect(() => {
+    if (!state?.logoAvailable) {
+      setSavedLogoUrl('');
+      return undefined;
+    }
+    let activeRequest = true;
+    let objectUrl = '';
+    settingsService.getCompanyLogo()
+      .then((blob) => {
+        if (!activeRequest || !(blob instanceof Blob)) return;
+        objectUrl = URL.createObjectURL(blob);
+        setSavedLogoUrl(objectUrl);
+      })
+      .catch(() => {
+        if (activeRequest) setSavedLogoUrl('');
+      });
+    return () => {
+      activeRequest = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [state?.logoAvailable, logoVersion]);
+
+  // The wizard is a full-screen route outside the DashboardLayout scroll area.
+  // Bring the newly selected step into view only when changing steps, not on
+  // initial render (where the registration summary should remain visible).
+  useEffect(() => {
+    if (previousActive.current !== active) {
+      firstField.current?.scrollIntoView?.({
+        behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    }
+    previousActive.current = active;
+  }, [active]);
+
+  useEffect(() => {
+    if (error && state) {
+      firstField.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    }
+  }, [error, state]);
 
   const updateGstExemption = (checked) => {
     setDrafts(previous => ({
@@ -144,14 +315,20 @@ export function OwnerOnboarding() {
       if (current.key === 'company' && logoFile) {
         await settingsService.uploadCompanyLogo(logoFile);
         setLogoFile(null);
+        setLogoVersion(version => version + 1);
         next = await onboardingService.get();
       }
       setState(next);
-      setDrafts(previous => ({ ...previous, [current.key]: next[current.key] || previous[current.key] }));
+      setDrafts(previous => ({
+        ...previous,
+        [current.key]: current.key === 'bank'
+          ? { ...(next.bank || {}), mode: next.bank?.skipped ? 'skip' : 'new',
+              selectedAccountId: '' }
+          : next[current.key] || previous[current.key],
+      }));
       const missing = STEPS.findIndex(step => !next.completedSteps.includes(step.key));
       if (missing >= 0) {
         setActive(missing);
-        firstField.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
       } else {
         const finished = await onboardingService.complete();
         setState(finished);
@@ -174,14 +351,16 @@ export function OwnerOnboarding() {
     </section></main>;
   }
 
-  if (loading) return <main className="cg-setup"><section className="cg-setup-card" role="status">
-    Loading workshop setup…
+  if (loading) return <main className="cg-setup"><section className="cg-setup-card" role="status" aria-live="polite">
+    <h1>Loading workshop setup…</h1>
+    <p>Connecting to your workshop account and retrieving saved details.</p>
   </section></main>;
 
   if (!state) return <main className="cg-setup"><section className="cg-setup-card">
     <h1>Unable to open workshop setup</h1>
     <p role="alert">{error}</p>
-    <button type="button" onClick={load}>Retry</button>
+    <p>Check your Django backend connection. Your existing workshop data has not been changed.</p>
+    <button type="button" onClick={load}>Retry loading setup</button>
   </section></main>;
 
   return (
@@ -242,7 +421,8 @@ export function OwnerOnboarding() {
           </p>}
           <form onSubmit={submit}>
             <div className="cg-setup-fields">
-              {current.fields.map(([key, label, type, required]) => (
+              {current.fields.filter(([key]) => current.key !== 'bank' &&
+                (current.key !== 'branch' || !LOCATION_FIELDS.has(key))).map(([key, label, type, required]) => (
                 <label key={key} className={type === 'textarea' ? 'cg-setup-wide' : ''}>
                   <span className="cg-setup-label">{label}{required && !(key === 'gstin' && drafts.company?.gstNotRegistered) ? ' *' : ''}</span>
                   {type === 'textarea' ? (
@@ -268,19 +448,171 @@ export function OwnerOnboarding() {
               <input type="checkbox" name="gstNotRegistered"
                 checked={Boolean(drafts.company?.gstNotRegistered)}
                 onChange={event => updateGstExemption(event.target.checked)}/>
-              <span><strong>No GST registration</strong>
+              <span className="cg-setup-gst-copy">
+                <strong>No GST registration</strong>
                 <small>Tick if your workshop does not have a GSTIN. Otherwise enter a valid 15-character GSTIN above.</small>
               </span>
             </label>}
-            {current.key === 'branch' && <p className="cg-setup-help">
-              <MapPin size={16}/> GPS coordinates are optional. Provide both latitude and longitude to configure location-aware attendance. Accuracy depends on the staff device.
-            </p>}
-            {current.key === 'company' && <label className="cg-setup-logo">
-              <ImagePlus size={20}/><span>Workshop logo (optional) {state.logoAvailable ? '· Uploaded' : ''}</span>
-              <input type="file" accept="image/png,image/jpeg,image/webp"
-                onChange={e => setLogoFile(e.target.files?.[0] || null)}/>
-              {logoFile && <small>Selected: {logoFile.name}</small>}
-            </label>}
+            {current.key === 'branch' && <div className="cg-setup-location">
+              <div className="cg-setup-location-heading">
+                <MapPin size={19} aria-hidden="true"/>
+                <div>
+                  <strong>Workshop location</strong>
+                  <p>Capture the GPS location while you are physically at the workshop. No coordinates to type.</p>
+                </div>
+              </div>
+              <div className="cg-setup-location-actions">
+                <button type="button" className="cg-setup-locate" onClick={locateWorkshop}
+                  disabled={locating || saving} aria-busy={locating}>
+                  <MapPin size={17} aria-hidden="true"/>
+                  {locating ? 'Detecting location…' : hasWorkshopLocation ? 'Update current location' : 'Use current location'}
+                </button>
+                {hasWorkshopLocation && (
+                  <button type="button" className="cg-setup-clear-location"
+                    onClick={clearWorkshopLocation} disabled={locating || saving}>
+                    Clear location
+                  </button>
+                )}
+              </div>
+              {locationError && <p className="cg-setup-location-error" role="alert">{locationError}</p>}
+              <div className="cg-setup-location-status" role="status" aria-live="polite">
+                {hasWorkshopLocation ? (
+                  <>
+                    <strong>Location selected</strong>
+                    <span>Latitude: {branchDraft.latitude} · Longitude: {branchDraft.longitude}</span>
+                    {locationAccuracy !== null && <small>Device accuracy: approximately {locationAccuracy} m</small>}
+                    <small>Press Save &amp; continue below to store this location.</small>
+                  </>
+                ) : (
+                  <span>Location not selected. GPS is optional; you can save this step without it.</span>
+                )}
+              </div>
+              <label className="cg-setup-radius" htmlFor="cg-punch-radius">
+                <span className="cg-setup-label">Attendance punch radius</span>
+                <select id="cg-punch-radius" name="punchRadiusMeters" value={String(radius)}
+                  onChange={event => update('punchRadiusMeters', event.target.value)}>
+                  {radiusChoices.map(value => (
+                    <option value={value} key={value}>{value} metres</option>
+                  ))}
+                </select>
+                <small>Staff must be within this distance of the saved workshop location to punch attendance.</small>
+              </label>
+            </div>}
+            {current.key === 'company' && <div className="cg-setup-logo">
+              <div className="cg-setup-logo-picker">
+                <label className="cg-setup-logo-title" htmlFor="cg-workshop-logo">
+                  <ImagePlus size={20} aria-hidden="true"/>
+                  <span>Workshop logo (optional) {state.logoAvailable ? '· Uploaded' : ''}</span>
+                </label>
+                <p className="cg-setup-logo-hint">PNG, JPG or WEBP image</p>
+                <input id="cg-workshop-logo" type="file" accept="image/png,image/jpeg,image/webp"
+                  onChange={e => {
+                    const nextFile = e.target.files?.[0] || null;
+                    if (nextFile && !['image/png', 'image/jpeg', 'image/webp'].includes(nextFile.type)) {
+                      setError('Choose a PNG, JPG or WEBP logo image.');
+                      setLogoFile(null);
+                      e.target.value = '';
+                      return;
+                    }
+                    setLogoFile(nextFile);
+                    setError('');
+                  }}/>
+                {logoFile && <small className="cg-setup-logo-selected">Selected: {logoFile.name}</small>}
+              </div>
+              {(logoPreviewUrl || savedLogoUrl) && (
+                <div className="cg-setup-logo-preview" role="status">
+                  <img src={logoPreviewUrl || savedLogoUrl}
+                    alt={logoPreviewUrl ? 'Selected workshop logo preview' : 'Saved workshop logo preview'}/>
+                  <span>{logoPreviewUrl ? 'New logo preview' : 'Saved logo'}</span>
+                </div>
+              )}
+            </div>}
+            {current.key === 'bank' && (
+              <section className="cg-setup-bank" aria-label="Bank account setup">
+                {drafts.bank?.configured ? (
+                  <div className="cg-setup-bank-saved" role="status">
+                    <Check size={20} aria-hidden="true"/>
+                    <div>
+                      <strong>{drafts.bank.name}</strong>
+                      <p>{drafts.bank.bankName} · {drafts.bank.accountNumberMasked || 'Account number not provided'}</p>
+                      <p>Opening balance: ₹{drafts.bank.openingBalance}</p>
+                      <small>Saved in Finance Accounts. Manage later changes there to preserve your accounting history.</small>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="cg-setup-bank-intro">
+                      Add your workshop bank account and its starting balance.
+                      This is for internal accounting, not a bank connection. You may skip and add it later.
+                    </p>
+                    <div className="cg-setup-bank-modes" role="group" aria-label="Bank setup choice">
+                      <label>
+                        <input type="radio" name="bankMode" value="new"
+                          checked={(drafts.bank?.mode || 'new') === 'new'}
+                          onChange={() => update('mode', 'new')}/>
+                        Add bank account
+                      </label>
+                      {(drafts.bank?.availableAccounts?.length > 0) && (
+                        <label>
+                          <input type="radio" name="bankMode" value="existing"
+                            checked={drafts.bank?.mode === 'existing'}
+                            onChange={() => update('mode', 'existing')}/>
+                          Use existing bank
+                        </label>
+                      )}
+                      <label>
+                        <input type="radio" name="bankMode" value="skip"
+                          checked={drafts.bank?.mode === 'skip'}
+                          onChange={() => update('mode', 'skip')}/>
+                        Skip for now
+                      </label>
+                    </div>
+                    {(drafts.bank?.mode || 'new') === 'new' && (
+                      <div className="cg-setup-fields cg-setup-bank-fields">
+                        {current.fields.map(([key, label, type, required]) => (
+                          <label key={key}>
+                            <span className="cg-setup-label">{label}{required ? ' *' : ''}</span>
+                            <input name={key} type={type}
+                              required={Boolean(required)}
+                              min={key === 'openingBalance' ? '0' : undefined}
+                              step={key === 'openingBalance' ? '0.01' : undefined}
+                              autoComplete={key === 'accountNumber' ? 'off' : undefined}
+                              value={drafts.bank?.[key] ?? (key === 'openingBalance' ? '0.00' : '')}
+                              onChange={event => update(key, event.target.value)}/>
+                          </label>
+                        ))}
+                        <p className="cg-setup-bank-note cg-setup-wide">
+                          The opening balance creates a real finance account and balanced opening journal once.
+                          Please check it before saving; subsequent balance changes are made in Finance Accounts.
+                        </p>
+                      </div>
+                    )}
+                    {drafts.bank?.mode === 'existing' && (
+                      <label className="cg-setup-bank-existing">
+                        <span className="cg-setup-label">Existing workshop bank *</span>
+                        <select required name="selectedBankAccount"
+                          value={drafts.bank?.selectedAccountId || ''}
+                          onChange={event => update('selectedAccountId', event.target.value)}>
+                          <option value="">Select a bank</option>
+                          {(drafts.bank?.availableAccounts || []).map(account => (
+                            <option key={account.id} value={account.id}>
+                              {account.name} — {account.bankName} {account.accountNumberMasked}
+                            </option>
+                          ))}
+                        </select>
+                        <small>The existing bank balance and transactions will not change.</small>
+                      </label>
+                    )}
+                    {drafts.bank?.mode === 'skip' && (
+                      <p className="cg-setup-bank-note">
+                        No bank account will be created. You can add cash, bank and UPI accounts
+                        later in Finance → Accounts.
+                      </p>
+                    )}
+                  </>
+                )}
+              </section>
+            )}
             {current.key === 'billing' && <p className="cg-setup-help">
               <ShieldCheck size={16}/> GST rates are configurable defaults, not a filing determination. Actual invoice tax depends on the applicable transaction.
             </p>}

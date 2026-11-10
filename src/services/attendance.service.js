@@ -154,7 +154,13 @@ export const cancelOvertimeRequest = async (id) =>
 export const submitPunchCorrection = async (correctionData) =>
   apiClient.post('/my-attendance/corrections', correctionData);
 
+export const getMySalaryPayments = async () => {
+  const rows = await apiClient.get('/my-attendance/salary');
+  return Array.isArray(rows) ? rows : rows?.results || [];
+};
+
 export const attendanceService = {
+  getMySalaryPayments,
   getPersonalAttendanceLogs,
   getCalendarEvents,
   getAttendanceStatus,

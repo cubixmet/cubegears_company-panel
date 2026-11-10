@@ -2291,3 +2291,14 @@
     min-height:44px;flex:1 1 120px;
   }
 }
+
+/* Customer selling amount is distinct from direct cost. */
+.cg-job-detail.job-workspace-dashboard .job-total-customer-service {
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)
+}
+.cg-job-detail.job-workspace-dashboard .job-total-customer-service > div {display:grid;gap:3px}
+.cg-job-detail.job-workspace-dashboard .job-total-customer-service small {
+  color:var(--text-secondary);font-size:12px
+}
+.cg-job-detail.job-workspace-dashboard .job-total-customer-service > strong {font-size:19px}

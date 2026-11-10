@@ -1,3 +1,4 @@
+import { CubixgearLogo } from '../branding/CubixgearLogo';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { LogOut, Menu, ShieldCheck, Store, User, Wallet, X } from 'lucide-react';
@@ -71,7 +72,7 @@ export function SaaSAccountLayout({ children }) {
           aria-controls="saas-owner-navigation"
         >{menuOpen ? <X size={21}/> : <Menu size={21}/>}</button>
         <NavLink to="/account" className="saas-account-brand">
-          <span className="saas-account-logo" aria-hidden="true"><Wallet size={21}/></span>
+          <span className="saas-account-logo" aria-hidden="true"><CubixgearLogo /></span>
           <span><strong>cubixgear</strong><small>Account workspace</small></span>
         </NavLink>
       </div>

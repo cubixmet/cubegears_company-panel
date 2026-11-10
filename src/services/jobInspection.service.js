@@ -333,6 +333,13 @@ export const skipInspection = async (jobId, reason) => {
   return apiClient.post(`${API_ENDPOINTS.JOBS}/${jobId}/inspection/skip`, { reason });
 };
 
+export const reopenInspection = async (jobId) => {
+  if (USE_MOCK_API) {
+    throw new Error('Reopening a skipped inspection requires the live Django backend.');
+  }
+  return apiClient.post(`${API_ENDPOINTS.JOBS}/${jobId}/inspection/reopen`);
+};
+
 export const completeInspection = async (jobId, needsApproval = true) => {
   if (USE_MOCK_API) {
     await delay();
@@ -406,5 +413,6 @@ export const jobInspectionService = {
   addInspectionPhoto,
   completeInspection,
   skipInspection,
+  reopenInspection,
   addFindingToEstimate
 };

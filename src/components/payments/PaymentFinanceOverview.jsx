@@ -105,17 +105,21 @@ export default function PaymentFinanceOverview({
     }
   };
 
+  // Keep daily cash flow next to the current bank balance. The date-scoped
+  // figures come from the finance API; never infer them from paginated rows.
   const cards = [
-    { label: "Today's Money In", value: summary?.todayReceived, icon: ArrowDownLeft, description: 'Posted account credits, excluding transfers' },
-    { label: "Today's Money Out", value: summary?.todayPaid, icon: ArrowUpRight, description: 'Posted account debits, excluding transfers' },
-    { label: "Today's Expenses", value: summary?.todayExpensesRecorded, icon: ArrowUpRight, description: 'Costs recorded today, whether paid or unpaid' },
-    { label: "Today's Supplier Payments", value: summary?.todaySupplierPaid, icon: Wallet, description: 'Parts suppliers paid today from real accounts' },
-    { label: 'Bank Balance', value: summary?.bankBalance, icon: Building2, description: 'Internal bank account ledger' },
-    { label: 'Cash / UPI / Wallet', value: summary?.cashBalance, icon: Wallet, description: 'Internal cash and digital balances' },
+    { label: 'Bank Balance', value: summary?.bankBalance, icon: Building2, description: 'Recorded bank account balances' },
+    { label: "Today's Money Out", value: summary?.todayPaid, icon: ArrowUpRight, description: 'Account debits posted today' },
+    { label: "Today's Expenses", value: summary?.todayExpensesRecorded, icon: ArrowUpRight, description: 'Expenses entered today, including unpaid' },
+    { label: 'Cash / UPI / Wallet', value: summary?.cashBalance, icon: Wallet, description: 'Recorded cash and digital balances' },
+    { label: "Today's Money In", value: summary?.todayReceived, icon: ArrowDownLeft, description: 'Account receipts posted today' },
+    { label: "Today's Supplier Payments", value: summary?.todaySupplierPaid, icon: Wallet, description: 'Supplier settlements posted today' },
+  ];
+  const additionalCards = [
     { label: 'Net Sales Revenue', value: summary?.netSalesRevenue, icon: TrendingUp, description: 'Finalized invoices excluding GST' },
     { label: 'Recorded Expenses', value: summary?.recordedExpenses, icon: ArrowUpRight, description: 'Expense liabilities, paid or unpaid' },
     { label: 'Known Parts Cost', value: summary?.knownCostOfSales, icon: Wallet, description: 'Historical cost of invoiced products' },
-    { label: 'Estimated Profit', value: summary?.estimatedProfit, icon: TrendingUp, description: 'Revenue − recorded expense − known parts cost' },
+    { label: 'Estimated Profit', value: summary?.estimatedProfit, icon: TrendingUp, description: 'Revenue minus expenses and known parts cost' },
   ];
 
   return (
@@ -153,6 +157,18 @@ export default function PaymentFinanceOverview({
             </article>
           ))}
         </div>
+        <details className="cg-pay-finance-extra">
+          <summary>Revenue, costs &amp; profit</summary>
+          <div className="cg-pay-finance-cards">
+            {additionalCards.map(({ label, value, icon: Icon, description }) => (
+              <article key={label}>
+                <div className="cg-pay-finance-card-label"><span>{label}</span><Icon size={16} aria-hidden="true" /></div>
+                <strong>{fmt(value)}</strong>
+                <small>{description}</small>
+              </article>
+            ))}
+          </div>
+        </details>
         <div className="cg-pay-finance-footnotes">
           <p>Reporting: <strong>{summary.periodLabel || 'All Time'}</strong> · As of {summary.asOfDate || 'current date'}.
             Today's Money In/Out always reflects today's posted account activity.</p>

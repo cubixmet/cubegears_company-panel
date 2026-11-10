@@ -22,3 +22,15 @@ Feature Controls lists all billable modules. Unpriced/unpublished modules show 0
 Monthly postpaid recovery: the server access response supplies `billingStatus`. A positive overdue closed-month debt restricts workspace navigation, including otherwise-free Dashboard/Staff. Owners retain account recovery and read-only Storage/history routes. Storage is now an owner billing tab regardless of paid storage entitlement; file writes and policy changes still require storage.manage. Overdue staff receive a contact-owner notice. Access refreshes every minute while monthly collection is configured and after credit updates.
 
 Feature cards distinguish monthly postpaid from prepaid: a verified positive postpaid quote can activate with zero wallet balance, with usage payable on the configured next-month due date. Missing/zero prices and inactive backend billing remain blocked. Overdue debt blocks new activation; owners can still stop existing usage and buy credits. Monthly statements display due dates and overdue state. Deploy with backend migrations 0012–0014 and configure its monthly metering/worker switches; see backend docs/monthly-due-date-storage-account.md.
+
+## Bank account setup in the workshop onboarding wizard
+
+The wizard now offers **Bank & opening balance** between Working hours and
+Invoice defaults. Owners may create a Bank-type workshop financial account,
+link one that already belongs to their workshop, or explicitly skip.
+The bank account number is masked in onboarding API responses, and the
+opening balance is recorded in the existing finance double-entry ledger
+once; subsequent adjustments belong in Finance → Accounts.
+
+This optional onboarding step does not connect to external banks, transfer
+funds, or impose a new lock on previously completed four-step workshops.

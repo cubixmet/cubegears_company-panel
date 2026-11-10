@@ -1,6 +1,6 @@
-import { BellRing, CheckCheck, RefreshCw } from 'lucide-react';
+import { BellRing, CheckCheck, RefreshCw, Settings2 } from 'lucide-react';
 
-export const NotificationsHeader = ({ unread, onMarkAll, onRefresh, loading }) => (
+export const NotificationsHeader = ({ unread, onMarkAll, onRefresh, onSettings, loading }) => (
   <header className="notifications-dashboard-header">
     <div className="notifications-dashboard-header-title">
       <span className="notifications-dashboard-header-icon" aria-hidden="true"><BellRing size={19}/></span>
@@ -11,6 +11,9 @@ export const NotificationsHeader = ({ unread, onMarkAll, onRefresh, loading }) =
     </div>
     <div className="notifications-dashboard-header-actions">
       <span className="notifications-dashboard-header-badge">{unread} unread</span>
+      {onSettings && <button type="button" className="notification-refresh" onClick={onSettings}>
+        <Settings2 size={15} aria-hidden="true"/> Notification Settings
+      </button>}
       <button type="button" className="notification-refresh" onClick={onRefresh} disabled={loading}>
         <RefreshCw size={15} aria-hidden="true"/> Refresh
       </button>

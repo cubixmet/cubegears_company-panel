@@ -2,7 +2,7 @@ import { useContext, useEffect, useMemo, useState } from "react";
 import { Bell, Boxes, Building2, Clock3, CreditCard, Plug, ShieldCheck, WalletCards } from 'lucide-react';
 import { ThemeContext } from '../../context/ThemeContext';
 import { settingsService } from '../../services/settings.service';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import {
   SettingsEditor,
@@ -47,7 +47,16 @@ const schemas = {
     ['payrollDay', 'Payroll Day', 'number'], ['overtimeMultiplier', 'Overtime Multiplier', 'number'], ['managerApproval', 'Manager Approval Required', 'checkbox']
   ],
   notifications: [
-    ['lowStock', 'Low Stock Alerts', 'checkbox'], ['overdueInvoice', 'Overdue Invoice Alerts', 'checkbox'], ['jobReady', 'Job Ready Alerts', 'checkbox'], ['leaveDecision', 'Leave Decision Alerts', 'checkbox'], ['email', 'Email Channel', 'checkbox'], ['whatsapp', 'WhatsApp Channel', 'checkbox'], ['browserPush', 'Browser Push', 'checkbox']
+    ['jobCreated', 'New Vehicle / Job Card — Notify Workshop Staff', 'checkbox'],
+    ['jobAssigned', 'Staff Assignment — Notify Assigned Technician', 'checkbox'],
+    ['jobStatus', 'Job Status Changes — Notify Workshop Staff', 'checkbox'],
+    ['jobReady', 'Ready for Delivery Alerts', 'checkbox'],
+    ['lowStock', 'Low Stock Alerts', 'checkbox'],
+    ['overdueInvoice', 'Overdue Invoice Alerts', 'checkbox'],
+    ['leaveDecision', 'Leave Decision Alerts', 'checkbox'],
+    ['email', 'Email Channel', 'checkbox'],
+    ['whatsapp', 'WhatsApp Channel', 'checkbox'],
+    ['browserPush', 'Browser Push', 'checkbox']
   ],
   security: [
     ['sessionHours', 'Session Lifetime (Hours)', 'number'], ['requireStrongPassword', 'Strong Password Required', 'checkbox'], ['auditExports', 'Audit Data Exports', 'checkbox'], ['twoFactor', 'Two-factor Authentication', 'checkbox']
@@ -59,9 +68,13 @@ const schemas = {
 
 export const Settings = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { can } = useFeatureAccess();
   const visibleSections = useMemo(() => sections.filter(section => !SETTINGS_SECTION_PERMISSIONS[section.id] || can(SETTINGS_SECTION_PERMISSIONS[section.id])), [can]);
-  const [active, setActive] = useState('company');
+  const [active, setActive] = useState(() => {
+    const section = new URLSearchParams(window.location.search).get('section');
+    return sections.some((item) => item.id === section) ? section : 'company';
+  });
   const [data, setData] = useState({});
   const [savedData, setSavedData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -104,6 +117,11 @@ export const Settings = () => {
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, []);
+
+  useEffect(() => {
+    const section = new URLSearchParams(location.search).get('section');
+    if (visibleSections.some((item) => item.id === section)) setActive(section);
+  }, [location.search, visibleSections]);
 
   useEffect(() => {
     if (!visibleSections.some(section => section.id === active)) setActive('company');

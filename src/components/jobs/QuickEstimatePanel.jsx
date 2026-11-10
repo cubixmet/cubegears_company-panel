@@ -56,7 +56,7 @@ const inspectSuggestions = (findings) => findings.flatMap((item) => {
 });
 
 export function QuickEstimatePanel({
-  job, estimates = [], findings = [], canEdit, onSaved, onApprove, onSkip,
+  job, estimates = [], findings = [], canEdit, canReopen = false, wasSkipped = false, onReopen, onSaved, onApprove, onSkip,
   onReject, onShare, onEditInspection, onGoToWork, onDownloadApproved
 }) {
   const latest = estimates.at(-1) || null;
@@ -92,6 +92,7 @@ export function QuickEstimatePanel({
   const [skipDetails, setSkipDetails] = useState('');
   const [skipError, setSkipError] = useState('');
   const [skipBusy, setSkipBusy] = useState(false);
+  const [reopenBusy, setReopenBusy] = useState(false);
   const formRef = useRef(null);
   // Preserve the same operation token across retries. Different quote
   // contents get a new token, preventing accidental duplicate versions.
@@ -310,6 +311,21 @@ export function QuickEstimatePanel({
       setBusy(false);
     }
   };
+  const reopenSkippedEstimate = async () => {
+    if (!canReopen || reopenBusy || busy || !onReopen) return;
+    setReopenBusy(true);
+    setFeedback('');
+    try {
+      await onReopen();
+    } catch (error) {
+      const data = error?.response?.data;
+      setFeedback(data?.estimate || data?.detail || error?.message ||
+        'Unable to reopen the estimate after work has started.');
+    } finally {
+      setReopenBusy(false);
+    }
+  };
+
   const confirmSkip = async (event) => {
     event.preventDefault();
     if (!canEdit || busy || skipBusy || !onSkip) return;
@@ -527,6 +543,11 @@ export function QuickEstimatePanel({
           <span className="job-quick-eyebrow">Job Card / Estimate</span>
           <h2><ReceiptText size={19} aria-hidden="true"/> Quick Estimate</h2>
           <p>Add work or spare parts, review the total and ask for customer approval.</p>
+          {wasSkipped && (
+            <p role="status">Estimate was skipped. {canReopen
+              ? 'Choose Edit Skipped Estimate to reopen it before starting Work.'
+              : 'Later work or billing prevents reopening this skipped stage.'}</p>
+          )}
           {latest?.status === 'Awaiting Customer' &&
             <p role="status">Shared with customer. The amount is locked until they respond or you withdraw it.</p>}
           {latest?.status === 'Customer Approved' &&
@@ -534,9 +555,19 @@ export function QuickEstimatePanel({
           {latest?.status === 'Customer Rejected' &&
             <p role="status">Customer declined this quote. Save and share a revised estimate before continuing.</p>}
         </div>
-        <button type="button" className="job-quick-outline" onClick={onEditInspection} disabled={!canEdit}>
-          <Pencil size={15} aria-hidden="true"/> Edit Inspection
-        </button>
+        <div className="job-quick-header-actions">
+          {wasSkipped && (
+            <button type="button" className="job-quick-outline job-quick-reopen"
+              disabled={!canReopen || busy || reopenBusy}
+              onClick={reopenSkippedEstimate}>
+              <Pencil size={15} aria-hidden="true" />
+              {reopenBusy ? 'Reopening…' : 'Edit Skipped Estimate'}
+            </button>
+          )}
+          <button type="button" className="job-quick-outline" onClick={onEditInspection} disabled={!canEdit}>
+            <Pencil size={15} aria-hidden="true"/> Edit Inspection
+          </button>
+        </div>
       </header>
 
       {latest?.status === 'Customer Rejected' && latestDecline && (

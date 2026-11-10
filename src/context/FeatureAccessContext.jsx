@@ -24,6 +24,9 @@ export function moduleIsVisible(access, permission) {
   if (isAccountOnly(access)) return module === 'billing' && access.isCompanyOwner === true;
   // The backend explicitly lists free modules. They still require the exact
   // tenant/role permission returned by Django; free != unrestricted access.
+  // Self-attendance is a free, employee-specific permission verified by Django.
+  // Do not open paid attendance manager or payroll with this exception.
+  if (permission === 'attendance.self') return access.permissions.includes(permission);
   if (access.freeModules?.includes(module)) return access.permissions.includes(permission);
   // Storage history and settings live inside the owner's SaaS Account.
   // The Django role/owner checks remain authoritative for every API request;
