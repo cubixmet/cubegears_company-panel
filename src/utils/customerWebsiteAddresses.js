@@ -13,7 +13,6 @@ export function isLocalCustomerWebsiteDevelopment(isDev, hostname) {
 export function customerWebsiteAddresses({
   subdomain = '',
   subdomainLabel = '',
-  primaryDomain = null,
   wildcardReady = false,
   localDevelopment = false,
 } = {}) {
@@ -21,9 +20,9 @@ export function customerWebsiteAddresses({
   const localUrl = localDevelopment && validLabel.test(label)
     ? 'http://' + label + '.localhost:5174/'
     : '';
-  const productionHost = primaryDomain?.hostname || subdomain;
+  const productionHost = subdomain;
   const productionUrl = productionHost ? 'https://' + productionHost + '/' : '';
-  const productionReady = Boolean(productionHost && (primaryDomain || wildcardReady));
+  const productionReady = Boolean(productionHost && wildcardReady);
   const suffix = localUrl
     ? '.localhost:5174'
     : label && subdomain.startsWith(label + '.')

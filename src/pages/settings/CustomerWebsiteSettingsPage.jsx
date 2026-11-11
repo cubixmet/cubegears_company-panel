@@ -1,7 +1,6 @@
 import {useCallback,useEffect,useState} from 'react';
 import { appConfirm } from '../../components/common/appDialogs';
-import { Link } from 'react-router-dom';
-import {AlertCircle,ArrowUpRight,Check,Copy,Globe2,Palette,RefreshCw,ShieldCheck,Trash2} from 'lucide-react';
+import {AlertCircle,ArrowUpRight,Check,Copy,Globe2,Palette,RefreshCw,ShieldCheck} from 'lucide-react';
 import apiClient from '../../api/apiClient';
 import { customerWebsiteAddresses, isLocalCustomerWebsiteDevelopment } from '../../utils/customerWebsiteAddresses';
 import '../../styles/customer-website-settings.css';
@@ -29,28 +28,21 @@ export default function CustomerWebsiteSettingsPage(){
   const [wildcardReady,setWildcardReady] = useState(false);
   const [subdomainSaving,setSubdomainSaving] = useState(false);
   const [logo,setLogo] = useState(false);
-  const [domains,setDomains] = useState([]);
-  const [hostname,setHostname] = useState('');
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
-  const [requesting,setRequesting] = useState(false);
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
 
   const load = useCallback(async ()=>{
     setLoading(true);setError('');
     try {
-      const [website, domainRows] = await Promise.all([
-        apiClient.get('/company/customer-website'),
-        apiClient.get('/company/customer-website/domains')
-      ]);
+      const website = await apiClient.get('/company/customer-website');
       setFields(Object.fromEntries(Object.keys(empty).map(k=>[k,website[k]??empty[k]])));
       setSubdomain(website.subdomain||'');
       setSubdomainLabel(website.subdomainLabel||'');
       setSubdomainDraft(website.subdomainLabel||'');
       setWildcardReady(website.wildcardReady===true);
       setLogo(!!website.hasLogo);
-      setDomains(Array.isArray(domainRows)?domainRows:[]);
     } catch(e) {setError(e.message||'Could not load your website settings.');}
     finally {setLoading(false);}
   },[]);
@@ -99,33 +91,9 @@ export default function CustomerWebsiteSettingsPage(){
     }finally{setSubdomainSaving(false);}
   }
 
-  async function requestDomain(event){
-    event.preventDefault();
-    if(requesting||!hostname.trim())return;
-    setRequesting(true);setError('');setNotice('');
-    try{
-      const result=await apiClient.post('/company/customer-website/domains',{hostname:hostname.trim()});
-      setDomains(old=>[result,...old]);
-      setHostname('');
-      setNotice(result.lastError ? "Saved, but Vercel setup needs attention: "+result.lastError : "Domain created. Open Manage Domains, DNS & SSL to copy records and verify.");
-    }catch(e){setError(e.message||'Could not submit domain request.');}
-    finally{setRequesting(false);}
-  }
-
-  async function disableDomain(domain){
-    if(!await appConfirm('Disable this custom domain? Existing customer data will be preserved.'))return;
-    setError('');setNotice('');
-    try{
-      await apiClient.delete('/company/customer-website/domains/'+domain.id);
-      setDomains(old=>old.map(d=>d.id===domain.id?{...d,status:'disabled',isPrimary:false}:d));
-      setNotice('Custom domain disabled.');
-    }catch(e){setError(e.message||'Could not disable domain.');}
-  }
-
-  const primaryDomain = domains.find(d=>d.isPrimary && d.status==='active' && d.sslStatus==='ready' && d.ownershipVerified && d.dnsConfigured);
-  const websiteReady = Boolean(primaryDomain || wildcardReady);
+  const websiteReady = Boolean(wildcardReady);
   const urls = customerWebsiteAddresses({
-    subdomain, subdomainLabel, primaryDomain, wildcardReady,
+    subdomain, subdomainLabel, wildcardReady,
     localDevelopment: isLocalCustomerWebsiteDevelopment(
       import.meta.env.DEV, window.location.hostname
     ),
@@ -144,7 +112,7 @@ export default function CustomerWebsiteSettingsPage(){
 
   return <main className="cws-page">
     <div className="cws-top">
-      <div><span className="cws-eyebrow"><Globe2 size={15}/> CubeGears Customer Website</span><h1>Customer Website</h1>
+      <div><span className="cws-eyebrow"><Globe2 size={15}/> CubixGear Customer Website</span><h1>Customer Website</h1>
         <p>Manage your workshop's public identity, website address and customer-facing branding.</p></div>
       <button type="button" className="cws-btn cws-secondary" onClick={load}><RefreshCw size={17}/>Refresh</button>
     </div>
@@ -163,7 +131,6 @@ export default function CustomerWebsiteSettingsPage(){
         </p>}
         <div className="cws-actions">
           {urls.canOpen&&websiteUrl&&<a className="cws-btn cws-primary" href={websiteUrl} target="_blank" rel="noopener noreferrer">Open Website <ArrowUpRight size={16}/></a>}
-          <Link to="/settings/customer-website/domains" className="cws-btn cws-secondary">Add My Own Domain / DNS Settings</Link>
         </div>
         <form className="cws-subdomain-form" onSubmit={updateDefaultSubdomain}>
           <label className="cws-field"><span>Default Website Subdomain</span>
@@ -187,9 +154,7 @@ export default function CustomerWebsiteSettingsPage(){
         <div className="cws-hint"><ShieldCheck size={17}/><span>
           {urls.isLocalPreview
             ? 'Local preview uses your saved workshop subdomain. Production DNS/HTTPS verification is separate.'
-            : primaryDomain
-              ? 'Primary verified domain. Default subdomain: '+subdomain
-              : 'Using default subdomain. DNS and HTTPS must be live before the website opens publicly.'}
+            : 'Using default subdomain. DNS and HTTPS must be live before the website opens publicly.'}
         </span></div>
       </section>
 
@@ -210,22 +175,6 @@ export default function CustomerWebsiteSettingsPage(){
         </form>
       </section>
 
-      <section className="cws-card">
-        <div className="cws-heading"><div className="cws-square"><Globe2 size={23}/></div><div><h2>Custom Domain</h2><p>Use your own domain after DNS ownership and HTTPS verification.</p></div></div>
-        <Link to="/settings/customer-website/domains" className="cws-btn cws-primary" style={{marginBottom:16}}>Manage Domains, DNS & SSL <ArrowUpRight size={16}/></Link>
-        <form className="cws-domain-form" onSubmit={requestDomain}><label className="cws-field"><span>Domain Name</span>
-          <input type="text" value={hostname} maxLength={253} onChange={e=>setHostname(e.target.value)} placeholder="portal.yourworkshop.com" required autoCapitalize="none" spellCheck={false}/></label>
-          <button className="cws-btn cws-primary" disabled={requesting} type="submit">{requesting?'Submitting…':'Request Domain'}</button></form>
-        <div className="cws-hint"><ShieldCheck size={17}/>Unverified domains never serve customer records. Exact DNS records must come from your hosting provider.</div>
-        <div className="cws-domain-list">
-          {!domains.length&&<p className="cws-muted">No custom domains requested yet.</p>}
-          {domains.map(d=><div className="cws-domain-item" key={d.id}>
-            <div><strong>{d.hostname}</strong><span className={'cws-domain-status is-'+d.status}>{d.status.replaceAll('_',' ')}</span></div>
-            <div className="cws-domain-actions">{d.status==='active'&&<a href={'https://'+d.hostname} target="_blank" rel="noreferrer noopener" aria-label={'Open '+d.hostname}><ArrowUpRight size={18}/></a>}
-              {d.status!=='disabled'&&<button type="button" aria-label={'Disable '+d.hostname} onClick={()=>disableDomain(d)}><Trash2 size={17}/></button>}</div>
-          </div>)}
-        </div>
-      </section>
     </div>
   </main>;
 }
