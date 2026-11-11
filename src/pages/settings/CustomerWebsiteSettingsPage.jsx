@@ -97,6 +97,7 @@ export default function CustomerWebsiteSettingsPage(){
     localDevelopment: isLocalCustomerWebsiteDevelopment(
       import.meta.env.DEV, window.location.hostname
     ),
+    localOrigin: import.meta.env.VITE_CUSTOMER_WEBSITE_DEV_ORIGIN || '',
   });
   const websiteUrl = urls.displayUrl;
 
