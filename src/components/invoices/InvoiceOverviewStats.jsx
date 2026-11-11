@@ -21,13 +21,13 @@ export const InvoiceOverviewStats = ({
     {
       label: activeTab === 'estimate' ? 'Total Estimates' : 'Total Invoices',
       value: documents.length,
-      meta: 'billing documents',
+      meta: 'all saved documents',
       icon: ReceiptText,
     },
     {
       label: activeTab === 'estimate' ? 'Issued / Converted' : 'Finalized / Paid',
       value: documents.filter((document) => issuedStatuses.has(document.status)).length,
-      meta: 'completed documents',
+      meta: 'issued or finalized records',
       icon: BadgeCheck,
       tone: 'success',
     },
@@ -39,9 +39,9 @@ export const InvoiceOverviewStats = ({
       tone: 'warning',
     },
     {
-      label: 'Total Value',
+      label: 'Document Value',
       value: formatMoney(totalValue),
-      meta: 'current document value',
+      meta: 'includes drafts and cancelled; not cash received',
       icon: IndianRupee,
     },
   ];

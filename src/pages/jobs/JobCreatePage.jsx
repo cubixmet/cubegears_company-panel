@@ -17,6 +17,7 @@ import { JobCardReview } from '../../components/jobs/JobCardReview';
 import { JOB_PHONE_COUNTRIES, splitInternationalPhone, joinInternationalPhone, validInternationalPhone, splitVehicleMakeModel, newComplaint, buildJobComplaints } from '../../utils/jobCreateAdapters';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/job-create-professional.css';
+import '../../styles/jobs-unified-ui.css';
 import { showFormFieldError, showServerFormErrors, findFormField, clearFieldValidation } from '../../utils/formValidation';
 
 const nowLocal = () => {
@@ -395,7 +396,7 @@ export const JobCreatePage = () => {
   const phoneParts = splitInternationalPhone(form.customerPhone, phoneCountryCode);
 
   if (createdJob && pendingPhotos.length === 0) {
-    return <div className="job-management-page job-create-page" data-job-creation-success>
+    return <div className="job-management-page job-create-page jobs-ui-polished" data-job-creation-success>
       <JobBreadcrumbs current="Job Card Created" />
       <div className="job-create-success-banner"><CheckCircle2 size={22}/>
         Job Card {createdJob.jobNumber || createdJob.job_number || createdJob.number || ''} saved successfully.
@@ -411,12 +412,12 @@ export const JobCreatePage = () => {
   }
 
   return (
-    <div className="job-management-page job-create-page flex w-full min-w-0 flex-col gap-4">
+    <div className="job-management-page job-create-page jobs-ui-polished flex w-full min-w-0 flex-col gap-4">
       <JobBreadcrumbs current="New Job Card" />
       <header className="job-create-header flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-content">Create Job Card</h1>
-          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">Add customer and vehicle details, then create a Job Card to start inspection.</p>
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">Add the customer, vehicle, complaints and assigned staff. Review the details before creating the Job Card.</p>
           <div className="job-create-steps" aria-label="Job setup steps">
             {JOB_CREATE_STEPS.map((step) => (
               <span key={step.id} className={step.id === 'review' && review ? 'is-current' : undefined}>

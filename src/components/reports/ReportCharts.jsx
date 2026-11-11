@@ -19,8 +19,8 @@ export function ReportPerformanceChart({ buckets, report, from, to }) {
       <div className="report-chart-heading">
         <div className="report-chart-heading__label">
           <span className="report-chart-kicker"><TrendingUp size={14}/> BUSINESS PERFORMANCE</span>
-          <h3 id="report-performance-title">Revenue, Collections & Expenses</h3>
-          <p>Daily/weekly totals from transactions within the selected period.</p>
+          <h3 id="report-performance-title">Customer Bills, Payments & Expenses</h3>
+          <p>Compare customer invoices, payments received and workshop expenses for these dates.</p>
         </div>
         <span className="report-chart-pill"><BarChart3 size={15}/> {valid.length} active periods</span>
       </div>
@@ -89,10 +89,10 @@ export function ReportPerformanceChart({ buckets, report, from, to }) {
         </div>
       )}
       <div className="report-chart-footnote">
-        <span><Wallet size={14}/> Net cash flow</span>
+        <span><Wallet size={14}/> After paid operating expenses</span>
         <strong>{report.available.payments && report.available.expenses
           ? reportMoney(report.netCash) : '—'}</strong>
-        <small>Collections minus expenses, not accounting profit</small>
+        <small>Customer payments minus paid operating expenses only. Not profit; excludes salaries and supplier payments.</small>
       </div>
     </section>
   );
@@ -108,7 +108,7 @@ export function ReportExpenseCategoryChart({ rows, expensesAvailable }) {
         <div className="report-chart-heading__label">
           <span className="report-chart-kicker"><Layers3 size={14}/> SPENDING BREAKDOWN</span>
           <h3 id="report-expense-title">Expenses by Category</h3>
-          <p>Where the workshop spent money in this period.</p>
+          <p>Recorded operating expenses by category; some bills may be unpaid.</p>
         </div>
         <span className="report-chart-pill">{rows.length} categories</span>
       </div>

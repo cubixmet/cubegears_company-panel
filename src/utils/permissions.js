@@ -33,6 +33,8 @@ const CRUD_PREFIXES = {
   '/quotations': 'invoices',
   '/payments': 'payments',
   '/expenses': 'expenses',
+  '/finance/payments': 'payments',
+  '/finance/expenses': 'expenses',
 };
 
 const SPECIAL_PATH_PERMISSIONS = [
@@ -54,7 +56,9 @@ const SPECIAL_PATH_PERMISSIONS = [
   ['/payroll', 'payroll.view'],
   ['/gstr', 'gstr.view'],
   ['/finance/accounting', 'payments.view'],
-  ['/finance', 'payments.view'],
+  ['/finance/accounts', 'payments.view'],
+  ['/finance/transfers', 'payments.view'],
+  ['/finance/transactions', 'payments.view'],
   ['/reports', 'reports.view'],
   ['/notifications', 'notifications.view'],
   ['/settings/customer-website', 'company.manage'],
@@ -86,6 +90,9 @@ export const getPermissionForPath = (pathname = '') => {
   if (!pathname || pathname === '/profile' || pathname === '/access-denied') {
     return null;
   }
+  // Explicit tenant permission for finance root; expense-only roles are
+  // separately allowed at the root and redirected to their section.
+  if (pathname === '/finance') return 'payments.view';
   // A Job Card has cross-module sections; its invoice screen is NOT covered
   // by the Jobs label alone. Direct deep-links also require invoice access.
   if (/^\/jobs\/[^/]+\/invoice(?:\/|$)/.test(pathname)) return 'invoices.view';

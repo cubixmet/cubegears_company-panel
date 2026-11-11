@@ -1,4 +1,5 @@
-import { Search, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Search, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { STATUS_OPTIONS } from './jobs.utils';
 
 export const JobsToolbar = ({
@@ -8,15 +9,21 @@ export const JobsToolbar = ({
   priority = 'all', onPriorityChange, priorityOptions = [],
   from = '', to = '', onFromChange, onToChange,
   resultCount = 0, loading = false, hasError = false, onReset,
-}) => (
-  <section className="jobs-toolbar jobs-toolbar-combined" aria-label="Filter Job Cards">
+}) => {
+  const advancedActive = branch !== 'all' || technician !== 'all' || priority !== 'all' || Boolean(from || to);
+  const [showAdvanced, setShowAdvanced] = useState(advancedActive);
+  useEffect(() => {
+    if (advancedActive) setShowAdvanced(true);
+  }, [advancedActive]);
+
+  return <section className="jobs-toolbar jobs-toolbar-combined" aria-label="Filter Job Cards">
     <div className="jobs-filter-field jobs-filter-search">
       <label className="jobs-filter-label" htmlFor="jobs-list-search">Search Job Cards</label>
       <div className="jobs-search">
         <Search size={18} aria-hidden="true" />
         <input id="jobs-list-search" type="search" aria-label="Search job cards"
           value={query} onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Job number, customer, phone or vehicle" />
+          placeholder="Search job number, customer, vehicle or phone…" />
         {query && <button type="button" className="jobs-search-clear"
           aria-label="Clear job search" onClick={() => onQueryChange('')}>
           <X size={16} aria-hidden="true" />
@@ -27,9 +34,17 @@ export const JobsToolbar = ({
       <span className="jobs-filter-label">Status</span>
       <select aria-label="Filter job cards by status" value={status}
         onChange={(event) => onStatusChange(event.target.value)}>
-        {STATUS_OPTIONS.map((item) => <option key={item} value={item}>{item}</option>)}
+        {STATUS_OPTIONS.map((item) => <option key={item} value={item}>{item === 'All' ? 'All Statuses' : item}</option>)}
       </select>
     </label>
+    <button type="button" className="jobs-more-filters"
+      aria-expanded={showAdvanced} aria-controls="jobs-advanced-filters"
+      onClick={() => setShowAdvanced(value => !value)}>
+      <SlidersHorizontal size={17} aria-hidden="true"/>
+      {showAdvanced ? 'Hide More Filters' : 'More Filters'}
+      <ChevronDown size={16} className={showAdvanced ? 'is-open' : ''} aria-hidden="true"/>
+    </button>
+    <div id="jobs-advanced-filters" className={`jobs-advanced-filters ${showAdvanced ? 'is-open' : ''}`}>
     <label className="jobs-filter-field jobs-status-filter jobs-select-filter jobs-filter-branch">
       <span className="jobs-filter-label">Branch</span>
       <select aria-label="Filter job cards by branch" value={branch}
@@ -70,6 +85,7 @@ export const JobsToolbar = ({
           if (!value || !from || value >= from) onToChange(value);
         }} />
     </label>
+    </div>
     <div className="jobs-toolbar-actions">
       <span className="jobs-filter-label">Matching Records</span>
       <div className="jobs-toolbar-actions-content">
@@ -79,5 +95,5 @@ export const JobsToolbar = ({
         <button type="button" className="jobs-filter-reset" onClick={onReset}>Reset Filters</button>
       </div>
     </div>
-  </section>
-);
+  </section>;
+};

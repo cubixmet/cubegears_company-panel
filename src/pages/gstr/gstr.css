@@ -64,6 +64,59 @@
 .gstr-issues>div span{font-size:13px;line-height:1.45;color:var(--text-secondary,#64748b)}
 .gstr-issues>div a{font-size:12px;white-space:nowrap}
 .gstr-complete{display:flex;align-items:center;gap:8px;font-size:13px}
-@media(max-width:1000px){.gstr-filter-panel{grid-template-columns:repeat(2,minmax(0,1fr))}.gstr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1200px){.gstr-filter-panel{grid-template-columns:repeat(2,minmax(0,1fr))}.gstr-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:680px){.gstr-page{padding:14px 12px 32px;gap:13px}.gstr-header h1{font-size:21px}.gstr-header-actions{width:100%}.gstr-header-actions button{flex:1}.gstr-filter-panel{padding:12px;gap:10px}.gstr-filter-panel label:last-of-type,.gstr-status{grid-column:span 2}.gstr-stat{padding:13px}.gstr-stat strong{font-size:17px}.gstr-tabs{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.gstr-tabs button{font-size:12px;padding:10px 8px}.gstr-panel{padding:14px}.gstr-breakdown{grid-template-columns:minmax(0,1fr)}.gstr-table-scroll{display:none}.gstr-mobile-rows{display:grid;gap:10px}.gstr-mobile-row{border:1px solid var(--border-color,#e2e8f0);border-radius:10px;padding:11px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.gstr-mobile-field{display:flex;flex-direction:column;gap:3px;min-width:0}.gstr-mobile-field span{font-size:11px;color:var(--text-secondary,#64748b)}.gstr-mobile-field strong{font-size:13px;overflow-wrap:anywhere;font-weight:650}.gstr-reconcile-counts,.gstr-export-actions{grid-template-columns:minmax(0,1fr)}.gstr-issues>div{flex-wrap:wrap}}
 @media(max-width:360px){.gstr-filter-panel{grid-template-columns:minmax(0,1fr)}.gstr-filter-panel label:last-of-type,.gstr-status{grid-column:auto}.gstr-mobile-row{grid-template-columns:minmax(0,1fr)}}
+
+/* Saved GSTR-2B evidence selector: readable on narrow workshop tablets/phones. */
+.gstr-saved-imports {
+  display: grid;
+  gap: 9px;
+  margin: 15px 0 16px;
+  max-width: 100%;
+}
+.gstr-saved-imports > label {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+.gstr-saved-imports select {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 10px;
+  background: var(--card-bg, #fff);
+  color: var(--text-primary, #0f172a);
+  font-size: 15px;
+}
+.gstr-saved-imports select:focus-visible {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: 2px;
+}
+.gstr-saved-imports .gstr-note { margin: 2px 0 0; }
+
+/* Sidebar reduces desktop content width before the viewport reaches 1000px. */
+.gstr-filter-panel,
+.gstr-status,
+.gstr-header,
+.gstr-breakdown,
+.gstr-breakdown > div {
+  min-width: 0;
+}
+@media (max-width: 1200px) {
+  .gstr-status {
+    grid-column: 1 / -1;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .gstr-breakdown > div span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}

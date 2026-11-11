@@ -8,6 +8,10 @@ import { stockCatalogService } from '../../services/stockCatalog.service';
 import InventoryBranchOperations from '../../components/stock/InventoryBranchOperations';
 import InventoryCategories from '../../components/stock/InventoryCategories';
 import { supplierService } from '../../services/supplier.service';
+import { supplierFinanceService } from '../../services/supplierFinance.service';
+import { useFeatureAccess } from '../../context/FeatureAccessContext';
+import StockFinanceConnections from '../../components/stock/StockFinanceConnections';
+import StockPurchaseStartDialog from '../../components/stock/StockPurchaseStartDialog';
 import { invoiceLineTaxChoices, invoiceTotalRateFromChoice } from '../../utils/invoiceTaxUi';
 import '../../styles/stock-easy.css';
 import '../../styles/stock-form-polish.css';
@@ -99,6 +103,16 @@ function stockState(item) {
 
 export default function StockEasyPage() {
   const navigate = useNavigate();
+  const { can } = useFeatureAccess();
+  const canManageStock = can('stock.edit');
+  const canCreateStock = can('stock.create');
+  const canPurchaseStock = can('stock.view') && can('stock.create') &&
+    can('stock.edit') && can('payments.view') && can('payments.create') &&
+    !USE_MOCK_API;
+  const canViewGSTR = can('gstr.view');
+  // Supplier credit is financial data. The balances endpoint requires both
+  // stock.view and payments.view; catalog access alone never grants it.
+  const canViewSupplierFinance = can('stock.view') && can('payments.view') && !USE_MOCK_API;
   const [searchParams, setSearchParams] = useSearchParams();
   const query = (searchParams.get('search') || '').slice(0, 120);
   const filterValue = searchParams.get('filter') || 'all';
@@ -141,6 +155,9 @@ export default function StockEasyPage() {
   const [quickSupplierError, setQuickSupplierError] = useState('');
   const [quickSupplierSaving, setQuickSupplierSaving] = useState(false);
   const [dashboard, setDashboard] = useState(null);
+  const [supplierBalances, setSupplierBalances] = useState(null);
+  const [financeError, setFinanceError] = useState('');
+  const [financeLoading, setFinanceLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -153,20 +170,34 @@ export default function StockEasyPage() {
   const [moveLookup, setMoveLookup] = useState('');
   const [moveOpen, setMoveOpen] = useState(false);
   const [move, setMove] = useState(initialMove);
+  const [receiveOpen, setReceiveOpen] = useState(false);
+  const [receiveItem, setReceiveItem] = useState(null);
 
   const reload = async () => {
     setLoading(true);
+    setFinanceLoading(canViewSupplierFinance);
+    setFinanceError('');
+    if (!canViewSupplierFinance) setSupplierBalances(null);
     try {
       const loaded = await stockCatalogService.getItems();
       setItems(list(loaded).sort((a, b) =>
         String(b.created_at || b.createdAt || '').localeCompare(String(a.created_at || a.createdAt || ''))
       ));
-      const [stats, movements, groups, vendors] = await Promise.allSettled([
+      const [stats, movements, groups, vendors, supplierCredit] = await Promise.allSettled([
         stockCatalogService.getStockDashboard(),
         stockCatalogService.getLedger(),
         stockCatalogService.getCategories(),
         stockCatalogService.getSuppliers(),
+        canViewSupplierFinance ? supplierFinanceService.getSupplierBalances() : Promise.resolve(null),
       ]);
+      if (canViewSupplierFinance) {
+        if (supplierCredit.status === 'fulfilled' && Array.isArray(supplierCredit.value)) {
+          setSupplierBalances(supplierCredit.value);
+        } else {
+          setSupplierBalances(null);
+          setFinanceError(supplierCredit.reason?.message || 'Supplier balances are unavailable.');
+        }
+      }
       setDashboard(stats.status === 'fulfilled' ? stats.value : null);
       setLedger(movements.status === 'fulfilled' ? list(movements.value) : []);
       setCategories(groups.status === 'fulfilled' ? list(groups.value) : []);
@@ -176,10 +207,13 @@ export default function StockEasyPage() {
       setError(exception?.message || 'Could not load stock. Check the backend connection.');
     } finally {
       setLoading(false);
+      setFinanceLoading(false);
     }
   };
 
-  useEffect(() => { reload(); }, []);
+  // Feature access loads asynchronously. Reload supplier balances when the
+  // logged-in role is resolved without ever querying restricted Finance data.
+  useEffect(() => { reload(); }, [canViewSupplierFinance]);
 
   // Query the persisted backend catalogue rather than only the currently loaded page.
   useEffect(() => {
@@ -213,9 +247,9 @@ export default function StockEasyPage() {
 
   const lowCount = items.filter((item) => stockState(item).tone === 'low').length;
   const outCount = items.filter((item) => stockState(item).tone === 'out').length;
-  const totalValue = dashboard?.totalValue ?? items.reduce(
+  const totalValue = canManageStock ? (dashboard?.totalValue ?? items.reduce(
     (total, item) => total + number(item.onHand) * number(item.costPrice), 0
-  );
+  )) : null;
   const selected = items.find((item) => String(item.id) === String(move.itemId));
   const selectedAvailable = selected ? number(selected.branchAvailable ?? selected.available ?? (number(selected.onHand) - number(selected.reserved))) : 0;
   const matchingParts = useMemo(() => items.filter((item) =>
@@ -268,19 +302,18 @@ export default function StockEasyPage() {
 
   const beginMove = (mode, itemId = '', partItem = null) => {
     setError('');
-    const item = partItem || items.find((row) => String(row.id) === String(itemId));
-    const linkedSupplier = item?.supplier?.id || item?.supplier;
-    if (mode === 'in' && item) {
-      if (!linkedSupplier) {
-        setError('This part has no Supplier linked. Assign its Supplier before receiving a purchase. Stock and supplier credit must be posted together.');
+    // Supplier purchases must use the canonical bill + GST + Finance workflow.
+    // Selecting a supplier in this dialog is sufficient for catalog items that
+    // have never been assigned to a supplier; posting the bill links the item.
+    const item = partItem || items.find(row => String(row.id) === String(itemId)) ||
+      (remoteMatches || []).find(row => String(row.id) === String(itemId));
+    if (mode === 'in') {
+      if (!canPurchaseStock) {
+        setError('Receiving a supplier purchase needs Stock Edit and Payments permissions.');
         return;
       }
-      navigate('/suppliers/' + encodeURIComponent(linkedSupplier), {
-        state: { purchasePrefill: {
-          itemId: String(item.id), quantity: '1',
-          purchaseRate: String(item.costPrice ?? 0), supplierId: String(linkedSupplier),
-        }},
-      });
+      setReceiveItem(item || null);
+      setReceiveOpen(true);
       return;
     }
     setMove({ ...initialMove, mode, requestKey: inventoryRequestKey(), itemId: String(itemId || ''),
@@ -288,6 +321,18 @@ export default function StockEasyPage() {
       sellingPrice: item ? String(item.sellingPrice ?? 0) : '' });
     setMoveLookup(item?.partName || item?.name || '');
     setMoveOpen(true);
+  };
+
+  const continueStockPurchase = ({ itemId, supplierId: selectedSupplierId, quantity, purchaseRate }) => {
+    setReceiveOpen(false);
+    setReceiveItem(null);
+    navigate('/suppliers/' + encodeURIComponent(selectedSupplierId), {
+      state: {
+        purchasePrefill: {
+          itemId, quantity, purchaseRate, supplierId: selectedSupplierId,
+        },
+      },
+    });
   };
 
   const savePart = async (event) => {
@@ -386,6 +431,13 @@ export default function StockEasyPage() {
   const saveMovement = async (event) => {
     event.preventDefault();
     if (saving) return;
+    if (move.mode === 'in' && !USE_MOCK_API) {
+      // Legacy stock-in modal must not create an unbilled purchase.
+      // Supplier purchase posting is the only normal Stock purchase action.
+      setMoveOpen(false);
+      beginMove('in', move.itemId);
+      return;
+    }
     const quantity = Number(move.quantity);
     if (!selected || !Number.isFinite(quantity) || quantity <= 0) {
       setError('Select a part and enter a valid quantity.'); return;
@@ -434,7 +486,9 @@ export default function StockEasyPage() {
         </div>
         <div className="cg-easy-actions">
           <button type="button" className="cg-easy-secondary" onClick={reload} disabled={loading}><RefreshCw size={16}/> Refresh</button>
-          <button type="button" className="cg-easy-primary" onClick={() => openPartDialog()}><Plus size={16}/> Add New Part</button>
+          {canPurchaseStock && <button type="button" className="cg-easy-secondary"
+            onClick={() => beginMove('in')}><PackagePlus size={16}/> Receive Purchase</button>}
+          {canCreateStock && <button type="button" className="cg-easy-primary" onClick={() => openPartDialog()}><Plus size={16}/> Add New Part</button>}
         </div>
       </header>
 
@@ -461,7 +515,7 @@ export default function StockEasyPage() {
       <section className="cg-easy-metrics" aria-label="Inventory summary">
         {[
           { label: 'Total parts', value: dashboard?.totalItems ?? items.length, icon: Boxes },
-          { label: 'Stock value', value: cash(totalValue), icon: ShoppingCart },
+          { label: 'Stock value', value: canManageStock ? cash(totalValue) : 'Restricted', icon: ShoppingCart },
           { label: 'Low stock', value: dashboard?.lowStock ?? lowCount, icon: AlertTriangle },
           { label: 'Out of stock', value: dashboard?.outOfStock ?? outCount, icon: PackageMinus },
         ].map(({ label, value, icon: Icon }) => (
@@ -473,11 +527,23 @@ export default function StockEasyPage() {
 
       <section className="cg-easy-shortcuts" aria-label="Quick actions">
         <Link to="/suppliers"><PackagePlus size={19}/><span>Buy / Receive from Supplier</span></Link>
-        <button type="button" onClick={() => beginMove('out')}><PackageMinus size={19}/><span>Internal Use</span></button>
+        {canManageStock && <button type="button" onClick={() => beginMove('out')}><PackageMinus size={19}/><span>Internal Use</span></button>}
         <Link to="/jobs"><Wrench size={19}/><span>Job Card Parts</span></Link>
         <a href="#stock-history"><History size={19}/><span>Stock History</span></a>
         <Link to="/suppliers"><ShoppingCart size={19}/><span>Suppliers</span></Link>
       </section>
+
+      <StockFinanceConnections
+        items={items}
+        loading={loading}
+        showGST={canViewGSTR}
+        showSupplierFinance={canViewSupplierFinance}
+        supplierBalances={supplierBalances}
+        financeLoading={financeLoading}
+        financeError={financeError}
+        canViewValuation={canManageStock}
+        stockValue={totalValue}
+      />
 
       <InventoryBranchOperations onChanged={reload}/>
       <InventoryCategories onChanged={reload}/>
@@ -495,21 +561,39 @@ export default function StockEasyPage() {
           </div>
         </div>
         {loading ? <div className="cg-easy-empty">Loading stock...</div>
-          : filtered.length === 0 ? <div className="cg-easy-empty">No matching parts. <button type="button" className="cg-easy-inline-add" onClick={() => openPartDialog(query)}><Plus size={15}/> Add New Part</button></div>
+          : filtered.length === 0 ? <div className="cg-easy-empty">No matching parts. {canCreateStock && <button type="button" className="cg-easy-inline-add" onClick={() => openPartDialog(query)}><Plus size={15}/> Add New Part</button>}</div>
           : (
             <div className="cg-easy-table-wrap">
               <table className="cg-easy-table">
-                <thead><tr><th scope="col">Part</th><th scope="col">Rack</th><th scope="col">Available</th><th scope="col">Cost</th><th scope="col">Selling</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+                <thead><tr><th scope="col">Part</th><th scope="col">Rack</th><th scope="col">Available</th><th scope="col">Cost</th><th scope="col">Selling</th><th scope="col">GST / HSN</th><th scope="col">Supplier</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
                 <tbody>{filtered.map((item) => {
                   const state = stockState(item);
                   return <tr key={item.id}>
                     <td data-label="Part"><strong title={item.partName || item.name}>{item.partName || item.name}</strong><small>{item.partNumber ? item.partNumber + ' · ' : ''}{item.sku}{item.brand ? ' · ' + item.brand : ''}</small></td>
                     <td data-label="Rack" title={item.location || item.rack || '—'}>{item.location || item.rack || '—'}</td>
                     <td data-label="Available">{number(item.available ?? (number(item.onHand) - number(item.reserved)))} {item.unit || 'PCS'}</td>
-                    <td data-label="Cost">{cash(item.costPrice)}</td>
+                    <td data-label="Cost">{canManageStock ? cash(item.costPrice) : 'Restricted'}</td>
                     <td data-label="Selling">{cash(item.sellingPrice)}</td>
+                    <td data-label="GST / HSN">
+                      <div className="cg-easy-gst-metadata">
+                        <strong>{number(item.tax)}% GST</strong>
+                        <small className={number(item.tax) > 0 && !item.hsnCode ? 'is-missing' : ''}>
+                          {item.hsnCode ? 'HSN/SAC ' + item.hsnCode
+                            : number(item.tax) > 0 ? 'HSN/SAC review' : (item.zeroTaxClassification || '0% category review')}
+                        </small>
+                      </div>
+                    </td>
+                    <td data-label="Supplier">
+                      {item.supplier?.id || item.supplier
+                        ? <Link className="cg-easy-supplier-link" to={'/suppliers/' + encodeURIComponent(item.supplier?.id || item.supplier)}>
+                          {item.supplierName || 'View Supplier'}
+                        </Link>
+                        : <span>Not linked</span>}
+                    </td>
                     <td data-label="Status"><span className={'cg-easy-status is-' + state.tone}>{state.label}</span></td>
-                    <td data-label="Action"><button type="button" aria-label={`Receive stock for ${item.partName || item.name}`} onClick={() => beginMove('in', item.id)}>Receive</button></td>
+                    <td data-label="Action">{canCreateStock
+                      ? <button type="button" aria-label={`Receive stock for ${item.partName || item.name}`} onClick={() => beginMove('in', item.id)}>Receive</button>
+                      : <span>View only</span>}</td>
                   </tr>;
                 })}</tbody>
               </table>
@@ -524,6 +608,16 @@ export default function StockEasyPage() {
           <div key={entry.id} className="cg-easy-history-row"><div><strong>{entry.partName || entry.itemName || 'Stock Item'}</strong><small>{entry.type || entry.movement_type || 'Movement'}</small></div><b>{number(entry.quantity ?? entry.qty) > 0 ? '+' : ''}{number(entry.quantity ?? entry.qty)}</b></div>
         )) : <p>No stock movements yet.</p>}</div>
       </section>
+
+      <StockPurchaseStartDialog
+        isOpen={receiveOpen}
+        items={items}
+        suppliers={suppliers}
+        initialItem={receiveItem}
+        canPurchase={canPurchaseStock}
+        onClose={() => { setReceiveOpen(false); setReceiveItem(null); }}
+        onContinue={continueStockPurchase}
+      />
 
       <ResponsiveModalSheet isOpen={partOpen} onClose={() => !saving && setPartOpen(false)} title="Add New Part" maxWidth="600px">
         {partMode === 'find' ? (

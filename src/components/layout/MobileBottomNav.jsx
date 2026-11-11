@@ -30,7 +30,7 @@ export const MobileBottomNav = () => {
   const primaryIds = new Set(visiblePrimaryRoutes.map((route) => route.id));
   const visibleMoreRoutes = routeConfig.filter((route) =>
     !primaryIds.has(route.id)
-    && featureAccess.can(route.permission)
+    && (route.accessAny ? route.accessAny.some(featureAccess.can) : featureAccess.can(route.permission))
     && (route.id !== 'credits' || featureAccess.isCompanyOwner)
   );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

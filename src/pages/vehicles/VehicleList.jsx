@@ -14,11 +14,13 @@ import '../../styles/vehicle-management.css';
 import '../../styles/vehicle-polish.css';
 import '../../styles/vehicle-readable.css';
 import '../../styles/vehicle-compact-cleanup.css';
+import '../../styles/vehicle-directory-refined.css';
 
 export const VehicleList = () => {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
   const [query, setQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
@@ -89,10 +91,13 @@ export const VehicleList = () => {
 
   const filteredVehicles = useMemo(() => {
     const search = query.trim().toLowerCase().replace(/\s+/g, '');
-    if (!search) return vehicles;
 
-    return vehicles.filter((vehicle) =>
-      [
+    return vehicles.filter((vehicle) => {
+      if (statusFilter === 'open-job' && !vehicle.openJob) return false;
+      if (statusFilter === 'active' && ['inactive', 'archived'].includes(String(vehicle.status || '').toLowerCase())) return false;
+      if (statusFilter === 'inactive' && !['inactive', 'archived'].includes(String(vehicle.status || '').toLowerCase())) return false;
+      if (!search) return true;
+      return [
         vehicle.registration,
         vehicle.vin,
         vehicle.make,
@@ -104,9 +109,9 @@ export const VehicleList = () => {
           .toLowerCase()
           .replace(/\s+/g, '')
           .includes(search),
-      ),
-    );
-  }, [vehicles, query]);
+      );
+    });
+  }, [vehicles, query, statusFilter]);
 
   const metrics = useMemo(() => {
     const openJobIds = new Set(vehicles.flatMap((vehicle) =>
@@ -133,7 +138,7 @@ export const VehicleList = () => {
   }, [vehicles]);
 
   return (
-    <div className="vehicle-management-page cg-vehicles vehicle-dashboard">
+    <div className="vehicle-management-page cg-vehicles vehicle-dashboard cg-vehicle-directory-refined">
       <VehiclesHeader onAddVehicle={() => navigate('/vehicles/new')} />
 
       {loading ? (
@@ -150,12 +155,17 @@ export const VehicleList = () => {
           <VehicleSearchToolbar
             query={query}
             onQueryChange={setQuery}
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
             resultCount={filteredVehicles.length}
+            onReset={() => { setQuery(''); setStatusFilter('all'); }}
           />
 
           <VehicleDirectoryPanel
             vehicles={filteredVehicles}
             onNavigate={navigate}
+            hasFilters={Boolean(query.trim() || statusFilter !== 'all')}
+            onReset={() => { setQuery(''); setStatusFilter('all'); }}
           />
         </>
       )}

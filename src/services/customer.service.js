@@ -64,6 +64,14 @@ export const getCustomers = async (params = {}) => {
   return apiClient.get(API_ENDPOINTS.CUSTOMERS, { params });
 };
 
+/** One tenant-scoped directory aggregate; the server masks counts and money by role.
+ * Never calculate financial totals from unverified job history or cash receipts.
+ */
+export const getCustomerDirectorySummary = async () => {
+  if (USE_MOCK_API) return null;
+  return apiClient.get(`${API_ENDPOINTS.CUSTOMERS}/directory-summary`);
+};
+
 /** Tenant-scoped options, authorized by customers.view on Django. */
 export const getCustomerBranches = async () => {
   if (USE_MOCK_API) return [];
@@ -256,7 +264,7 @@ export const addCustomerVehicle = async (customerId, payload) => {
 };
 
 export const customerService = {
-  getCustomers, getCustomerBranches,
+  getCustomers, getCustomerDirectorySummary, getCustomerBranches,
   getCustomerById,
   createCustomer,
   updateCustomer,

@@ -253,3 +253,39 @@
 @media(max-width:360px){
  .cg-suppliers-page .cg-supplier-mobile-details{grid-template-columns:1fr}
 }
+
+/* Supplier credit overview — posted purchase liabilities, never draft orders. */
+.cg-supplier-credit-overview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  min-width: 0;
+}
+.cg-supplier-credit-overview > div {
+  display: grid;
+  align-content: start;
+  gap: 9px;
+  padding: 16px;
+  border: 1px solid var(--border,#dce3ea);
+  border-radius: 12px;
+  background: var(--surface,#fff);
+  min-width: 0;
+}
+.cg-supplier-credit-overview span {
+  color: var(--text-secondary,#64748b);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.cg-supplier-credit-overview strong {
+  font-size: clamp(15px, 1.7vw, 21px);
+  font-weight: 720;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1120px) {
+  .cg-supplier-credit-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+  .cg-supplier-credit-overview > div { padding: 12px; }
+  .cg-supplier-credit-overview strong { font-size: 16px; }
+}

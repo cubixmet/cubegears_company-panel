@@ -5,7 +5,7 @@ import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/finance-accounting.css';
 
 const TABS = [
-  ['chart', 'Accounts'], ['journals', 'Journals'], ['trial-balance', 'Trial Balance'],
+  ['chart', 'Chart of Accounts'], ['journals', 'Journals'], ['trial-balance', 'Trial Balance'],
   ['profit-loss', 'Profit & Loss'], ['balance-sheet', 'Balance Sheet'],
   ['banks', 'Bank Reconciliation'],
 ];
@@ -161,8 +161,8 @@ export default function AccountingWorkspace() {
   const statement = reports[tab] || {};
   return <main className="gl-workspace" aria-label="Workshop double-entry accounting">
     <header className="gl-heading">
-      <div><h1><BookOpen size={23}/> Accounting &amp; Reconciliation</h1>
-        <p>Audited debit/credit records from existing workshop finance. Historic coverage is reported separately.</p>
+      <div><h1><BookOpen size={23}/> Accounting Reports</h1>
+        <p>Review double-entry records, business statements and bank reconciliation. Historical coverage warnings are shown separately.</p>
       </div>
       <button type="button" onClick={reload} disabled={loading || saving}>
         <RefreshCw size={16}/> Refresh
@@ -170,18 +170,18 @@ export default function AccountingWorkspace() {
     </header>
     {issue && <p className="gl-error" role="alert">{issue}</p>}
     {notice && <p className="gl-success" role="status">{notice}</p>}
-    {loading && <p role="status">Loading accounting records…</p>}
+    {loading && <p className="gl-loading" role="status">Loading accounting records…</p>}
     <CoverageWarning value={journals.coverage || statement.coverage}/>
     <nav className="gl-tabs" aria-label="Accounting sections">
       {TABS.map(([name, title]) =>
         <button key={name} type="button" className={tab === name ? 'active' : ''}
-          aria-current={tab === name ? 'page' : undefined}
+          aria-pressed={tab === name}
           onClick={() => setTab(name)}>{title}</button>,
       )}
     </nav>
     {tab === 'chart' && <section className="gl-panel">
       <h2>Chart of Accounts</h2>
-      <p>Read-only chart; mapped cash/bank accounts remain controlled by recorded transactions.</p>
+      <p>Your accounting account list. Cash and bank balances are controlled by posted money transactions.</p>
       <Table columns={['Code', 'Account', 'Type', 'Status']}
         rows={chart.map(r => ({
           code: r.code,
@@ -190,7 +190,7 @@ export default function AccountingWorkspace() {
     </section>}
     {tab === 'journals' && <section className="gl-panel">
       <h2>General Journal</h2>
-      <p>Automatic journals are immutable. Manual journal entries affect non-cash accounts only.</p>
+      <p>Automatic entries cannot be edited here. A manual journal adjusts non-cash accounting accounts only—not cash or bank balances.</p>
       {canWrite && <form className="gl-form" onSubmit={postJournal}>
         <label>Journal memo<input value={memo} minLength={8} required disabled={saving}
           onChange={e => setMemo(e.target.value)} placeholder="Reason for the journal"/></label>

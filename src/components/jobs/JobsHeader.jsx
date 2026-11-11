@@ -9,8 +9,9 @@ export const JobsHeader = ({ onNavigate }) => {
   return (
     <header className="jobs-dashboard-header">
       <div>
+        <span className="jobs-dashboard-eyebrow">CUBIXGEAR · WORKSHOP OPERATIONS</span>
         <h1>Job Cards</h1>
-        <p>Track every vehicle from check-in to repair, quality control, billing and delivery.</p>
+        <p>Find vehicle jobs, assign staff, follow repair progress, and manage delivery in one place.</p>
       </div>
 
       <div className="jobs-dashboard-actions">
@@ -43,7 +44,7 @@ export const JobsHeader = ({ onNavigate }) => {
             onClick={() => onNavigate('/jobs/new')}
           >
             <Plus size={14} />
-            <span>New Job Card</span>
+            <span>Create Job Card</span>
           </button>
         )}
       </div>

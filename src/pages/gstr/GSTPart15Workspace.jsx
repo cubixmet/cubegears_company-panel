@@ -41,6 +41,7 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
   const [fetching, setFetching] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState('');
   const [message, setMessage] = useState('');
   const [version, setVersion] = useState(0);
   const [itcForm, setITCForm] = useState({
@@ -56,6 +57,7 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
 
   const load = useCallback(async () => {
     setFetching(true);
+    setLoadError('');
     try {
       const params = { period };
       const [batchData, itcData, notesData, ledgerData, filingData, invoiceData] =
@@ -75,7 +77,13 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
       setInvoices(list(invoiceData));
       setError('');
     } catch (cause) {
-      setError(errorText(cause));
+      setLoadError(errorText(cause));
+      setBatches([]);
+      setCredits([]);
+      setCreditNotes([]);
+      setTaxLedger([]);
+      setFiling(null);
+      setInvoices([]);
     } finally { setFetching(false); }
   }, [period]);
 
@@ -159,26 +167,30 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
   return <section className="gstr15-workspace" aria-label="GST compliance decisions">
     <div className="gstr15-heading">
       <div><h2>{
-        tab === 'itc' ? 'Input Tax Credit Review' :
+        tab === 'itc' ? 'Input Tax Credit (ITC) Review' :
         tab === 'credits' ? 'Sales GST Credit Notes' :
-        tab === 'ledger' ? 'Tax Head Ledger' : 'Filing Evidence & Review'
-      }</h2><p>Evidence-based preparation, with no automatic GST Portal filing.</p></div>
+        tab === 'ledger' ? 'GST Tax Ledger' : 'Internal Filing Review'
+      }</h2><p>Review workshop tax evidence. Saving here never files a GST return on the portal.</p></div>
       <button type="button" onClick={() => setVersion(v => v + 1)}
         disabled={fetching || saving}><RefreshCw size={16}/> Refresh</button>
     </div>
-    {error && <p className="gstr15-error" role="alert">{error}</p>}
+    {(error || loadError) && <div className="gstr15-error" role="alert">
+      <span>{loadError || error}</span>
+      {loadError && <button type="button" onClick={() => setVersion(v => v + 1)} disabled={fetching}>Retry</button>}
+    </div>}
     {message && <p className="gstr15-success" role="status">{message}</p>}
-    {fetching && <p role="status">Loading reviewed GST records…</p>}
+    {fetching && <p className="gstr15-loading" role="status">Loading reviewed GST records…</p>}
+    {!fetching && !loadError && <>
 
     {tab === 'itc' && <>
-      <p className="gstr15-note">Only saved, matching GSTR-2B B2B invoices with source ITC availability confirmed can enter the internal approval workflow. A 2B match alone does not establish legal eligibility.</p>
+      <p className="gstr15-note">Step 1: select saved GSTR-2B match evidence with source ITC availability confirmed. Step 2: choose a matching supplier bill. Step 3: document the independent ITC eligibility review before approving. A match alone is not legal eligibility.</p>
       <div className="gstr15-stats">
         <div><span>Saved 2B Imports</span><strong>{batches.length}</strong></div>
         <div><span>Approved ITC</span><strong>{money(report?.overview?.eligibleITC)}</strong></div>
         <div><span>ITC Reversals</span><strong>{money(report?.overview?.reversedITC)}</strong></div>
       </div>
       {canReview && <form className="gstr15-form" onSubmit={approve}>
-        <h3><BookCheck size={17}/> Approve Eligible ITC</h3>
+        <h3><BookCheck size={17}/> Review &amp; Approve ITC</h3>
         <label>Saved GSTR-2B reconciliation<select required disabled={saving}
           value={itcForm.importId} onChange={e => setITCForm(v => ({
             ...v, importId: e.target.value, billId: '',
@@ -200,7 +212,7 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
             {row.number} · {row.supplierGSTIN} · {money(signedTax(row))}
           </option>)}
         </select></label>
-        <label>Independent eligibility decision / reviewer notes
+        <label>Why is this input tax credit eligible? (review notes)
           <textarea required rows={3} minLength={20} maxLength={500}
             placeholder="Verify business use, tax document, eligibility restrictions and supplier compliance"
             disabled={saving} value={itcForm.eligibilityReason}
@@ -231,7 +243,7 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
     {tab === 'credits' && <>
       <p className="gstr15-note">Credit notes use the original finalized GST invoice tax heads. Recording one here does not cancel an invoice, return inventory, or transfer money to the customer.</p>
       {canReview && <form className="gstr15-form" onSubmit={credit}>
-        <h3><FileMinus2 size={17}/> Record Sales GST Credit Note</h3>
+        <h3><FileMinus2 size={17}/> Add Sales GST Credit Note</h3>
         <div className="gstr15-grid">
           <label>Original GST invoice<select required value={creditForm.invoiceId} disabled={saving}
             onChange={e => setCreditForm(v => ({ ...v, invoiceId: e.target.value }))}>
@@ -241,18 +253,18 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
                 {row.number} · Taxable {money(row.taxable)}
               </option>)}
           </select></label>
-          <label>Credit note number<input required maxLength={100} disabled={saving}
+          <label>Credit Note Number<input required maxLength={100} disabled={saving}
             value={creditForm.number}
             onChange={e => setCreditForm(v => ({ ...v, number: e.target.value }))}/></label>
           <label>Credit note date<input required type="date" disabled={saving}
             value={creditForm.date} onChange={e => setCreditForm(v => ({
               ...v, date: e.target.value,
             }))}/></label>
-          <label>Taxable value to credit<input required inputMode="decimal" disabled={saving}
+          <label>Taxable Amount to Credit (₹)<input required inputMode="decimal" disabled={saving}
             value={creditForm.taxable} onChange={e => setCreditForm(v => ({
               ...v, taxable: e.target.value,
             }))}/></label>
-          <label className="gstr15-wide">Reason<input required minLength={15} maxLength={500}
+          <label className="gstr15-wide">Reason for Credit Note<input required minLength={15} maxLength={500}
             disabled={saving} value={creditForm.reason}
             onChange={e => setCreditForm(v => ({ ...v, reason: e.target.value }))}/></label>
         </div>
@@ -273,7 +285,7 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
     </>}
 
     {tab === 'ledger' && <>
-      <p className="gstr15-note">Positive output tax represents recorded sales, negative output represents credit notes. ITC amounts and reversals are shown separately. This is not the GST Portal electronic ledger.</p>
+      <p className="gstr15-note">Positive amounts show tax on recorded sales; negative amounts show tax reductions from credit notes. Approved ITC and reversals are listed separately. This is not the official GST Portal electronic ledger.</p>
       <div className="gstr15-table"><table><thead><tr><th>Date</th><th>Source</th><th>Number</th>
         <th>Category</th><th>CGST</th><th>SGST/UTGST</th><th>IGST</th></tr></thead>
         <tbody>{taxLedger.length ? taxLedger.map((row, i) =>
@@ -285,8 +297,8 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
     </>}
 
     {tab === 'exports' && <div className="gstr15-form">
-      <h3><FileCheck2 size={17}/> Internal Filing Evidence</h3>
-      <p className="gstr15-note">Current record: {filing?.status || 'Not Reviewed'}. This field cannot independently confirm a GST Portal submission.</p>
+      <h3><FileCheck2 size={17}/> Record Internal Filing Evidence</h3>
+      <p className="gstr15-note">Internal review status: {filing?.status || 'Not Reviewed'}. This status does not independently confirm a GST Portal submission.</p>
       {canReview && filing?.status !== 'Reported Filed' && <form className="gstr15-filing" onSubmit={review}>
         <label>Review status<select value={filingForm.status} disabled={saving}
           onChange={e => setFilingForm(v => ({ ...v, status: e.target.value }))}>
@@ -301,13 +313,14 @@ export default function GSTPart15Workspace({ tab, period, report, onChanged }) {
             value={filingForm.filedOn}
             onChange={e => setFilingForm(v => ({ ...v, filedOn: e.target.value }))}/></label>
         </div>}
-        <label>Review and evidence notes<textarea required rows={3} minLength={15}
+        <label>Review Notes &amp; Evidence<textarea required rows={3} minLength={15}
           maxLength={1000} disabled={saving} value={filingForm.note}
           onChange={e => setFilingForm(v => ({ ...v, note: e.target.value }))}/></label>
         <button type="submit" disabled={saving}>{saving ? 'Saving…' : 'Record Internal Review'}</button>
       </form>}
       {filing?.reference && <p>Recorded acknowledgment: {filing.reference} · {filing.filedOn}</p>}
-      <p className="gstr15-note">The company must separately log in to the official GST Portal to prepare, verify and submit returns. No electronic credit ledger or portal confirmation is available here.</p>
+      <p className="gstr15-note">To file a GST return, sign in separately to the official GST Portal and complete its verification and submission steps. This app does not confirm the electronic credit ledger or portal filing.</p>
     </div>}
+    </>}
   </section>;
 }

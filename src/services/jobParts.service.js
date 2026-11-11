@@ -434,8 +434,13 @@ export const completeOutsideJobPart = async (jobId, purchaseId, form) => {
     const payload = new FormData();
     payload.append('invoiceNo', form.invoiceNo);
     payload.append('unitCost', String(form.unitCost));
-    payload.append('paymentType', String(form.paymentType || 'Credit'));
-    if (form.accountId) payload.append('accountId', String(form.accountId));
+    payload.append('paymentType', form.paymentType);
+    // Backend is authoritative for the actual bill and GST total. Only
+    // Cash/Bank paidNow moves money; unallocated remainder remains payable.
+    if (form.paymentType !== 'Credit') {
+      payload.append('accountId', form.accountId);
+      payload.append('paidAmount', String(form.paidAmount));
+    }
     payload.append('bill', form.bill);
     return apiClient.post(`/job-cards/${jobId}/outside-parts/${purchaseId}/complete`, payload, {
       headers: { 'Content-Type': undefined }
@@ -446,19 +451,29 @@ export const completeOutsideJobPart = async (jobId, purchaseId, form) => {
   const purchase = old.outsideParts?.find((item) => item.id === purchaseId);
   if (!purchase || purchase.status !== 'Approved') throw new Error('Approval is required.');
   if (!form.bill) throw new Error('Supplier invoice file is required.');
+  if (!['Cash', 'Bank', 'Credit'].includes(form.paymentType)) throw new Error('Choose a payment type.');
+  if (form.paymentType !== 'Credit' && !form.accountId) throw new Error('Choose a Cash/Bank account.');
   const qty = Number(purchase.quantity);
   const actualCost = Number(form.unitCost);
   const gstRate = Number(purchase.purchaseGstRate || 0);
-  const gross = qty * actualCost * (1 + gstRate / 100);
+  const base = Math.round(qty * actualCost * 100) / 100;
+  const purchaseGST = Math.round(base * gstRate) / 100;
+  const gross = base + purchaseGST;
   if (gross > Number(purchase.quotedTotal)) throw new Error('Actual amount exceeds approved quote.');
+  const paid = form.paymentType === 'Credit' ? 0 : form.paidAmount == null || form.paidAmount === ''
+    ? gross : Number(form.paidAmount);
+  if (!Number.isFinite(paid) || paid < 0 || paid > gross ||
+    (form.paymentType !== 'Credit' && paid === 0)) throw new Error('Invalid Cash/Bank payment amount.');
+  const balanceDue = Math.max(0, Math.round((gross - paid) * 100) / 100);
   const result = {
     ...purchase, status: 'Purchased', invoiceNo: form.invoiceNo,
     unitCost: String(actualCost), totalCost: gross.toFixed(2),
-    purchaseGstAmount: (qty * actualCost * gstRate / 100).toFixed(2),
-    paymentType: form.paymentType || 'Credit', paymentStatus: form.paymentType === 'Credit' ? 'Unpaid' : 'Paid',
-    accountId: form.accountId || '',
+    purchaseBase: base.toFixed(2), purchaseGstAmount: purchaseGST.toFixed(2),
+    paymentType: form.paymentType, accountId: form.paymentType === 'Credit' ? '' : form.accountId || '',
+    paymentStatus: balanceDue === 0 ? 'Paid' : paid > 0 ? 'Partially Paid' : 'Unpaid',
     totalSelling: (qty * Number(purchase.sellingPrice)).toFixed(2),
-    usedAt: now(), billId: 'demo-upload'
+    paidAmount: paid.toFixed(2), balanceDue: balanceDue.toFixed(2),
+    expenseId: 'demo-expense', usedAt: now(), billId: 'demo-upload'
   };
   await jobService.updateJob(jobId, {
     partsWorkflow: { ...old, outsideParts: old.outsideParts.map((item) => item.id === purchaseId ? result : item) }

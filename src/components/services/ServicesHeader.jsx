@@ -1,5 +1,5 @@
 
-import { FolderPlus, Plus, Wrench } from 'lucide-react';
+import { FolderPlus, Plus } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
 
@@ -7,19 +7,19 @@ export const ServicesHeader = ({ onAdd, onAddCategory }) => {
   const { user } = useAuth();
   return (
     <header className="service-dashboard-header">
-      <div>
-        <h1>Services Catalog</h1>
-        <p>Workshop labour services, categories, pricing, duration and technician checklists.</p>
+      <div className="cg-service-heading">
+        <span className="cg-service-eyebrow">WORKSHOP CATALOG</span>
+        <h1>Services</h1>
+        <p>Service rates, labour charges, categories and checklists.</p>
       </div>
       <div className="service-dashboard-header-actions">
-        <div className="service-dashboard-header-badge"><Wrench size={13}/><span>Workshop Services</span></div>
         {hasPermission(user,'services.create') && (
           <>
             <button type="button" className="service-primary-button is-secondary" onClick={onAddCategory}>
-              <FolderPlus size={14}/> Add Category
+              <FolderPlus size={17} aria-hidden="true"/> Add Category
             </button>
             <button type="button" className="service-primary-button" onClick={onAdd}>
-              <Plus size={14}/> Add Service
+              <Plus size={17} aria-hidden="true"/> Add Service
             </button>
           </>
         )}

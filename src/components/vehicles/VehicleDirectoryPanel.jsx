@@ -1,4 +1,5 @@
 
+import { Link } from 'react-router-dom';
 import {
   Car,
   ChevronRight,
@@ -14,6 +15,8 @@ import { getVehicleStatus } from './vehicles.utils';
 export const VehicleDirectoryPanel = ({
   vehicles,
   onNavigate,
+  hasFilters = false,
+  onReset,
 }) => {
   const { user } = useAuth();
   const canEdit = hasPermission(user, 'vehicles.edit');
@@ -28,7 +31,7 @@ export const VehicleDirectoryPanel = ({
         <span>{vehicles.length} vehicle{vehicles.length === 1 ? '' : 's'}</span>
       </header>
 
-      <div className="vehicle-table-wrap">
+      <div className="vehicle-table-wrap" role="region" aria-label="Vehicle directory table" tabIndex={0}>
         <table className="vehicle-table">
           <thead>
             <tr>
@@ -50,7 +53,10 @@ export const VehicleDirectoryPanel = ({
               return (
                 <tr
                   key={vehicle.id}
-                  onClick={() => onNavigate(`/vehicles/${vehicle.id}`)}
+                  onClick={event => {
+                    if (event.target.closest('a, button, input, select, textarea')) return;
+                    onNavigate(`/vehicles/${vehicle.id}`);
+                  }}
                   onKeyDown={(event) => {
                     if (event.target === event.currentTarget && event.key === 'Enter') {
                       onNavigate(`/vehicles/${vehicle.id}`);
@@ -59,10 +65,21 @@ export const VehicleDirectoryPanel = ({
                   tabIndex={0}
                   aria-label={`Open vehicle ${vehicle.registration || 'profile'}`}
                 >
-                  <td><strong>{vehicle.registration || 'No Registration'}</strong></td>
+                  <td>
+                    <div className="cg-vehicle-registration">
+                      <span className="cg-vehicle-registration-icon" aria-hidden="true"><Car size={18}/></span>
+                      <Link className="cg-vehicle-profile-link" to={`/vehicles/${vehicle.id}`}>
+                        {vehicle.registration || 'No Registration'}
+                      </Link>
+                    </div>
+                  </td>
                   <td><strong>{vehicle.make} {vehicle.model}</strong>{vehicle.variant && <span>{vehicle.variant}</span>}</td>
                   <td>
-                    <strong>{vehicle.customerName}</strong>
+                    {vehicle.customerId ? (
+                      <Link className="cg-vehicle-owner-link" to={`/customers/${vehicle.customerId}`}>
+                        {vehicle.customerName}
+                      </Link>
+                    ) : <strong>{vehicle.customerName}</strong>}
                     <span>{vehicle.customerPhone || '—'}</span>
                   </td>
                   <td>{lastService}</td>
@@ -92,8 +109,12 @@ export const VehicleDirectoryPanel = ({
                   <td className="vehicle-directory-actions">
                     <button type="button" aria-label={`View ${vehicle.registration || 'vehicle'}`}
                       onClick={(event) => { event.stopPropagation(); onNavigate(`/vehicles/${vehicle.id}`); }}>
-                      View <ChevronRight size={14} aria-hidden="true"/>
+                      View
                     </button>
+                    {canEdit && <button type="button" aria-label={`Edit ${vehicle.registration || 'vehicle'}`}
+                      onClick={event => { event.stopPropagation(); onNavigate(`/vehicles/${vehicle.id}/edit`); }}>
+                      Edit
+                    </button>}
                     {canCreateJob && String(vehicle.status || '').toLowerCase() !== 'archived' && String(vehicle.customerStatus || '').toLowerCase() !== 'archived' && <button type="button"
                       aria-label={`New Job Card for ${vehicle.registration || 'vehicle'}`}
                       onClick={(event) => { event.stopPropagation(); onNavigate(`/jobs/new?customerId=${vehicle.customerId || ''}&vehicle=${encodeURIComponent(vehicle.registration || '')}`); }}>
@@ -115,7 +136,9 @@ export const VehicleDirectoryPanel = ({
             <article key={vehicle.id} className="vehicle-mobile-card">
               <div className="vehicle-mobile-card-head">
                 <div>
-                  <strong>{vehicle.registration || 'No Registration'}</strong>
+                  <Link to={`/vehicles/${vehicle.id}`} className="cg-vehicle-profile-link">
+                    {vehicle.registration || 'No Registration'}
+                  </Link>
                   <span>{vehicle.make} {vehicle.model}</span>
                 </div>
                 <span className={`vehicle-status is-${status.tone}`}>
@@ -126,7 +149,11 @@ export const VehicleDirectoryPanel = ({
               <div className="vehicle-owner-row">
                 <User size={14} />
                 <div>
-                  <strong>{vehicle.customerName}</strong>
+                  {vehicle.customerId ? (
+                    <Link to={`/customers/${vehicle.customerId}`} className="cg-vehicle-owner-link">
+                      {vehicle.customerName}
+                    </Link>
+                  ) : <strong>{vehicle.customerName}</strong>}
                   <span>{vehicle.customerPhone || 'No owner contact'}</span>
                 </div>
               </div>
@@ -179,7 +206,12 @@ export const VehicleDirectoryPanel = ({
       </div>
 
       {!vehicles.length && (
-        <div className="vehicle-dashboard-empty">No vehicles found.</div>
+        <div className="vehicle-dashboard-empty" role="status">
+          <Car size={28} aria-hidden="true"/>
+          <strong>{hasFilters ? 'No matching vehicles' : 'No vehicles found.'}</strong>
+          <span>{hasFilters ? 'Try another registration, owner or status.' : 'Add a vehicle to start its service history.'}</span>
+          {hasFilters && <button type="button" onClick={onReset}>Clear filters</button>}
+        </div>
       )}
     </section>
   );

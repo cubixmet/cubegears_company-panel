@@ -44,8 +44,9 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
   }, [isOpen, location.pathname, location.search]);
 
   const sections = Object.values(ROUTE_SECTIONS);
-  const visibleRoutes = routeConfig.filter(route => featureAccess.can(route.permission) &&
-    (route.id !== 'credits' || featureAccess.isCompanyOwner));
+  const visibleRoutes = routeConfig.filter(route => featureAccess.can(route.permission) ||
+    (Array.isArray(route.accessAny) && route.accessAny.some(permission => featureAccess.can(permission))))
+    .filter(route => route.id !== 'credits' || featureAccess.isCompanyOwner);
   const isRouteActive = (route) => {
     if (route.path === '/dashboard') return location.pathname === '/dashboard';
     // Customer Website has its own menu item, separate from Settings.

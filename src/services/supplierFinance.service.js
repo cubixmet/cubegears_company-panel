@@ -34,6 +34,7 @@ export const supplierFinanceService = {
   getPayments: (supplier) => live('get', '/payments' + (supplier ? `?supplier=${encodeURIComponent(supplier)}` : '')),
   recordPayment: (payload) => live('post', '/payments', payload),
   applyAdvance: (id, payload) => live('post', `/payments/${encodeURIComponent(id)}/allocate`, payload),
+  getSupplierBalances: () => live('get', '/suppliers/balances'),
   getSupplierSummary: (id) => live('get', `/suppliers/${encodeURIComponent(id)}/summary`),
   getSupplierLedger: (id) => live('get', `/suppliers/${encodeURIComponent(id)}/ledger`),
   getDebitNotes: (supplierId) => live('get', '/debit-notes' +

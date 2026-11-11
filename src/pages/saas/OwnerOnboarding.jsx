@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, ImagePlus, MapPin, ShieldCheck } from
 import { useAuth } from '../../hooks/useAuth';
 import { onboardingService } from '../../services/onboarding.service';
 import { settingsService } from '../../services/settings.service';
+import GstRateDropdown from '../../components/common/GstRateDropdown';
 import '../../styles/owner-onboarding.css';
 
 const STEPS = [
@@ -431,6 +432,10 @@ export function OwnerOnboarding() {
                   ) : type === 'checkbox' ? (
                     <input name={key} type="checkbox" checked={Boolean(drafts[current.key]?.[key])}
                       onChange={e => update(key, e.target.checked)}/>
+                  ) : key === 'defaultTaxRate' ? (
+                    <GstRateDropdown name={key} required={Boolean(required)}
+                      selectLabel="Default GST Rate (%)" value={drafts.billing?.defaultTaxRate ?? ''}
+                      onChange={rate => update(key, rate)}/>
                   ) : (
                     <input name={key} type={type}
                       required={Boolean(required && !(key === 'gstin' && drafts.company?.gstNotRegistered))}

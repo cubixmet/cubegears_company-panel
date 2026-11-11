@@ -1,0 +1,16 @@
+.cg-shared-gst-rate{display:grid;gap:7px;min-width:0;width:100%}
+.cg-shared-gst-rate select,.cg-shared-gst-rate input{
+  display:block;width:100%;min-width:0;min-height:44px;
+  font-size:16px;line-height:1.4;color:var(--text-primary,#172132);
+  background:var(--surface,#fff);border:1px solid var(--border,#d6dce6);
+  border-radius:10px;padding:9px 12px;
+}
+.cg-shared-gst-rate select:focus-visible,
+.cg-shared-gst-rate input:focus-visible{outline:2px solid var(--primary,#1768d2);outline-offset:2px}
+.cg-shared-gst-rate-hint{
+  display:block;font-size:12px;line-height:1.5;font-weight:400;
+  color:var(--text-secondary,#64748b);
+}
+@media(max-width:600px){
+  .cg-shared-gst-rate select,.cg-shared-gst-rate input{min-height:46px;font-size:16px}
+}

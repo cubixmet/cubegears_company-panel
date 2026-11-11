@@ -9,6 +9,7 @@ import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/customer-tracking-link.css';
 import { paymentService } from '../../services/payment.service';
 import { financeService } from '../../services/finance.service';
+import { assertFinanceAccount, financeAccountsForChannel, isFinanceAccount, accountChannel } from '../../utils/financeCashBank';
 import '../../styles/customer-profile-polished.css';
 import '../../styles/customer-workspace-compact.css';
 import {
@@ -74,7 +75,7 @@ export const CustomerDetails = () => {
   const [payAmount, setPayAmount] = useState('');
   const [paymentSaving, setPaymentSaving] = useState(false);
   const [paymentError, setPaymentError] = useState('');
-  const [payMethod, setPayMethod] = useState('UPI');
+  const [payMethod, setPayMethod] = useState('Cash');
   const [payRef, setPayRef] = useState('');
   const [payNotes, setPayNotes] = useState('');
   const [payAccountId, setPayAccountId] = useState('');
@@ -85,7 +86,7 @@ export const CustomerDetails = () => {
     if (!isRecordPaymentOpen) return undefined;
     let active = true;
     financeService.listAccounts().then(rows => {
-      if (active) setPayAccounts(Array.isArray(rows) ? rows.filter(a => a.isActive) : []);
+      if (active) setPayAccounts(Array.isArray(rows) ? rows.filter(isFinanceAccount) : []);
     }).catch(error => {
       if (active) setPaymentError(error?.message || 'Unable to load Cash / Bank accounts.');
     });
@@ -235,8 +236,10 @@ export const CustomerDetails = () => {
     const amount = Number(payAmount);
     const balance = Number(selectedInvoice?.balance ?? selectedInvoice?.balanceDue);
     if (!selectedInvoice) return setPaymentError('Select an existing customer invoice.');
-    if (!payAccountId || !payAccounts.some(a => String(a.id) === String(payAccountId))) {
-      return setPaymentError('Select an active Bank / Cash / UPI account for this collection.');
+    try {
+      assertFinanceAccount(payAccounts, payAccountId, payMethod);
+    } catch (error) {
+      return setPaymentError(error.message);
     }
     if (!Number.isFinite(amount) || amount <= 0 || !Number.isFinite(balance) || amount > balance) {
       return setPaymentError('Enter a payment amount greater than zero and not exceeding the invoice balance.');
@@ -1116,10 +1119,10 @@ export const CustomerDetails = () => {
 
           <Select label="Receive Into Account *" value={payAccountId}
             onChange={event => { setPayAccountId(event.target.value); setPaymentError(''); }}>
-            <option value="">Select Cash / Bank / UPI account</option>
-            {payAccounts.map(account => (
+            <option value="">Select {payMethod} account</option>
+            {financeAccountsForChannel(payAccounts, payMethod).map(account => (
               <option key={account.id} value={account.id}>
-                {account.name} ({account.kind})
+                {account.name} ({accountChannel(account.kind)})
               </option>
             ))}
           </Select>
@@ -1138,13 +1141,10 @@ export const CustomerDetails = () => {
             <Select
               label="Payment Method"
               value={payMethod}
-              onChange={(e) => setPayMethod(e.target.value)}
+              onChange={(e) => { setPayMethod(e.target.value); setPayAccountId(''); }}
             >
-              <option value="UPI">UPI / QR</option>
               <option value="Cash">Cash</option>
-              <option value="Card">Card Swipe</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="Cheque">Cheque</option>
+              <option value="Bank">Bank</option>
             </Select>
 
             <Input

@@ -32,3 +32,32 @@
 .cg-supplier-purchase-split{display:grid;grid-template-columns:1fr 1fr minmax(0,1fr) auto;align-items:end;gap:8px;padding:10px;border:1px solid var(--border,var(--border-color,#e5e7eb));border-radius:10px;min-width:0}
 @media(max-width:740px){.cg-supplier-purchase-card{padding:14px}.cg-supplier-purchase-split{grid-template-columns:repeat(2,minmax(0,1fr))}.cg-supplier-purchase-split>label:nth-child(3){grid-column:1/-1}.cg-supplier-purchase-line{grid-template-columns:minmax(0,1fr) auto}.cg-supplier-purchase-line button{grid-column:1/-1;justify-self:start}}
 @media(max-width:500px){.cg-supplier-purchase-grid,.cg-supplier-purchase-total{grid-template-columns:minmax(0,1fr)}.cg-supplier-purchase-grid .wide{grid-column:1}.cg-supplier-purchase-split{grid-template-columns:minmax(0,1fr)}.cg-supplier-purchase-split>label:nth-child(3){grid-column:1}.cg-supplier-purchase-actions>button{flex:1 1 auto}.cg-supplier-purchase-card h2{font-size:17px}}
+
+/* Explicit Cash-in-Hand / Bank channels on GST supplier purchases. */
+.cg-supplier-payment-channel-actions{
+  display:flex;flex-wrap:wrap;gap:9px;align-items:stretch;min-width:0
+}
+.cg-supplier-payment-channel-actions button{
+  min-height:44px;padding:10px 13px;border:1px solid var(--border,#cbd5e1);
+  border-radius:10px;background:var(--surface,#fff);
+  color:var(--text-primary,#142037);font-size:14px;font-weight:650;cursor:pointer
+}
+.cg-supplier-payment-channel-actions button:hover{
+  border-color:var(--primary,#2870dc)
+}
+.cg-supplier-payment-channel-actions button:disabled{opacity:.55;cursor:not-allowed}
+.cg-supplier-gst-breakup{
+  display:flex;flex-wrap:wrap;gap:9px 18px;align-items:center;
+  padding:13px;border:1px solid var(--border,#cbd5e1);
+  background:var(--surface-muted,rgba(127,127,127,.06));border-radius:10px;
+  min-width:0;font-size:13px
+}
+.cg-supplier-gst-breakup strong{flex-basis:100%;font-size:14px}
+.cg-supplier-gst-breakup small{flex-basis:100%;line-height:1.5;color:var(--text-secondary,#64748b)}
+.cg-supplier-purchase-split{grid-template-columns:repeat(4,minmax(0,1fr)) auto}
+@media(max-width:1050px){.cg-supplier-purchase-split{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){
+  .cg-supplier-purchase-split{grid-template-columns:minmax(0,1fr)}
+  .cg-supplier-purchase-split>label:nth-child(3){grid-column:1}
+  .cg-supplier-payment-channel-actions button{flex:1 1 135px}
+}

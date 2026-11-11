@@ -487,3 +487,95 @@
   }
   .reports-page-polished .report-panel{break-inside:auto}
 }
+
+
+/* Report reading guide: plain-language help without changing calculations. */
+.reports-page-polished .report-help-guide{
+  display:flex;flex-direction:column;gap:10px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;padding:14px 16px;
+}
+.reports-page-polished .report-help-steps{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  align-items:center;gap:12px;
+}
+.reports-page-polished .report-help-steps span{
+  display:flex;align-items:center;gap:9px;
+  min-width:0;line-height:1.4;color:var(--text-primary);
+  font-size:13px;font-weight:600;
+}
+.reports-page-polished .report-help-steps b{
+  display:inline-flex;align-items:center;justify-content:center;
+  flex:0 0 27px;width:27px;height:27px;border-radius:9px;
+  background:var(--primary-soft);color:var(--primary);font-weight:750;
+}
+.reports-page-polished .report-help-guide details{
+  border-top:1px solid var(--border);padding-top:10px;
+}
+.reports-page-polished .report-help-guide summary{
+  display:flex;align-items:center;gap:9px;min-height:34px;
+  color:var(--primary);font-size:13px;font-weight:700;
+  cursor:pointer;list-style:none;
+}
+.reports-page-polished .report-help-guide summary::-webkit-details-marker{display:none}
+.reports-page-polished .report-help-guide summary:focus-visible{
+  outline:2px solid var(--primary);outline-offset:3px;border-radius:5px;
+}
+.reports-page-polished .report-help-chevron{
+  margin-left:auto;transition:transform .15s;
+}
+.reports-page-polished .report-help-guide details[open] .report-help-chevron{
+  transform:rotate(180deg);
+}
+.reports-page-polished .report-help-terms{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;margin-top:14px;
+}
+.reports-page-polished .report-help-term{
+  display:flex;gap:10px;align-items:flex-start;
+  padding:12px;border-radius:10px;background:var(--surface-2);
+}
+.reports-page-polished .report-help-term>svg{
+  flex-shrink:0;color:var(--primary);margin-top:1px;
+}
+.reports-page-polished .report-help-term strong{
+  font-size:13px;line-height:1.4;color:var(--text-primary);
+}
+.reports-page-polished .report-help-term strong small{
+  font-size:12px;font-weight:500;color:var(--text-secondary);
+}
+.reports-page-polished .report-help-term p{
+  margin:5px 0 0;font-size:13px;line-height:1.5;color:var(--text-secondary);
+}
+.reports-page-polished .report-help-disclaimer{
+  display:flex;align-items:flex-start;gap:8px;
+  margin:12px 0 0;font-size:12px;line-height:1.5;
+  color:var(--text-secondary);
+}
+.reports-page-polished .report-help-disclaimer>svg{
+  flex-shrink:0;margin-top:1px;
+}
+.reports-page-polished .report-pdf-guide{
+  margin:0;padding:11px 14px;border-radius:10px;
+  color:var(--text-secondary);background:var(--surface-2);
+  border:1px solid var(--border);font-size:12px;line-height:1.5;
+}
+.reports-page-polished .report-pdf-guide strong{
+  color:var(--text-primary);
+}
+@media(max-width:780px){
+  .reports-page-polished .report-help-steps{grid-template-columns:1fr;gap:9px}
+  .reports-page-polished .report-help-terms{grid-template-columns:1fr}
+  .reports-page-polished .report-help-guide{padding:12px}
+  .reports-page-polished .report-help-steps span,
+  .reports-page-polished .report-help-guide summary,
+  .reports-page-polished .report-help-term strong,
+  .reports-page-polished .report-help-term p{
+    font-size:14px;
+  }
+  .reports-page-polished .report-help-term strong small{font-size:13px}
+  .reports-page-polished .report-pdf-guide{font-size:13px}
+}
+@media(prefers-reduced-motion:reduce){
+  .reports-page-polished .report-help-chevron{transition:none}
+}

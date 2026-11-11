@@ -152,6 +152,15 @@
   border:1px solid var(--border);border-radius:10px;background:var(--surface);
   color:var(--text-primary);font-size:16px!important
 }
+.cg-job-detail .job-work-new-part-gst-note {
+  grid-column:1/-1;margin:0;padding:10px 12px;border:1px solid var(--border);
+  border-radius:10px;background:var(--surface);color:var(--text-secondary);
+  font-size:13px;line-height:1.5;
+}
+.cg-job-detail .job-work-new-part-gst-note strong{color:var(--text-primary)}
+.cg-job-detail.job-workspace-dashboard .job-work-simple .job-work-new-part-fields select:focus-visible {
+  outline:2px solid var(--primary);outline-offset:2px;
+}
 .cg-job-detail .job-work-new-part-actions {display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
 .cg-job-detail .job-work-new-part-actions button {
   min-height:44px;padding:9px 15px;border:1px solid var(--border);

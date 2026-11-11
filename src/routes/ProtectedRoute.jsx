@@ -84,6 +84,9 @@ export const ProtectedRoute = () => {
     return <Navigate to="/access-denied" replace />;
   }
   const requiredPermission = getPermissionForPath(location.pathname);
+  // Expenses-only staff may enter the Finance root, then the workspace
+  // redirects them to the expenses route they are actually entitled to.
+  const financeExpenseEntry = location.pathname === '/finance' && featureAccess.can('expenses.view');
   // Only the verified owner may finish initial setup without buying features;
   // Django independently enforces owner identity on every wizard API request.
   const isOwnerOnboarding = location.pathname === '/onboarding'
@@ -104,8 +107,9 @@ export const ProtectedRoute = () => {
   if (
     location.pathname !== '/access-denied' &&
     requiredPermission &&
-    (!isOwnerOnboarding && (missingJobAccess || missingSupplierAccess || !moduleIsVisible(featureAccess, requiredPermission) ||
-      ((!isOwnStaffProfile || featureAccess.labelOnly) && !featureAccess.can(requiredPermission))))
+    (!isOwnerOnboarding && !financeExpenseEntry &&
+      (missingJobAccess || missingSupplierAccess || !moduleIsVisible(featureAccess, requiredPermission) ||
+        ((!isOwnStaffProfile || featureAccess.labelOnly) && !featureAccess.can(requiredPermission))))
   ) {
     return (
       <Navigate

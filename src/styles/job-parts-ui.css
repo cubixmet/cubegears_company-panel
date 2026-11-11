@@ -257,6 +257,7 @@ body .job-parts-modal-overlay {
   backdrop-filter:blur(3px);
   overflow-y:auto;
   overscroll-behavior:contain;
+  scrollbar-width:none;
 }
 body .job-parts-dialog {
   display:flex;
@@ -324,6 +325,7 @@ body .job-parts-dialog-content {
   overscroll-behavior:contain;
   scrollbar-width:none;
 }
+body .job-parts-modal-overlay::-webkit-scrollbar,
 body .job-parts-dialog-content::-webkit-scrollbar {display:none}
 body .job-parts-modal-form {
   display:grid!important;

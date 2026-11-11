@@ -9,6 +9,7 @@ import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { appConfirm, appPrompt } from '../../components/common/appDialogs';
 import apiClient from '../../api/apiClient';
 import { financeService } from '../../services/finance.service';
+import { FINANCE_CHANNELS, financeAccountsForChannel, assertFinanceAccount } from '../../utils/financeCashBank';
 import PaymentFinanceOverview from '../../components/payments/PaymentFinanceOverview';
 import {
   PaymentFilterToolbar, PaymentOverviewStats, PaymentRecordsPanel, PaymentsHeader
@@ -79,7 +80,11 @@ export function PaymentList() {
   const prefilledCustomerQuery = useRef('');
   const prefilledInvoiceQuery = useRef('');
   const [accounts, setAccounts] = useState([]);
-  const [query, setQuery] = useState('');
+  // When opened from an invoice, show only the matching receipt history.
+  // The user can still clear this search; no payment is created by navigation.
+  const [query, setQuery] = useState(
+    () => new URLSearchParams(location.search).get('invoice') || ''
+  );
   const [statusFilter, setStatusFilter] = useState('All');
   const [methodFilter, setMethodFilter] = useState('All');
   const [loading, setLoading] = useState(true);
@@ -115,6 +120,13 @@ export function PaymentList() {
   }, [isNew, canCreate, canViewInvoices, canViewCustomers, canViewPayments]);
 
   useEffect(() => { load(); }, [load, refreshKey]);
+
+  useEffect(() => {
+    if (!isNew && !isView) {
+      const invoiceNumber = new URLSearchParams(location.search).get('invoice');
+      if (invoiceNumber) setQuery(invoiceNumber);
+    }
+  }, [isNew, isView, location.search]);
 
   useEffect(() => {
     if (isNew || isView || !canViewPayments || USE_MOCK_API) return undefined;
@@ -230,6 +242,7 @@ export function PaymentList() {
     let payload;
     try {
       payload = makePaymentPayload(form, selectedInvoice, outstanding, USE_MOCK_API);
+      if (!USE_MOCK_API) assertFinanceAccount(accounts, form.accountId, form.method);
     } catch (e) {
       setError(e.message);
       return;
@@ -239,7 +252,7 @@ export function PaymentList() {
     try {
       const saved = await paymentService.create(payload);
       if (!saved?.id) throw new Error('Payment was recorded but no record ID was returned. Refresh payments before retrying.');
-      navigate(`/payments/${saved.id}`, { replace: true });
+      navigate(`/finance/payments/${saved.id}`, { replace: true });
     } catch (e) {
       setError(friendlyError(e, 'Unable to record payment.'));
     } finally {
@@ -259,7 +272,7 @@ export function PaymentList() {
     setSaving(true);
     setError('');
     try {
-      await apiClient.post(`/payments/${id}/reverse`, { reason: reason.trim() });
+      await apiClient.post(`/finance/payments/${id}/reverse`, { reason: reason.trim() });
       setRefreshKey((value) => value + 1);
     } catch (e) {
       setError(friendlyError(e, 'Unable to reverse payment.'));
@@ -275,9 +288,9 @@ export function PaymentList() {
           <div>
             <span className="payments-kicker">FINANCIAL PAYMENTS</span>
             <h1>Record Customer Payment</h1>
-            <p>Receive a partial invoice payment or a customer advance into a real Cash, UPI or Bank account. Adjust unused advances on the customer's ledger.</p>
+            <p>Record money received for a customer invoice, or record a customer advance. Choose the Cash, Bank or UPI account that actually received the money.</p>
             <div className="payment-form-actions">
-              <button type="button" className="payments-secondary-btn" onClick={() => navigate('/expenses')}>
+              <button type="button" className="payments-secondary-btn" onClick={() => navigate('/finance/expenses')}>
                 Pay Workshop Expense
               </button>
               <button type="button" className="payments-secondary-btn" onClick={() => navigate('/payroll/daily-wages')}>
@@ -293,8 +306,8 @@ export function PaymentList() {
           !canCreate ? <p className="payments-empty">You do not have permission to record payments.</p> :
           <form className="payment-form-card" onSubmit={save}>
             <div className="payment-form-intro">
-              <h2>Payment Details</h2>
-              <p>Invoice receipts reduce the unpaid balance. Advances remain customer credit until explicitly applied or refunded. Outgoing payments debit the selected account.</p>
+              <h2>Customer Payment Details</h2>
+              <p>Payments against invoices reduce the customer's balance. Advance money stays as customer credit until applied or refunded. Refunds take money out of the selected account.</p>
             </div>
             <div className="payment-form-grid">
               <label className="payment-wide">
@@ -372,22 +385,22 @@ export function PaymentList() {
               </label>
               <label>
                 <span>Payment Method *</span>
-                <select value={form.method} disabled={saving} onChange={(e) => setForm({ ...form, method: e.target.value })}>
-                  {['Cash', 'UPI', 'Card', 'Bank Transfer', 'Cheque'].map((method) => <option key={method}>{method}</option>)}
+                <select value={form.method} disabled={saving} onChange={(e) => setForm({ ...form, method: e.target.value, accountId: '' })}>
+                  {FINANCE_CHANNELS.map((method) => <option key={method}>{method}</option>)}
                 </select>
               </label>
               <label className="payment-wide">
                 <span>Bank / Cash Account {!USE_MOCK_API && '*'}</span>
                 <select value={form.accountId} disabled={saving || USE_MOCK_API}
                   required={!USE_MOCK_API} onChange={(e) => setForm({ ...form, accountId: e.target.value })}>
-                  <option value="">Select account</option>
-                  {accounts.filter((account) => account.isActive).map((account) => (
+                  <option value="">Select {form.method} account</option>
+                  {financeAccountsForChannel(accounts, form.method).map((account) => (
                     <option key={account.id} value={account.id}>
                       {account.name} ({account.kind})
                     </option>
                   ))}
                 </select>
-                {!USE_MOCK_API && accounts.length === 0 && <small>Create an account in Finance → Accounts first.</small>}
+                {!USE_MOCK_API && accounts.length === 0 && <small>Create an active Cash or Bank account in Finance → Accounts first.</small>}
               </label>
               {form.direction === 'OUT' && (
                 <>
@@ -411,7 +424,7 @@ export function PaymentList() {
               </div>
             </div>
             <div className="payment-form-actions">
-              <button type="button" className="payments-secondary-btn" onClick={() => navigate('/payments')} disabled={saving}>Cancel</button>
+              <button type="button" className="payments-secondary-btn" onClick={() => navigate('/finance/payments')} disabled={saving}>Cancel</button>
               <button type="submit" className="payments-primary-btn" disabled={saving || (form.direction === "IN" && (form.receiptKind === 'advance' ? !form.customerId : !selectedInvoice)) || (!USE_MOCK_API && !form.accountId)}>
                 <CheckCircle2 size={16} aria-hidden="true" /> {saving ? 'Saving…' : 'Record Payment'}
               </button>
@@ -468,7 +481,7 @@ export function PaymentList() {
 
   return (
     <div className="payments-page payments-dashboard">
-      <PaymentsHeader onRecordPayment={() => navigate('/payments/new')} />
+      <PaymentsHeader onRecordPayment={() => navigate('/finance/payments/new')} />
       {!USE_MOCK_API ? (
         <PaymentFinanceOverview
           summary={financeSummary}
@@ -487,8 +500,8 @@ export function PaymentList() {
           onLedgerAccountChange={value => { setLedgerAccount(value); setLedgerPage(1); }}
           onLedgerQueryChange={value => { setLedgerQuery(value); setLedgerPage(1); }}
           canManage={canManageAccounts}
-          onRecord={() => navigate('/payments/new')}
-          onExpense={() => navigate('/expenses/new')}
+          onRecord={() => navigate('/finance/payments/new')}
+          onExpense={() => navigate('/finance/expenses/new')}
         />
       ) : (
         <PaymentOverviewStats payments={payments} formatMoney={(value) => money.format(value || 0)} />
@@ -498,7 +511,7 @@ export function PaymentList() {
           Some historical customer receipts updated invoice balances but have no linked bank/cash ledger posting.
           They are shown in payment history and require authorized account reconciliation.
           Do not manually record the same customer payment twice.
-          <button type="button" className="payments-secondary-btn" onClick={() => navigate('/accounts')}>
+          <button type="button" className="payments-secondary-btn" onClick={() => navigate('/finance/accounts')}>
             Review Accounts & Ledger
           </button>
         </div>
@@ -507,7 +520,7 @@ export function PaymentList() {
         <section className="payments-dashboard-records" aria-label="Supplier purchase accounting">
           <header className="payments-dashboard-section-title">
             <div>
-              <h2>Spare Parts Purchase & Supplier Credit</h2>
+              <h2>Supplier Purchases &amp; Money Due</h2>
               <p>Confirmed purchases create a supplier payable. Only money actually paid appears as an outgoing payment.</p>
             </div>
           </header>
@@ -538,7 +551,7 @@ export function PaymentList() {
       {error && <div className="payments-error" role="alert">{error}</div>}
       <PaymentRecordsPanel payments={filtered} loading={loading}
         formatMoney={(value) => money.format(value || 0)}
-        onView={(row) => navigate(row.detailPath || `/payments/${row.id}`)} />
+        onView={(row) => navigate(row.detailPath || `/finance/payments/${row.id}`)} />
     </div>
   );
 }

@@ -102,7 +102,7 @@ export const Sidebar = () => {
         <div className="sidebar-sections">
           {sections.map((section) => {
             const items = routeConfig.filter(
-              (route) => route.section === section && featureAccess.can(route.permission)
+              (route) => route.section === section && (route.accessAny ? route.accessAny.some(featureAccess.can) : featureAccess.can(route.permission))
             );
             if (!items.length) return null;
 

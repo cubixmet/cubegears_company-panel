@@ -1,0 +1,18 @@
+.finance-workspace{width:100%;min-width:0;display:grid;gap:20px;color:var(--text-primary,#122236)}
+.finance-workspace-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:0 2px}
+.finance-workspace-eyebrow{display:block;letter-spacing:.12em;text-transform:uppercase;color:var(--text-secondary,#64748b);font-size:11px;font-weight:650}
+.finance-workspace-top h1{font-size:clamp(22px,2vw,28px);line-height:1.2;margin:6px 0;font-weight:700}
+.finance-workspace-top p,.finance-workspace-related p{color:var(--text-secondary,#64748b);font-size:13px;line-height:1.55;margin:0}
+.finance-workspace-context{font-size:12px;font-weight:650;border:1px solid var(--border,#e2e8f0);border-radius:99px;padding:6px 12px;white-space:nowrap}
+.finance-workspace-tabs{display:flex;gap:5px;overflow-x:auto;min-width:0;padding:5px;border:1px solid var(--border,#e2e8f0);border-radius:12px;background:var(--surface,#fff);scrollbar-width:none}
+.finance-workspace-tabs::-webkit-scrollbar{display:none}
+.finance-workspace-tab{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 13px;border-radius:8px;min-height:42px;text-decoration:none;font-size:13px;font-weight:600;color:var(--text-secondary,#53657b);white-space:nowrap}
+.finance-workspace-tab:hover{background:var(--bg-secondary,#f1f5f9)}
+.finance-workspace-tab.is-active{color:var(--primary,#1357c2);background:color-mix(in srgb,var(--primary,#1357c2) 9%,transparent)}
+.finance-workspace-related{margin-top:8px;padding:16px 18px;border:1px solid var(--border,#e2e8f0);border-radius:12px;background:var(--surface,#fff)}
+.finance-workspace-related h2{font-size:15px;font-weight:650;margin:0 0 5px}
+.finance-workspace-links{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.finance-workspace-links a{display:flex;align-items:center;gap:7px;text-decoration:none;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:9px 12px;min-height:40px;font-size:13px;color:var(--text-primary,#122236)}
+.finance-workspace-links a:hover{border-color:var(--primary,#1357c2)}
+.finance-workspace-denied{padding:24px;font-size:14px}
+@media(max-width:650px){.finance-workspace{gap:14px}.finance-workspace-context{display:none}.finance-workspace-top p{font-size:12px}.finance-workspace-tabs{margin:0 -8px;border-radius:10px}.finance-workspace-tab{padding:9px 12px;font-size:12px}.finance-workspace-related{padding:14px}.finance-workspace-links a{flex:1 1 auto}}

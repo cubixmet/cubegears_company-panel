@@ -74,8 +74,8 @@ export function TransactionsPage() {
       <header className="finance-page-header">
         <div>
           <span className="finance-dash-kicker">FINANCE</span>
-          <h1>Transaction Ledger</h1>
-          <p>Complete audit trail of all financial entries across accounts.</p>
+          <h1>All Money Movements</h1>
+          <p>Find every posted account entry, check where money came from or went, and export the ledger.</p>
         </div>
         <div className="finance-form-actions">
           <button type="button" className="finance-secondary-btn" disabled={exporting}
@@ -95,23 +95,26 @@ export function TransactionsPage() {
           <div className="finance-search-wrap">
             <Search size={16} />
             <input
-              placeholder="Search reference, type…"
+              placeholder="Search reference or transaction type…"
+              aria-label="Search transactions"
               value={filters.q}
               onChange={e => setFilters({ ...filters, q: e.target.value })}
             />
           </div>
-          <select value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })}>
+          <select aria-label="Filter by account" value={filters.account} onChange={e => setFilters({ ...filters, account: e.target.value })}>
             <option value="">All Accounts</option>
             {accounts.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
           </select>
           <input
             type="date"
+            aria-label="Start date"
             value={filters.from}
             placeholder="From"
             onChange={e => setFilters({ ...filters, from: e.target.value })}
           />
           <input
             type="date"
+            aria-label="End date"
             value={filters.to}
             placeholder="To"
             onChange={e => setFilters({ ...filters, to: e.target.value })}
@@ -133,8 +136,8 @@ export function TransactionsPage() {
               <th>Account</th>
               <th>Type</th>
               <th>Reference</th>
-              <th className="is-num">Credit</th>
-              <th className="is-num">Debit</th>
+              <th className="is-num">Money In (Credit)</th>
+              <th className="is-num">Money Out (Debit)</th>
               <th>Created By</th>
             </tr>
           </thead>
@@ -142,7 +145,7 @@ export function TransactionsPage() {
             {loading ? (
               <tr><td colSpan={7} className="finance-loading-cell">Loading transactions…</td></tr>
             ) : !data.results || data.results.length === 0 ? (
-              <tr><td colSpan={7} className="finance-empty-cell">No transactions found.</td></tr>
+              <tr><td colSpan={7} className="finance-empty-cell">No transactions match these filters. Try changing the account, dates, or search.</td></tr>
             ) : (
               data.results.map(row => (
                 <tr key={row.id}>
@@ -169,11 +172,11 @@ export function TransactionsPage() {
         <div className="finance-pagination">
           <span>{data.count} total entries</span>
           <div className="finance-page-controls">
-            <button className="finance-page-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
+            <button className="finance-page-btn" aria-label="Previous page" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>
               <ChevronLeft size={16} />
             </button>
             <span>Page {data.page} of {data.totalPages}</span>
-            <button className="finance-page-btn" disabled={page >= data.totalPages} onClick={() => setPage(p => p + 1)}>
+            <button className="finance-page-btn" aria-label="Next page" disabled={page >= data.totalPages} onClick={() => setPage(p => p + 1)}>
               <ChevronRight size={16} />
             </button>
           </div>

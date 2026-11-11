@@ -56,6 +56,7 @@ const InvoiceList = lazyPage(() => import('../pages/invoices/InvoiceList'), 'Inv
 const EWayBillPage = lazyPage(() => import('../pages/invoices/EWayBillPage'), 'EWayBillPage');
 const PaymentList = lazyPage(() => import('../pages/payments/PaymentList'), 'PaymentList');
 const ExpenseList = lazyPage(() => import('../pages/expenses/ExpenseList'), 'ExpenseList');
+const FinanceWorkspace = lazyPage(() => import('../pages/finance/FinanceWorkspace'), 'default');
 const FinanceDashboard = lazyPage(() => import('../pages/finance/FinanceDashboard'), 'FinanceDashboard');
 const AccountingWorkspace = lazyPage(() => import('../pages/finance/AccountingWorkspace'), 'default');
 const AccountsPage = lazyPage(() => import('../pages/finance/AccountsPage'), 'AccountsPage');
@@ -86,6 +87,11 @@ function RootRedirect() {
       replace
     />
   );
+}
+
+function LegacyFinanceRedirect() {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate to={`/finance${pathname}${search}${hash}`} replace />;
 }
 
 export const AppRoutes = () => (
@@ -213,7 +219,7 @@ export const AppRoutes = () => (
 
       <Route path="/suppliers" element={<SuppliersPage />} />
       <Route path="/suppliers/credits" element={<LegacySupplierRouteRedirect />} />
-      <Route path="/suppliers/purchases" element={<LegacySupplierRouteRedirect />} />
+      <Route path="/suppliers/purchases" element={<SuppliersPage section="purchases" />} />
       <Route path="/suppliers/payments" element={<LegacySupplierRouteRedirect />} />
       <Route path="/suppliers/:id" element={<SuppliersPage />} />
       <Route path="/stock" element={<StockEasyPage />} />
@@ -234,26 +240,34 @@ export const AppRoutes = () => (
       <Route path="/quotations" element={<Navigate to="/invoices?kind=estimate" replace />} />
       <Route path="/quotations/new" element={<Navigate to="/invoices/new?kind=estimate" replace />} />
 
-      <Route path="/payments" element={<PaymentList />} />
-      <Route path="/payments/new" element={<PaymentList />} />
-      <Route path="/payments/:id" element={<PaymentList />} />
-      <Route path="/payments/:id/edit" element={<PaymentList />} />
-      <Route path="/payments/:id/delete" element={<PaymentList />} />
+      {/* Existing external bookmarks keep working; there is only one Finance UI. */}
+      <Route path="/payments" element={<LegacyFinanceRedirect />} />
+      <Route path="/payments/:id" element={<LegacyFinanceRedirect />} />
+      <Route path="/payments/*" element={<LegacyFinanceRedirect />} />
+      <Route path="/expenses" element={<LegacyFinanceRedirect />} />
+      <Route path="/expenses/:id" element={<LegacyFinanceRedirect />} />
+      <Route path="/expenses/*" element={<LegacyFinanceRedirect />} />
 
-      <Route path="/expenses" element={<ExpenseList />} />
-      <Route path="/expenses/new" element={<ExpenseList />} />
-      <Route path="/expenses/:id" element={<ExpenseList />} />
-      <Route path="/expenses/:id/edit" element={<ExpenseList />} />
-      <Route path="/expenses/:id/delete" element={<ExpenseList />} />
-
-      <Route path="/finance" element={<FinanceDashboard />} />
-      <Route path="/finance/accounting" element={<AccountingWorkspace />} />
-      <Route path="/finance/accounts" element={<AccountsPage />} />
-      <Route path="/finance/accounts/new" element={<AccountsPage />} />
-      <Route path="/finance/accounts/:id" element={<AccountsPage />} />
-      <Route path="/finance/transfers" element={<TransfersPage />} />
-      <Route path="/finance/transfers/new" element={<TransfersPage />} />
-      <Route path="/finance/transactions" element={<TransactionsPage />} />
+      <Route path="/finance" element={<FinanceWorkspace />}>
+        <Route index element={<FinanceDashboard />} />
+        <Route path="/finance/payments" element={<PaymentList />} />
+        <Route path="/finance/payments/new" element={<PaymentList />} />
+        <Route path="/finance/payments/:id" element={<PaymentList />} />
+        <Route path="/finance/payments/:id/edit" element={<PaymentList />} />
+        <Route path="/finance/payments/:id/delete" element={<PaymentList />} />
+        <Route path="/finance/expenses" element={<ExpenseList />} />
+        <Route path="/finance/expenses/new" element={<ExpenseList />} />
+        <Route path="/finance/expenses/:id" element={<ExpenseList />} />
+        <Route path="/finance/expenses/:id/edit" element={<ExpenseList />} />
+        <Route path="/finance/expenses/:id/delete" element={<ExpenseList />} />
+        <Route path="/finance/accounting" element={<AccountingWorkspace />} />
+        <Route path="/finance/accounts" element={<AccountsPage />} />
+        <Route path="/finance/accounts/new" element={<AccountsPage />} />
+        <Route path="/finance/accounts/:id" element={<AccountsPage />} />
+        <Route path="/finance/transfers" element={<TransfersPage />} />
+        <Route path="/finance/transfers/new" element={<TransfersPage />} />
+        <Route path="/finance/transactions" element={<TransactionsPage />} />
+      </Route>
 
       <Route path="/gstr" element={<GSTRDashboard />} />
       <Route path="/reports" element={<Reports />} />

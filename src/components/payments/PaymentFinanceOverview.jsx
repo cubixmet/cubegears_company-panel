@@ -111,7 +111,7 @@ export default function PaymentFinanceOverview({
     { label: 'Bank Balance', value: summary?.bankBalance, icon: Building2, description: 'Recorded bank account balances' },
     { label: "Today's Money Out", value: summary?.todayPaid, icon: ArrowUpRight, description: 'Account debits posted today' },
     { label: "Today's Expenses", value: summary?.todayExpensesRecorded, icon: ArrowUpRight, description: 'Expenses entered today, including unpaid' },
-    { label: 'Cash / UPI / Wallet', value: summary?.cashBalance, icon: Wallet, description: 'Recorded cash and digital balances' },
+    { label: 'Cash Balance', value: summary?.cashBalance, icon: Wallet, description: 'Recorded physical cash balance' },
     { label: "Today's Money In", value: summary?.todayReceived, icon: ArrowDownLeft, description: 'Account receipts posted today' },
     { label: "Today's Supplier Payments", value: summary?.todaySupplierPaid, icon: Wallet, description: 'Supplier settlements posted today' },
   ];
@@ -204,7 +204,7 @@ export default function PaymentFinanceOverview({
             <label>Account name *<input required maxLength={120} value={newAccount.name}
               onChange={e => setNewAccount(p => ({ ...p, name: e.target.value }))}/></label>
             <label>Account type *<select value={newAccount.kind} onChange={e => setNewAccount(p => ({ ...p, kind: e.target.value }))}>
-              <option>Bank</option><option>Cash</option><option>UPI</option><option>Wallet</option><option>Other</option>
+              <option>Bank</option><option>Cash</option>
             </select></label>
             {newAccount.kind === 'Bank' && <>
               <label>Bank name<input maxLength={120} value={newAccount.bankName}

@@ -4,17 +4,18 @@ import {
   ArrowLeft, Building2, Wallet, Plus, Power
 } from 'lucide-react';
 import { financeService } from '../../services/finance.service';
+import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/finance-accounts.css';
 
 const money = new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 2
 });
-const fmt = (v) => money.format(parseFloat(v || 0));
+const fmt = (v) => v === undefined || v === null ? 'Restricted' : money.format(parseFloat(v || 0));
 
-const KINDS = ['Cash', 'Bank', 'UPI', 'Wallet', 'Other'];
+const KINDS = ['Cash', 'Bank'];
 
 const emptyForm = {
-  name: '', kind: 'Bank', bankName: '', accountNumber: '',
+  name: '', kind: 'Cash', bankName: '', accountNumber: '',
   ifsc: '', branchName: '', openingBalance: '0',
   openingDate: new Date().toISOString().slice(0, 10), description: ''
 };
@@ -43,11 +44,11 @@ function AccountForm({ initial, onSave, onCancel, saving, error }) {
           </select>
         </label>
         <label className="finance-field">
-          <span>Opening Balance (₹)</span>
+          <span>Starting Balance (₹)</span>
           <input type="number" step="0.01" min="0" value={form.openingBalance} onChange={e => set('openingBalance', e.target.value)} />
         </label>
         <label className="finance-field">
-          <span>Opening Date</span>
+          <span>Starting Date</span>
           <input type="date" value={form.openingDate} onChange={e => set('openingDate', e.target.value)} />
         </label>
         {form.kind === 'Bank' && (
@@ -87,6 +88,8 @@ function AccountForm({ initial, onSave, onCancel, saving, error }) {
 
 export function AccountsPage() {
   const navigate = useNavigate();
+  const { can } = useFeatureAccess();
+  const canManage = can('payments.edit');
   const { id } = useParams();
   const location = useLocation();
   const isNew = location.pathname.endsWith('/new');
@@ -103,6 +106,7 @@ export function AccountsPage() {
 
   const loadAccounts = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       const result = await financeService.listAccounts({ include_inactive: '1' });
       setAccounts(Array.isArray(result) ? result : []);
@@ -116,6 +120,7 @@ export function AccountsPage() {
   const loadAccount = useCallback(async () => {
     if (!id) return;
     setLoading(true);
+    setError('');
     try {
       const result = await financeService.getAccount(id);
       setAccount(result);
@@ -133,6 +138,7 @@ export function AccountsPage() {
   }, [id, isNew, loadAccount, loadAccounts]);
 
   const handleCreate = async (form) => {
+    if (!canManage) { setFormError('Account management permission required.'); return; }
     setSaving(true);
     setFormError('');
     try {
@@ -164,6 +170,7 @@ export function AccountsPage() {
 
   const handleAdjust = async (e) => {
     e.preventDefault();
+    if (!canManage) return;
     setAdjusting(true);
     try {
       await financeService.adjustBalance(id, adjustForm);
@@ -180,7 +187,7 @@ export function AccountsPage() {
   };
 
   const toggleActive = async () => {
-    if (!account) return;
+    if (!account || !canManage) return;
     try {
       await financeService.updateAccount(id, { isActive: !account.isActive });
       loadAccount();
@@ -189,6 +196,7 @@ export function AccountsPage() {
     }
   };
 
+  if (isNew && !canManage) return <div className="finance-form-error" role="alert">Account management permission required.</div>;
   if (isNew) {
     return (
       <div className="finance-page">
@@ -196,7 +204,7 @@ export function AccountsPage() {
           <button className="finance-back-btn" onClick={() => navigate('/finance/accounts')}>
             <ArrowLeft size={16} /> Accounts
           </button>
-          <h1>Add Account</h1>
+          <h1>Add Cash or Bank Account</h1>
           <p>Set up a new bank or cash account for financial tracking.</p>
         </header>
         <AccountForm onSave={handleCreate} onCancel={() => navigate('/finance/accounts')} saving={saving} error={formError} />
@@ -220,14 +228,14 @@ export function AccountsPage() {
               </span>
             </div>
           </div>
-          <div className="finance-account-actions">
+          {canManage && <div className="finance-account-actions">
             <button className="finance-secondary-btn" onClick={() => setShowAdjust(!showAdjust)}>
               Adjust Balance
             </button>
             <button className="finance-secondary-btn" onClick={toggleActive}>
               <Power size={15} /> {account.isActive ? 'Deactivate' : 'Activate'}
             </button>
-          </div>
+          </div>}
         </header>
 
         {error && <div className="finance-error" role="alert">{error}</div>}
@@ -263,7 +271,7 @@ export function AccountsPage() {
 
         {showAdjust && (
           <section className="finance-adjust-panel">
-            <h3>Balance Adjustment</h3>
+            <h3>Correct Account Balance</h3>
             <form onSubmit={handleAdjust} className="finance-adjust-form">
               <label className="finance-field">
                 <span>Direction</span>
@@ -294,7 +302,7 @@ export function AccountsPage() {
         )}
 
         <section className="finance-ledger-section">
-          <h3>Transaction Ledger</h3>
+          <h3>Account Transaction History</h3>
           {!account.ledger || account.ledger.length === 0 ? (
             <div className="finance-empty-ledger">No transactions recorded yet.</div>
           ) : (
@@ -337,26 +345,26 @@ export function AccountsPage() {
       <header className="finance-page-header">
         <div>
           <span className="finance-dash-kicker">FINANCE</span>
-          <h1>Bank &amp; Cash Accounts</h1>
-          <p>Manage your internal financial accounts.</p>
+          <h1>Cash &amp; Bank Accounts</h1>
+          <p>Choose where workshop money is held or paid from. You can track each account separately.</p>
         </div>
-        <button className="finance-primary-btn" onClick={() => navigate('/finance/accounts/new')}>
+        {canManage && <button className="finance-primary-btn" onClick={() => navigate('/finance/accounts/new')}>
           <Plus size={16} /> Add Account
-        </button>
+        </button>}
       </header>
 
       {error && <div className="finance-error" role="alert">{error}</div>}
 
       {loading ? (
-        <div className="finance-loading">Loading accounts…</div>
-      ) : accounts.length === 0 ? (
+        <div className="finance-loading" role="status">Loading accounts…</div>
+      ) : error ? null : accounts.length === 0 ? (
         <div className="finance-empty">
           <Building2 size={40} />
-          <h3>No accounts yet</h3>
-          <p>Add a bank or cash account to start tracking balances.</p>
-          <button className="finance-primary-btn" onClick={() => navigate('/finance/accounts/new')}>
+          <h3>No cash or bank accounts yet</h3>
+          <p>Create an account to receive customer payments, pay expenses, or transfer money.</p>
+          {canManage && <button className="finance-primary-btn" onClick={() => navigate('/finance/accounts/new')}>
             Add First Account
-          </button>
+          </button>}
         </div>
       ) : (
         <div className="finance-accounts-list">
@@ -367,7 +375,13 @@ export function AccountsPage() {
               onClick={() => navigate(`/finance/accounts/${acc.id}`)}
               role="button"
               tabIndex={0}
-              onKeyDown={e => e.key === 'Enter' && navigate(`/finance/accounts/${acc.id}`)}
+              aria-label={`View account ${acc.name}`}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  navigate(`/finance/accounts/${acc.id}`);
+                }
+              }}
             >
               <div className="finance-account-row-left">
                 {acc.kind === 'Bank' ? <Building2 size={20} /> : <Wallet size={20} />}

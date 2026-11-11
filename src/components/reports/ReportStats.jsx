@@ -3,18 +3,18 @@ import { TrendingUp, IndianRupee, Package, ReceiptText, WalletCards, Landmark } 
 
 export const ReportStats = ({ report, formatMoney }) => {
   const cards = [
-    ['Total Billed', report.available.invoices ? formatMoney(report.sales) : '—',
-      report.invoiceRows.length + ' finalized invoices', ReceiptText, 'blue'],
-    ['Collections', report.available.payments ? formatMoney(report.collected) : '—',
-      report.paymentRows.length + ' completed payments', WalletCards, 'green'],
-    ['Expenses', report.available.expenses ? formatMoney(report.expenseTotal) : '—',
-      report.expenseRows.length + ' expense entries', IndianRupee, 'orange'],
-    ['Net Cash Flow', report.available.payments && report.available.expenses
-      ? formatMoney(report.netCash) : '—', 'Collections less expenses', TrendingUp, 'purple'],
-    ['Invoice Balance', report.available.invoices ? formatMoney(report.outstanding) : '—',
-      'Due from selected invoices', Landmark, 'red'],
-    ['Stock Value', report.available.stock && report.comparable ? formatMoney(report.stockValue) : '—',
-      report.comparable ? report.lowStock.length + ' low-stock items · current snapshot'
+    ['Invoice Total', report.available.invoices ? formatMoney(report.sales) : '—',
+      report.invoiceRows.length + ' completed customer bills (not cash received)', ReceiptText, 'blue'],
+    ['Money Received', report.available.payments ? formatMoney(report.collected) : '—',
+      report.paymentRows.length + ' completed customer payments, after refunds', WalletCards, 'green'],
+    ['Expenses Recorded', report.available.expenses ? formatMoney(report.expenseTotal) : '—',
+      report.expenseRows.length + ' recorded costs (including unpaid bills)', IndianRupee, 'orange'],
+    ['Collections After Paid Expenses', report.available.payments && report.available.expenses
+      ? formatMoney(report.netCash) : '—', 'Customer payments minus paid operating expenses; not profit, excludes salaries and suppliers', TrendingUp, 'purple'],
+    ['Customer Dues', report.available.invoices ? formatMoney(report.outstanding) : '—',
+      'Still to collect on these customer invoices', Landmark, 'red'],
+    ['Stock Cost Value', report.available.stock && report.comparable ? formatMoney(report.stockValue) : '—',
+      report.comparable ? report.lowStock.length + ' low-stock items · today’s cost-based stock'
         : 'Not staff / branch scoped', Package, 'neutral'],
   ];
   return (

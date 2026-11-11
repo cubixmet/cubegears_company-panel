@@ -7,17 +7,20 @@ import { jobService } from '../../services/job.service';
 import { appConfirm } from '../common/appDialogs';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
+import { invoiceLineTaxChoices, invoiceTotalRateFromChoice } from '../../utils/invoiceTaxUi';
+import SupplierSelectField from '../common/SupplierSelectField';
 
 const money = new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 2,
 });
 const num = (value) => Number(value || 0);
 const blankNewPart = {
-  partName: '', partNumber: '', brand: '', unit: 'Piece', category: '',
+  partName: '', partNumber: '', brand: '', unit: 'Piece', category: '', supplier: '',
   costPrice: '', sellingPrice: '', hsnCode: '', tax: '',
   zeroTaxClassification: '', minimumStock: '0', location: '',
 };
 const unitOptions = ['Piece', 'Bottle', 'Litre', 'Millilitre', 'Kilogram', 'Gram', 'Set', 'Pair', 'Box', 'Pack', 'Metre', 'Can'];
+const gstChoices = invoiceLineTaxChoices('unknown');
 const zeroGstOptions = [
   ['exempt', 'Exempt'], ['nil_rated', 'Nil-rated'],
   ['zero_rated', 'Zero-rated'], ['non_gst', 'Non-GST'],
@@ -45,10 +48,12 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
   const [success, setSuccess] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [newPart, setNewPart] = useState(blankNewPart);
+  const [newPartGstChoice, setNewPartGstChoice] = useState('');
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [categories, setCategories] = useState([]);
   const [createNotice, setCreateNotice] = useState('');
+  const [createdSupplierId, setCreatedSupplierId] = useState('');
 
   const refresh = async () => {
     if (!canView) return;
@@ -71,8 +76,10 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
     setSuccess('');
     setShowCreate(false);
     setNewPart(blankNewPart);
+    setNewPartGstChoice('');
     setCreateError('');
     setCreateNotice('');
+    setCreatedSupplierId('');
     refresh();
   }, [jobId, canView]);
 
@@ -158,7 +165,7 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
       setCreateError('Enter a valid manufacturer part number.');
       return;
     }
-    if (!newPart.tax.trim() || !/^\d{1,3}(?:\.\d{1,2})?$/.test(newPart.tax) ||
+    if (!newPartGstChoice || !newPart.tax.trim() || !/^\d{1,3}(?:\.\d{1,2})?$/.test(newPart.tax) ||
         !Number.isFinite(tax) || tax < 0 || tax > 100 ||
         (tax === 0 && !newPart.zeroTaxClassification)) {
       setCreateError('Choose a valid GST rate and a classification for 0% GST.');
@@ -185,7 +192,9 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
       setSelectedId(String(created.id));
       setLookup(created.partName || name);
       setNewPart(blankNewPart);
+      setNewPartGstChoice('');
       setShowCreate(false);
+      setCreatedSupplierId(newPart.supplier || '');
       setCreateNotice('Part saved in inventory catalogue with zero stock. Receive stock before issuing it to this job.');
     } catch (cause) {
       const response = cause?.response?.data;
@@ -227,7 +236,7 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
 
       {error && <p className="job-work-stock-error" role="alert">{error}</p>}
       {success && <p className="job-work-stock-success" role="status"><CheckCircle2 size={16} aria-hidden="true"/>{success}</p>}
-      {createNotice && <p className="job-work-stock-success" role="status">{createNotice} <Link to="/stock">Receive Stock</Link></p>}
+      {createNotice && <p className="job-work-stock-success" role="status">{createNotice} <Link to={createdSupplierId ? '/suppliers/' + encodeURIComponent(createdSupplierId) : '/stock'}>Receive Stock</Link></p>}
 
       {canIssue && showCreate && (
         <form id="job-work-new-part-form" className="job-work-new-part-form" onSubmit={createPart}>
@@ -243,6 +252,9 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
               onChange={e => setNewPart(v => ({ ...v, partNumber: e.target.value }))}/></label>
             <label>Brand<input maxLength="100" value={newPart.brand}
               onChange={e => setNewPart(v => ({ ...v, brand: e.target.value }))}/></label>
+            <SupplierSelectField label="Supplier (Stock & Parts)" valueMode="id"
+              value={newPart.supplier} disabled={creating || busy}
+              onChange={supplier => setNewPart(v => ({ ...v, supplier }))}/>
             <label>Unit<select value={newPart.unit} onChange={e => setNewPart(v => ({ ...v, unit: e.target.value }))}>
               {unitOptions.map(value => <option key={value} value={value}>{value}</option>)}
             </select></label>
@@ -257,10 +269,38 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
               value={newPart.costPrice} onChange={e => setNewPart(v => ({ ...v, costPrice: e.target.value }))}/></label>
             <label>Selling Price (₹) *<input type="number" inputMode="decimal" min="0" step="0.01" required
               value={newPart.sellingPrice} onChange={e => setNewPart(v => ({ ...v, sellingPrice: e.target.value }))}/></label>
-            <label>GST Rate (%) *<input type="number" inputMode="decimal" min="0" max="100" step="0.01" required
-              value={newPart.tax} onChange={e => setNewPart(v => ({
-                ...v, tax: e.target.value, zeroTaxClassification: '',
-              }))}/></label>
+            <label>GST Rate (%) *
+              <select required aria-label="GST Rate (%)" value={newPartGstChoice}
+                onChange={e => {
+                  const choice = e.target.value;
+                  const total = choice === 'none' ? '0' : choice === 'custom' ? '' :
+                    invoiceTotalRateFromChoice(choice);
+                  setNewPartGstChoice(choice);
+                  setNewPart(v => ({ ...v, tax: total, zeroTaxClassification: '' }));
+                }}>
+                <option value="">Select GST Component / Rate</option>
+                <option value="none">0% — Select Tax Classification</option>
+                {gstChoices.map(choice =>
+                  <option key={choice.value} value={choice.value}>{choice.label}</option>)}
+                <option value="custom">Saved/Other HSN-Specific Rate (custom %)</option>
+              </select>
+            </label>
+            {newPartGstChoice === 'custom' && (
+              <label>Custom GST Rate (%) *
+                <input type="number" inputMode="decimal" min="0" max="100" step="0.01" required
+                  value={newPart.tax}
+                  onChange={e => setNewPart(v => ({
+                    ...v, tax: e.target.value, zeroTaxClassification: '',
+                  }))}/>
+              </label>
+            )}
+            {newPartGstChoice && newPart.tax !== '' && (
+              <p className="job-work-new-part-gst-note">
+                Total GST saved for this item: <strong>{newPart.tax}%</strong>.
+                CGST / SGST selections are component rates; the matching total is saved once.
+                GST jurisdiction is determined when the item is invoiced.
+              </p>
+            )}
             {newPart.tax !== '' && Number(newPart.tax) === 0 && (
               <label>0% GST Classification *<select required value={newPart.zeroTaxClassification}
                 onChange={e => setNewPart(v => ({ ...v, zeroTaxClassification: e.target.value }))}>
