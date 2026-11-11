@@ -1,0 +1,75 @@
+/* Job management uses the canonical invoice/GST/Finance sources. */
+.jobs-gst-finance-nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid var(--border,#dce3ea);
+  border-radius: 12px;
+  background: var(--surface,#fff);
+}
+.jobs-gst-finance-nav > span { font-size: 13px; color: var(--text-secondary,#64748b); margin-right: auto; }
+.jobs-gst-finance-nav button,
+.job-gst-summary-actions button,
+.job-gst-finance-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--border,#cbd5e1);
+  border-radius: 9px;
+  background: var(--surface,#fff);
+  color: var(--text-primary,#142037);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.jobs-gst-finance-cell { display:grid; gap:6px; min-width:0; }
+.jobs-gst-finance-cell strong { font-size:13px; font-variant-numeric:tabular-nums; }
+.jobs-gst-finance-cell small,.jobs-finance-muted {color:var(--text-secondary,#64748b);font-size:11px;line-height:1.5}
+.jobs-gst-finance-cell a,.jobs-mobile-gst-finance a { color:var(--primary,#2563eb); font-weight:650; font-size:12px; text-decoration:none; }
+.jobs-gst-finance-cell a:hover,.jobs-mobile-gst-finance a:hover { text-decoration:underline; }
+.jobs-gst-finance-cell .jobs-finance-receive,
+.jobs-mobile-gst-finance .jobs-finance-receive {
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:7px 9px;border-radius:8px;border:1px solid var(--primary,#2563eb);
+  color:var(--primary,#2563eb);white-space:nowrap;
+}
+.jobs-mobile-gst-finance {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;
+  border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:11px;min-width:0;
+}
+.jobs-mobile-gst-finance > div {min-width:0;display:flex;flex-direction:column;gap:5px;overflow-wrap:anywhere}
+.jobs-mobile-gst-finance span {font-size:11px;color:var(--text-secondary,#64748b)}
+.jobs-mobile-gst-finance strong {font-size:13px}
+.jobs-mobile-gst-finance small {font-size:11px;color:var(--text-secondary,#64748b)}
+.jobs-mobile-gst-finance nav{grid-column:1/-1;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.job-gst-summary{
+  display:grid;gap:12px;margin:13px 0;padding:16px;border:1px solid var(--border,#dce3ea);
+  background:var(--surface,#fff);border-radius:12px;min-width:0;
+}
+.job-gst-summary-intro h3{margin:0 0 4px;font-size:16px}
+.job-gst-summary-intro p,.job-gst-finance-collection p{font-size:13px;line-height:1.55;color:var(--text-secondary,#64748b);margin:0}
+.job-gst-summary-values{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.job-gst-summary-values > div{
+  display:grid;align-content:start;gap:7px;border:1px solid var(--border,#e2e8f0);
+  border-radius:9px;background:var(--surface-2,#f8fafc);padding:11px;min-width:0
+}
+.job-gst-summary-values span{font-size:12px;color:var(--text-secondary,#64748b)}
+.job-gst-summary-values strong{font-size:14px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.job-gst-summary-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.job-gst-summary-actions .is-primary{background:var(--primary,#2563eb);color:#fff;border-color:var(--primary,#2563eb)}
+.job-gst-finance-collection{display:grid;gap:12px;border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:14px;margin:12px 0}
+.job-gst-finance-collection strong{font-size:14px}
+.job-gst-finance-collection button{min-height:44px}
+@media(max-width:1200px){.job-gst-summary-values{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){
+  .jobs-gst-finance-nav>span{flex-basis:100%}
+  .jobs-gst-finance-nav button{flex:1}
+  .job-gst-summary{padding:12px}
+  .job-gst-summary-values{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .job-gst-summary-actions button{min-height:44px}
+  .job-gst-summary-values > div:last-child{grid-column:1/-1}
+}

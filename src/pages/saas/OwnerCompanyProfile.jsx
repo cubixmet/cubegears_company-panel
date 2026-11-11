@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import apiClient from '../../api/apiClient';
 import { BranchRegistrationEditor } from './BranchRegistrationEditor';
 import {
@@ -90,6 +91,9 @@ export function OwnerCompanyProfile() {
       <header>
         <h1>Shop Details</h1>
         <p>Manage your company registration and contact details.</p>
+        <Link to="/onboarding" className="owner-company-setup-link">
+          Open workshop setup wizard
+        </Link>
       </header>
       {loadingError && <p className="owner-company-notice is-error" role="alert">{loadingError}</p>}
       {!values && !loadingError && <p role="status">Loading shop details…</p>}

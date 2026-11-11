@@ -6,6 +6,19 @@ export const JOB_COUNTRY_CODES = [
   ['+61', 'Australia (+61)'],
 ];
 
+// Shared country choices for both the new job phone field and Add Customer.
+// Keep the calling codes consistent with the existing E.164 adapters.
+const JOB_COUNTRY_FLAGS = {
+  '+91': '🇮🇳', '+971': '🇦🇪', '+966': '🇸🇦', '+974': '🇶🇦',
+  '+965': '🇰🇼', '+968': '🇴🇲', '+973': '🇧🇭', '+1': '🇺🇸',
+  '+44': '🇬🇧', '+61': '🇦🇺',
+};
+export const JOB_PHONE_COUNTRIES = JOB_COUNTRY_CODES.map(([code, label]) => ({
+  code,
+  label: label.replace(/\s*\(\+\d+\)$/, ''),
+  flag: JOB_COUNTRY_FLAGS[code] || '🌐',
+}));
+
 export const splitInternationalPhone = (raw, fallback = '+91') => {
   const value = String(raw || '').trim().replace(/[\s().-]/g, '');
   if (!value) return { country: fallback, national: '' };

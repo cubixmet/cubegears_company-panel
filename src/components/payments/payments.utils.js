@@ -45,31 +45,62 @@ export const invoiceOutstanding = (invoice, calculateTotals) => {
 
 export const payableInvoices = (invoices = [], calculateTotals) => invoices.filter(
   (row) => row.kind === 'invoice' &&
-    ['finalized', 'issued'].includes(String(row.status || '').toLowerCase()) &&
+    ['finalized', 'issued', 'partially paid', 'overdue'].includes(String(row.status || '').toLowerCase()) &&
     invoiceOutstanding(row, calculateTotals) > 0
 );
 
 export const makePaymentPayload = (form, selectedInvoice, outstanding, mockMode = false) => {
-  if (!selectedInvoice) throw new Error('Select an invoice with an outstanding balance.');
   const amount = Number(form.amount);
   if (!Number.isFinite(amount) || amount <= 0)
     throw new Error('Enter a valid payment amount greater than zero.');
-  if (!Number.isInteger(Math.round(amount * 100)) || Math.abs(Math.round(amount * 100) / 100 - amount) > 0.000001)
+  if (Math.abs(Math.round(amount * 100) / 100 - amount) > 0.000001)
     throw new Error('Payment amount cannot contain more than two decimal places.');
-  if (amount > outstanding + 0.000001)
-    throw new Error('Amount exceeds the outstanding invoice balance.');
   if (!form.date) throw new Error('Payment date is required.');
-  if (!mockMode && !selectedInvoice.customerId)
-    throw new Error('Invoice has no linked customer ID. Check its customer record.');
   const base = {
     date: form.date,
     amount: amount.toFixed(2),
     method: form.method,
-    reference: form.reference.trim(),
+    reference: String(form.reference || '').trim(),
     status: 'Completed',
+    ...(form.accountId ? { account: form.accountId } : {}),
+    ...(form.requestKey ? { idempotency_key: form.requestKey } : {}),
   };
+
+  if (form.direction === 'OUT') {
+    if (mockMode) throw new Error('Outgoing payments require the live backend API.');
+    if (!form.accountId) throw new Error('Choose the account to debit.');
+    if (!String(form.category || '').trim()) throw new Error('Enter a payment category.');
+    return {
+      ...base,
+      direction: 'OUT',
+      category: String(form.category).trim(),
+      notes: String(form.notes || '').trim(),
+    };
+  }
+  if (form.receiptKind === 'advance') {
+    if (mockMode) throw new Error('Customer advances require the live backend API.');
+    if (!form.customerId) throw new Error('Select an existing customer for the advance.');
+    if (!form.accountId) throw new Error('Choose the receiving cash/UPI/bank account.');
+    if (!form.requestKey) throw new Error('The advance request must have a unique receipt key.');
+    return {
+      ...base,
+      direction: 'IN',
+      customer: form.customerId,
+      invoice: null,
+      category: 'Customer Advance',
+      notes: String(form.notes || '').trim(),
+    };
+  }
+  if (!selectedInvoice) throw new Error('Select an invoice with an outstanding balance.');
+  if (amount > outstanding + 0.000001)
+    throw new Error('Amount exceeds the outstanding invoice balance.');
+  if (!mockMode && !selectedInvoice.customerId)
+    throw new Error('Invoice has no linked customer ID. Check its customer record.');
+  if (!mockMode && !form.accountId)
+    throw new Error('Choose the receiving cash/UPI/bank account.');
+
   return mockMode
     ? { ...base, customer: selectedInvoice.customer?.name || selectedInvoice.customerName || 'Customer',
         invoice: selectedInvoice.number || selectedInvoice.id }
-    : { ...base, customer: selectedInvoice.customerId, invoice: selectedInvoice.id };
+    : { ...base, ...(form.direction ? { direction: 'IN' } : {}), customer: selectedInvoice.customerId, invoice: selectedInvoice.id };
 };

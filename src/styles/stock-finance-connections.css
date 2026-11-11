@@ -1,0 +1,26 @@
+.cg-stock-finance{display:grid;gap:13px;min-width:0;padding:17px;border:1px solid var(--border,#dce3ea);border-radius:13px;background:var(--surface,#fff)}
+.cg-stock-finance *{box-sizing:border-box}
+.cg-stock-finance-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;min-width:0}
+.cg-stock-finance-head h2{font-size:17px;margin:0 0 4px;font-weight:700;color:var(--text-primary,#142037)}
+.cg-stock-finance-head p{font-size:13px;line-height:1.5;color:var(--text-secondary,#64748b);margin:0}
+.cg-stock-finance-head>span{font-size:11px;color:var(--text-secondary,#64748b);font-weight:600}
+.cg-stock-finance-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px;min-width:0}
+.cg-stock-finance-grid>article{display:grid;align-content:start;gap:9px;min-width:0;background:var(--surface-2,#f8fafc);border:1px solid var(--border,#e2e8f0);border-radius:11px;padding:13px}
+.cg-stock-finance-grid>article>svg{color:var(--primary,#2563eb)}
+.cg-stock-finance-grid>article>span{font-size:12px;line-height:1.45;color:var(--text-secondary,#64748b)}
+.cg-stock-finance-grid>article>strong{font-size:clamp(16px,1.8vw,21px);font-weight:730;line-height:1.3;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.cg-stock-finance-grid>article>small{font-size:11px;line-height:1.5;color:var(--text-secondary,#64748b)}
+.cg-stock-finance-links{display:flex;gap:8px;flex-wrap:wrap;min-width:0}
+.cg-stock-finance-links>a{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:44px;min-width:0;padding:9px 12px;background:var(--surface,#fff);color:var(--primary,#2563eb);font-size:13px;font-weight:650;text-decoration:none;border:1px solid var(--border,#cbd5e1);border-radius:10px}
+.cg-stock-finance-links>a:hover{border-color:var(--primary,#2563eb)}
+.cg-stock-finance-links>a:focus-visible{outline:2px solid var(--primary,#2563eb);outline-offset:2px}
+.cg-stock-finance-note{margin:0;font-size:12px;line-height:1.6;color:var(--text-secondary,#64748b);background:var(--surface-2,#f8fafc);padding:11px 12px;border-radius:9px}
+.cg-stock-finance-error{margin:0;font-size:12px;color:#b42318;line-height:1.5}
+.cg-easy-table .cg-easy-gst-metadata{display:grid;gap:3px}
+.cg-easy-table .cg-easy-gst-metadata strong{font-size:12px;white-space:nowrap}
+.cg-easy-table .cg-easy-gst-metadata small{color:var(--text-secondary,#64748b);font-size:11px;line-height:1.4}
+.cg-easy-table .cg-easy-gst-metadata .is-missing{color:#b42318}
+.cg-easy-table .cg-easy-supplier-link{font-weight:650;color:var(--primary,#2563eb);font-size:12px;text-decoration:none}
+.cg-easy-table .cg-easy-supplier-link:hover{text-decoration:underline}
+@media(max-width:700px){.cg-stock-finance{padding:12px}.cg-stock-finance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cg-stock-finance-links>a{flex:1 1 145px}}
+@media(max-width:380px){.cg-stock-finance-grid{grid-template-columns:1fr}}

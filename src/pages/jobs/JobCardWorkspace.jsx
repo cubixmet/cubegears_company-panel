@@ -27,12 +27,17 @@ import { JobWorkerAssignments } from '../../components/jobs/JobWorkerAssignments
 import { JobOutsideStaffSection } from '../../components/jobs/JobOutsideStaffSection';
 import { JobWorkTimerPanel } from '../../components/jobs/JobWorkTimerPanel';
 import { JobWorkServiceQuickAdd } from '../../components/jobs/JobWorkServiceQuickAdd';
+import { JobWorkSavedServices } from '../../components/jobs/JobWorkSavedServices';
+import { totalCustomerServiceCharges } from '../../utils/jobWorkServiceCharges';
 import { JobWorkStockPanel } from '../../components/jobs/JobWorkStockPanel';
 import { JobTotalCostPanel } from '../../components/jobs/JobTotalCostPanel';
 import { JobActivityTimeline } from '../../components/jobs/JobActivityTimeline';
 import { JobWorkPhotoPanel } from '../../components/jobs/JobWorkPhotoPanel';
 import { jobDisplayLabel } from '../../components/jobs/jobs.utils';
+import { jobInvoiceGST, jobInvoiceFinance } from '../../utils/jobGstFinance';
+import '../../styles/job-gst-finance.css';
 import { JobBreadcrumbs } from '../../components/jobs/JobBreadcrumbs';
+import '../../styles/jobs-unified-ui.css';
 import { WhatsAppManualShareButton } from '../../components/common/WhatsAppManualShareButton';
 import { statusForComplaint, complaintStatusClass, unresolvedComplaintCount, COMPLAINT_STATUSES } from '../../components/jobs/complaintStatus';
 
@@ -107,6 +112,9 @@ export function JobCardWorkspace() {
   const { can } = useFeatureAccess();
   const hasInvoiceAccess = can('invoices.view');
   const canCreateInvoice = can('invoices.create');
+  const canViewPayments = can('payments.view');
+  const canCreatePayment = can('payments.create');
+  const canViewGST = can('gstr.view');
   const hasStockAccess = can('stock.view');
   const workflowTabsRef = useRef(null);
 
@@ -198,11 +206,14 @@ export function JobCardWorkspace() {
       const allInvoices = Array.isArray(invoiceResponse) ? invoiceResponse : invoiceResponse?.results || [];
       const related = allInvoices.filter((row) =>
         (row.kind || 'invoice') === 'invoice' &&
-        (String(row.sourceJobId || '') === String(id) ||
-         (job?.jobNumber && String(row.jobCardNo || '') === String(job.jobNumber)))
+        (String(row.jobId || row.job_id || row.sourceJobId || row.source_job_id || '') === String(id) ||
+         (job?.jobNumber && String(row.jobCardNo || row.job_card_no || '') === String(job.jobNumber)))
       ).sort((a, b) => String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || '')));
       const current = related.find((row) => row.status !== 'Cancelled') || related[0];
-      const paymentResponse = current ? await paymentService.getPayments({ invoice: current.id }) : [];
+      // Invoice read access and payment ledger read access are separate roles.
+      // A job invoice must remain viewable by invoice-only staff.
+      const paymentResponse = current && canViewPayments
+        ? await paymentService.getPayments({ invoice: current.id }) : [];
       const allPayments = Array.isArray(paymentResponse) ? paymentResponse : paymentResponse?.results || [];
       setJobInvoices(related);
       setJobPayments(allPayments.filter((row) => String(row.invoice || '') === String(current?.id))
@@ -308,6 +319,7 @@ export function JobCardWorkspace() {
   const findings = job?.inspection?.findings || job?.vehicleInspection?.findings || job?.inspectionFindings || [];
   const inspectionChecks = job?.inspection?.checklist || {};
   const labourRecords = USE_MOCK_API ? (job?.labourRecords || []) : (job?.work || []);
+  const customerServiceCharges = totalCustomerServiceCharges(job);
   const parts = job?.partsUsed || [];
   const outsidePurchases = job?.outsidePurchases || [];
   const estimates = (job?.estimates || [])
@@ -354,7 +366,9 @@ export function JobCardWorkspace() {
 
   const latestEstimate = estimates.at(-1) || null;
   const linkedInvoice = jobInvoices.find((row) => row.status !== 'Cancelled') || null;
-  const isInvoiceFinalized = ['Finalized', 'Paid'].includes(linkedInvoice?.status);
+  const financial = jobInvoiceFinance(linkedInvoice);
+  const invoiceGST = jobInvoiceGST(linkedInvoice);
+  const isInvoiceFinalized = financial.posted;
   const invoiceTotal = linkedInvoice
     ? cleanNumber(linkedInvoice.total)
     : (USE_MOCK_API ? cleanNumber(job?.billing?.invoiceTotal || latestEstimate?.grandTotal || 0) : 0);
@@ -439,7 +453,10 @@ export function JobCardWorkspace() {
     if (!workflow || saving) return;
     const options = { ...extraOptions };
     if (stage === 'estimate') {
-      if (!await appConfirm('Confirm that the customer approved the latest estimate?')) return;
+      const version = options.estimateVersion ? ` V${options.estimateVersion}` : '';
+      if (!await appConfirm(
+        `Confirm that the customer approved this exact saved Estimate${version}? This records a staff confirmation, not a customer electronic signature.`
+      )) return;
       options.approveEstimate = true;
     }
     if (stage === 'work') {
@@ -799,36 +816,10 @@ export function JobCardWorkspace() {
       return;
     }
 
-    if (!USE_MOCK_API) {
-      if (!isInvoiceFinalized) {
-        setError('Finalize the linked invoice before recording payment.');
-        return;
-      }
-      if (!linkedInvoice?.id || !job?.customerId) {
-        setError('Create an invoice linked to this Job Card before recording payment.');
-        return;
-      }
-      setSaving(true);
-      setError('');
-      try {
-        const today = new Date();
-        const date = [today.getFullYear(), String(today.getMonth() + 1).padStart(2, '0'), String(today.getDate()).padStart(2, '0')].join('-');
-        await paymentService.createPayment({
-          invoice: linkedInvoice.id,
-          customer: job.customerId,
-          date,
-          amount: paymentAmount.toFixed(2),
-          method: paymentForm.method
-        });
-        setPaymentForm((old) => ({ ...old, amount: '' }));
-        await loadBilling();
-      } catch (requestError) {
-        setError(requestError?.message || 'Payment could not be recorded.');
-      } finally {
-        setSaving(false);
-      }
-      return;
-    }
+    // The live workshop uses the canonical Finance collection form instead
+    // of this legacy demo-only shortcut. Only Finance knows the selected
+    // Cash/Bank account and creates idempotent, audited ledger postings.
+    if (!USE_MOCK_API) return;
 
     const currentPaid = cleanNumber(job.billing?.paidAmount || 0);
     const paidAmount = Math.min(invoiceTotal, currentPaid + paymentAmount);
@@ -926,7 +917,7 @@ export function JobCardWorkspace() {
   );
 
   return (
-    <div className="job-management-page cg-job-detail job-workspace-dashboard flex w-full min-w-0 flex-col gap-4 pb-4">
+    <div className="job-management-page cg-job-detail jobs-ui-polished job-workspace-dashboard flex w-full min-w-0 flex-col gap-4 pb-4">
       <JobBreadcrumbs current={TABS.find(([key]) => key === activeTab)?.[1] || "Overview"} jobLabel={jobDisplayLabel(job)} jobId={job.id} />
       <header className="job-detail-header flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
@@ -952,6 +943,7 @@ export function JobCardWorkspace() {
         jobId={job.id}
         refreshVersion={timerRefreshVersion}
         refreshOnTab={activeTab}
+        customerServiceCharges={customerServiceCharges}
       />}
 
       {activeTab !== 'overview' && activeTab !== 'activity' && !showWorkTools && (
@@ -1392,6 +1384,7 @@ export function JobCardWorkspace() {
           <JobInspectionPanel
           job={job}
           canEdit={can('jobs.edit') && !activeTabLocked}
+          canReopen={can('jobs.edit') && inspectionWasSkipped && currentStage === 'estimate' && !activeTabLocked}
           canCorrect={currentStage === 'estimate' && !activeTabLocked}
           startEditing={new URLSearchParams(location.search).get('edit') === '1'}
           onDoneEditing={() => navigate('/jobs/' + job.id + '/estimate')}
@@ -1427,9 +1420,17 @@ export function JobCardWorkspace() {
                 aria-pressed={workQuickSection === key}
                 aria-controls={'work-quick-' + key}
                 onClick={() => {
+                  if (key === 'stock') {
+                    // The stock form is always visible on Work now: this action
+                    // jumps directly to it instead of hiding the other panels.
+                    setStockQuickToken((value) => value + 1);
+                    document.getElementById('work-quick-stock')?.scrollIntoView({
+                      behavior: 'smooth', block: 'start',
+                    });
+                    return;
+                  }
                   setWorkQuickSection(key);
                   if (key === 'outside') setOutsideQuickToken((value) => value + 1);
-                  if (key === 'stock') setStockQuickToken((value) => value + 1);
                   if (key === 'assign') setAssignQuickToken((value) => value + 1);
                 }}
               >
@@ -1447,6 +1448,7 @@ export function JobCardWorkspace() {
               onSaved={async () => {
                 const updated = await jobService.getJobById(job.id);
                 if (updated) setJob(updated);
+                setTimerRefreshVersion((version) => version + 1);
               }}
             />
           </div>
@@ -1489,50 +1491,33 @@ export function JobCardWorkspace() {
           </div>
 
           {hasStockAccess && (
-            <div id="work-quick-stock" hidden={workQuickSection !== 'stock'}>
+            <div id="work-quick-stock">
               <JobWorkStockPanel
                 jobId={job.id}
                 issuedParts={job.parts || []}
+                canEdit={can('jobs.edit') && currentStage === 'work' && !activeTabLocked}
                 focusSearchToken={stockQuickToken}
                 onChanged={async () => {
                   const updated = await jobService.getJobById(job.id);
                   if (updated) setJob(updated);
+                  setTimerRefreshVersion((version) => version + 1);
                 }}
               />
             </div>
           )}
 
-          <details className="job-work-records-details">
-            <summary>Labour & Work Items <span>{labourRecords.length} {labourRecords.length === 1 ? 'entry' : 'entries'}</span></summary>
-          <section className="job-panel job-work-items-panel rounded-2xl border border-line bg-surface p-4" aria-label="Labour and Work Items">
-            <header className="job-work-items-head">
-              <div>
-                <h3>Labour & Work Items</h3>
-                <p>Saved work entries for this Job Card.</p>
-              </div>
-              <span className="job-work-items-count">
-                {labourRecords.length} {labourRecords.length === 1 ? 'entry' : 'entries'}
-              </span>
-            </header>
-            {labourRecords.length ? (
-              <div className="job-work-items-list">
-                {labourRecords.map((item) => (
-                  <div key={item.id} className="job-work-items-row">
-                    <div>
-                      <strong>{item.service || 'Work item'}</strong>
-                      <span>{item.mechanicName || 'Unassigned'} · Estimated {item.estimatedHours || 0}h · Actual {item.hours || 0}h</span>
-                    </div>
-                    <strong className="job-work-items-price">{money.format(cleanNumber(item.customerCharge || 0))}</strong>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="job-work-items-empty">
-                No labour entries yet. Record internal work using Technician Work Timers above.
-              </p>
-            )}
-          </section>
-          </details>
+          <JobWorkSavedServices
+            job={job}
+            canEdit={can('jobs.edit') && currentStage === 'work' && !activeTabLocked}
+            onChanged={async (updated) => {
+              if (updated) setJob(updated);
+              else {
+                const fresh = await jobService.getJobById(job.id);
+                if (fresh) setJob(fresh);
+              }
+              setTimerRefreshVersion((version) => version + 1);
+            }}
+          />
         </div>
       )}
 
@@ -1553,8 +1538,29 @@ export function JobCardWorkspace() {
           estimates={estimates}
           findings={findings}
           canEdit={can('jobs.edit') && currentStage === 'estimate' && !activeTabLocked}
+          wasSkipped={estimateWasSkipped}
+          canReopen={can('jobs.edit') && estimateWasSkipped && currentStage === 'work' && !activeTabLocked}
+          onReopen={async () => {
+            const result = await jobService.reopenJobEstimate(job.id);
+            if (result.job) setJob(result.job);
+            await refreshJobWorkflow();
+            navigate('/jobs/' + job.id + '/estimate', { replace: true });
+          }}
           onSaved={() => refreshJobWorkflow()}
-          onApprove={() => completeStage('estimate')}
+          onShare={async (estimateId, action) => {
+            await jobService.shareJobEstimate(job.id, estimateId, action);
+            await refreshJobWorkflow();
+          }}
+          onApprove={(estimateId, estimateVersion) => {
+            // The Job Card display labels versions "Estimate V2"; the
+            // backend compares the actual immutable integer version.
+            const numericVersion = Number(String(estimateVersion ?? '').replace(/^Estimate V/i, ''));
+            return completeStage('estimate', {
+              estimateId,
+              ...(Number.isInteger(numericVersion) && numericVersion > 0
+                ? { estimateVersion: numericVersion } : {}),
+            });
+          }}
           onSkip={skipEstimate}
           onReject={(estimateId) => setEstimateApproval(estimateId, 'Rejected')}
           onDownloadApproved={(approvedEstimate) => openApprovedPdfShare(job, approvedEstimate)}
@@ -1661,7 +1667,25 @@ export function JobCardWorkspace() {
                   {invoicePdfLoading ? 'Generating PDF…' : 'Download Invoice PDF'}
                 </button>
               )}
-              {(linkedInvoice || canCreateInvoice) && <button
+              {linkedInvoice && canViewGST && financial.gstrUrl && (
+                <button type="button" className="job-gst-finance-link"
+                  onClick={() => navigate(financial.gstrUrl)}>
+                  <ReceiptText size={15} aria-hidden="true"/> GSTR-1
+                </button>
+              )}
+              {linkedInvoice && canViewPayments && financial.historyUrl && (
+                <button type="button" className="job-gst-finance-link"
+                  onClick={() => navigate(financial.historyUrl)}>
+                  <Clock3 size={15} aria-hidden="true"/> Payment History
+                </button>
+              )}
+              {linkedInvoice && canCreatePayment && financial.paymentUrl && !USE_MOCK_API && (
+                <button type="button" className="job-primary-action"
+                  onClick={() => navigate(financial.paymentUrl)}>
+                  <ReceiptText size={15} aria-hidden="true"/> Receive Payment
+                </button>
+              )}
+                            {(linkedInvoice || canCreateInvoice) && <button
                 type="button"
                 onClick={() => linkedInvoice ? navigate('/invoices/' + linkedInvoice.id) : createInvoice()}
                 className="job-primary-action"
@@ -1675,8 +1699,10 @@ export function JobCardWorkspace() {
           <div className="job-invoice-dashboard-stats">
             {[
               ['Invoice Total', invoiceTotal, 'total'],
-              ['Paid Amount', invoicePaid, 'paid'],
-              ['Balance Due', invoiceBalance, 'balance']
+              ...(canViewPayments ? [
+                ['Paid Amount', invoicePaid, 'paid'],
+                ['Balance Due', invoiceBalance, 'balance']
+              ] : [])
             ].map(([label, amount, tone]) => (
               <div className={'job-invoice-stat is-' + tone} key={label}>
                 <span>{label}</span>
@@ -1685,11 +1711,43 @@ export function JobCardWorkspace() {
             ))}
             <div className="job-invoice-stat is-status">
               <span>Payment Status</span>
-              <strong>{invoicePaymentStatus}</strong>
+              <strong>{canViewPayments ? invoicePaymentStatus : 'Restricted'}</strong>
             </div>
           </div>
 
-          {invoicePdfError && <p role="alert" className="job-invoice-inline-message is-error">{invoicePdfError}</p>}
+          {linkedInvoice && (
+            <section className="job-gst-summary" aria-label="Job invoice GST and finance">
+              <div className="job-gst-summary-intro">
+                <h3>GST & Finance</h3>
+                <p>{invoiceGST
+                  ? (isInvoiceFinalized
+                    ? 'GST comes from this finalized invoice, not the job estimate. Payment does not add GST again.'
+                    : 'Draft GST amounts are provisional until the invoice is finalized.')
+                  : linkedInvoice.invoiceType === 'gst'
+                    ? 'Invoice GST snapshot is unavailable. Open the invoice to verify tax before collection.'
+                    : 'Non-GST invoice. Cash/Bank collection does not add GST.'}</p>
+              </div>
+              {invoiceGST && <div className="job-gst-summary-values">
+                <div><span>Taxable</span><strong>{money.format(invoiceGST.taxable)}</strong></div>
+                <div><span>CGST</span><strong>{money.format(invoiceGST.cgst)}</strong></div>
+                <div><span>SGST / UTGST</span><strong>{money.format(invoiceGST.sgst)}</strong></div>
+                <div><span>IGST</span><strong>{money.format(invoiceGST.igst)}</strong></div>
+                <div><span>Total GST</span><strong>{money.format(invoiceGST.tax)}</strong></div>
+              </div>}
+              <div className="job-gst-summary-actions">
+                {canViewGST && financial.gstrUrl && <button type="button" onClick={() => navigate(financial.gstrUrl)}>
+                  View in GSTR-1
+                </button>}
+                {canViewPayments && financial.historyUrl && <button type="button"
+                  onClick={() => navigate(financial.historyUrl)}>Finance Transactions</button>}
+                {canCreatePayment && financial.paymentUrl && !USE_MOCK_API && <button type="button"
+                  className="is-primary" onClick={() => navigate(financial.paymentUrl)}>
+                  Collect {canViewPayments ? money.format(financial.outstanding) : 'Payment'} through Cash / Bank
+                </button>}
+              </div>
+            </section>
+          )}
+                    {invoicePdfError && <p role="alert" className="job-invoice-inline-message is-error">{invoicePdfError}</p>}
           {billingLoading && <p className="job-invoice-inline-message" role="status">Loading invoice and payment records…</p>}
           {billingError && <div className="job-invoice-inline-message is-error" role="alert">
             {billingError}
@@ -1736,6 +1794,18 @@ export function JobCardWorkspace() {
                 </div>
               ) : (!USE_MOCK_API && !isInvoiceFinalized) ? (
                 <p className="job-invoice-inline-message">Finalize the linked invoice to record customer payments.</p>
+              ) : (!USE_MOCK_API) ? (
+                <div className="job-gst-finance-collection">
+                  <strong>Customer payment · Finance ledger</strong>
+                  <p>Cash/Bank account selection, partial collections, idempotency and payment audit happen in Finance. No GST is added to a receipt.</p>
+                  {invoiceBalance <= 0
+                    ? <p className="job-invoice-inline-message">Invoice settled. No further payment is required.</p>
+                    : canCreatePayment
+                      ? <button type="button" className="job-payment-submit" onClick={() => navigate(financial.paymentUrl)}>
+                        Open Finance to Receive {canViewPayments ? money.format(invoiceBalance) : 'Payment'}
+                      </button>
+                      : <p className="job-invoice-inline-message">Only authorized Finance staff can receive payments.</p>}
+                </div>
               ) : (
                 <form className="job-payment-form" onSubmit={recordPayment}>
                   <div className="job-payment-form__title">Record payment</div>
@@ -1763,7 +1833,7 @@ export function JobCardWorkspace() {
                 </form>
               )}
 
-              {(USE_MOCK_API ? job.billing?.payments || [] : jobPayments).length > 0 && (
+              {canViewPayments && (USE_MOCK_API ? job.billing?.payments || [] : jobPayments).length > 0 && (
                 <div className="job-payment-history">
                   <h4>Recent payments</h4>
                   {(USE_MOCK_API ? job.billing?.payments || [] : jobPayments).slice(0, 4).map((payment) => (

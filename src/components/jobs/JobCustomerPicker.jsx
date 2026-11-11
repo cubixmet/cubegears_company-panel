@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown, Plus, Search, UserRound, X } from 'lucide-react';
 import { customerService } from '../../services/customer.service';
+import { PhoneInput } from '../common/PhoneInput';
+import { JOB_PHONE_COUNTRIES, splitInternationalPhone, joinInternationalPhone, validInternationalPhone } from '../../utils/jobCreateAdapters';
 
 const resultsOf = (data) => Array.isArray(data) ? data : data?.results || [];
-const numberOnly = (value) => String(value || '').replace(/\D/g, '');
 
 export function JobCustomerPicker({ selectedCustomer, onSelect, onCreated, disabled = false }) {
   const [query, setQuery] = useState('');
@@ -14,6 +15,7 @@ export function JobCustomerPicker({ selectedCustomer, onSelect, onCreated, disab
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [draft, setDraft] = useState({ name: '', phone: '', email: '', address: '' });
+  const [phoneCountryCode, setPhoneCountryCode] = useState('+91');
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -82,9 +84,12 @@ export function JobCustomerPicker({ selectedCustomer, onSelect, onCreated, disab
 
   const openNew = () => {
     onSelect(null);
+    const phoneQuery = /\d{6,}/.test(query) ? query.trim() : '';
+    const phoneParts = splitInternationalPhone(phoneQuery);
+    setPhoneCountryCode(phoneParts.country);
     setDraft({
-      name: /\d{6,}/.test(query) ? '' : query.trim(),
-      phone: /\d{6,}/.test(query) ? numberOnly(query) : '',
+      name: phoneQuery ? '' : query.trim(),
+      phone: phoneQuery ? joinInternationalPhone(phoneParts.country, phoneParts.national) : '',
       email: '', address: ''
     });
     setAdding(true);
@@ -97,7 +102,7 @@ export function JobCustomerPicker({ selectedCustomer, onSelect, onCreated, disab
     if (saving) return;
     const name = draft.name.trim();
     const phone = draft.phone.trim();
-    if (!name || numberOnly(phone).length < 10) {
+    if (!name || !validInternationalPhone(phone)) {
       setError('Enter a customer name and a valid phone number.');
       return;
     }
@@ -125,6 +130,8 @@ export function JobCustomerPicker({ selectedCustomer, onSelect, onCreated, disab
       setSaving(false);
     }
   };
+
+  const phoneParts = splitInternationalPhone(draft.phone, phoneCountryCode);
 
   return (
     <div className="job-customer-picker" ref={containerRef}>
@@ -188,7 +195,7 @@ export function JobCustomerPicker({ selectedCustomer, onSelect, onCreated, disab
       )}
 
       {adding && (
-        <div className="job-customer-create-form" onKeyDown={event => { if (event.key === "Enter" && event.target.tagName !== "TEXTAREA") { event.preventDefault(); create(event); } }}>
+        <div className="job-customer-create-form" onKeyDown={event => { if (event.key === "Enter" && !["TEXTAREA", "SELECT", "BUTTON"].includes(event.target.tagName)) { event.preventDefault(); create(event); } }}>
           <div className="job-customer-create-head">
             <h4>New Customer</h4>
             <button type="button" aria-label="Close customer form" onClick={() => { setAdding(false); setError(''); }} disabled={saving}><X size={16}/></button>
@@ -198,10 +205,16 @@ export function JobCustomerPicker({ selectedCustomer, onSelect, onCreated, disab
               <input required name="newCustomerName" value={draft.name} disabled={saving}
                 onChange={e => setDraft(old => ({ ...old, name: e.target.value }))} placeholder="Full name" />
             </label>
-            <label>Phone Number *
-              <input required type="tel" name="newCustomerPhone" value={draft.phone} disabled={saving}
-                onChange={e => setDraft(old => ({ ...old, phone: e.target.value }))} placeholder="Mobile number" />
-            </label>
+            <PhoneInput label="Phone Number" labelPosition="above" name="newCustomerPhone" required
+              className="job-create-phone job-customer-phone"
+              countryCode={phoneParts.country} countries={JOB_PHONE_COUNTRIES} value={phoneParts.national} disabled={saving}
+              onCountryCodeChange={(code) => {
+                setPhoneCountryCode(code);
+                setDraft(old => ({ ...old, phone: joinInternationalPhone(code, phoneParts.national) }));
+              }}
+              onChange={(event) => setDraft(old => ({
+                ...old, phone: joinInternationalPhone(phoneParts.country, event.target.value),
+              }))} placeholder="Mobile number" />
             <label>Email
               <input type="email" name="newCustomerEmail" value={draft.email} disabled={saving}
                 onChange={e => setDraft(old => ({ ...old, email: e.target.value }))} placeholder="Optional" />

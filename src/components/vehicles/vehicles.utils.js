@@ -23,6 +23,12 @@ export const dateDiff = (dateValue) => {
 };
 
 export const getVehicleStatus = (vehicle) => {
+  if (String(vehicle.status || '').toLowerCase() === 'archived') {
+    return { label: 'Archived', tone: 'neutral' };
+  }
+  if (String(vehicle.customerStatus || '').toLowerCase() === 'archived') {
+    return { label: 'Customer Archived', tone: 'neutral' };
+  }
   const serviceDays = dateDiff(vehicle.nextServiceDue);
   const insuranceDays = dateDiff(vehicle.insuranceExpiry);
 

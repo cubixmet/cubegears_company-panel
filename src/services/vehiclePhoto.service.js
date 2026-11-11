@@ -14,7 +14,7 @@ export const vehiclePhotoService = {
     requireBackend();
     return apiClient.get(`/jobs/${jobId}/inspection-photos`);
   },
-  upload: async ({ vehicleId, jobId, file, category, phase, caption, notes }) => {
+  upload: async ({ vehicleId, jobId, file, category, phase, caption, notes, published = false }) => {
     requireBackend();
     if (!file) throw new Error('Capture a vehicle photo first.');
     const body = new FormData();
@@ -23,6 +23,7 @@ export const vehiclePhotoService = {
     body.append('phase', phase || 'before');
     body.append('caption', caption || '');
     body.append('notes', notes || '');
+    body.append('published', published ? 'true' : 'false');
     const endpoint = jobId
       ? `/jobs/${jobId}/inspection-photos`
       : `/vehicles/${vehicleId}/photos`;

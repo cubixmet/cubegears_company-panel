@@ -3,10 +3,10 @@ import { Activity, IndianRupee, Layers3, Wrench } from 'lucide-react';
 
 export const ServiceOverviewStats = ({ metrics, formatMoney }) => {
   const cards=[
-    ['Total Services',metrics.total,'configured services',Wrench,'primary'],
+    ['Total Services',metrics.total,'services in your catalog',Wrench,'primary'],
     ['Active Services',metrics.active,'available for job cards',Activity,'success'],
     ['Categories',metrics.categories,'service groups',Layers3,'primary'],
-    ['Avg Labour Charge',formatMoney(metrics.averagePrice),'average base charge',IndianRupee,'primary'],
+    ['Average Charge',formatMoney(metrics.averagePrice),'average selling rate',IndianRupee,'primary'],
   ];
   return (
     <section className="service-dashboard-stats">

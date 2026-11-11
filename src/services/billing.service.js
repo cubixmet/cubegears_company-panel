@@ -392,24 +392,31 @@ export const billingService = {
     write(DOCS_KEY, docs.map((row) => row.id === documentId ? nextDoc : row));
     return clone(nextDoc);
   },
-  async cancel(documentId) {
-    if (!USE_MOCK_API) return apiClient.post(`/billing/documents/${documentId}/cancel`);
+  async cancel(documentId, reason) {
+    const cleanReason = String(reason ?? '').trim();
+    if (cleanReason.length < 5 || cleanReason.length > 500) {
+      throw new Error('Provide a cancellation reason between 5 and 500 characters.');
+    }
+    if (!USE_MOCK_API) return apiClient.post(
+      `/billing/documents/${encodeURIComponent(documentId)}/cancel`,
+      { reason: cleanReason },
+    );
     const docs = read(DOCS_KEY, seedDocuments);
     const doc = docs.find((row) => row.id === documentId);
     if (!doc) throw new Error('Document not found.');
-    if (doc.kind === 'invoice' && (doc.status === 'Finalized' || doc.status === 'Paid')) applyStockMovement(doc, 'restore');
-    const nextDoc = { ...doc, status: 'Cancelled', cancelledAt: new Date().toISOString() };
+    if (doc.status === 'Cancelled') return clone(doc);
+    if (doc.status !== 'Draft') throw new Error('Issued documents cannot be cancelled without a reversal.');
+    const nextDoc = {
+      ...doc, status: 'Cancelled', cancelledAt: new Date().toISOString(),
+      cancellationReason: cleanReason,
+    };
     write(DOCS_KEY, docs.map((row) => row.id === documentId ? nextDoc : row));
     return clone(nextDoc);
   },
-  async remove(documentId) {
-    if (!USE_MOCK_API) return apiClient.delete(`/billing/documents/${documentId}`);
-    const docs = read(DOCS_KEY, seedDocuments);
-    const doc = docs.find((row) => row.id === documentId);
-    if (!doc) throw new Error('Document not found.');
-    if (!['Draft', 'Cancelled'].includes(doc.status)) throw new Error('Finalized/issued documents cannot be deleted. Cancel the document first.');
-    write(DOCS_KEY, docs.filter((row) => row.id !== documentId));
-    return true;
+  async remove() {
+    // All saved invoice numbers remain part of the financial audit trail.
+    // Drafts are cancelled with reasons; issued documents need reversals.
+    throw new Error('Saved invoices and estimates cannot be deleted. Cancel an unissued draft instead.');
   },
   async convertEstimateToInvoice(estimateId) {
     if (!USE_MOCK_API) {

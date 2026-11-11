@@ -1,6 +1,6 @@
 import { appConfirm } from '../../components/common/appDialogs';
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search } from '../../components/common/Search';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
@@ -8,10 +8,13 @@ import { Textarea } from '../../components/common/Textarea';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
 import '../../styles/customer-workshop-form.css';
 import '../../styles/customer-workspace-compact.css';
+import '../../styles/customer-directory-refined.css';
 import { customerService } from '../../services/customer.service';
 import { customerInvoiceMoney, customerStatusLabel, formatCustomerMoney } from './customerDirectoryMoney';
+import { USE_MOCK_API } from '../../api/apiConfig';
+import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { CustomerContactActions } from '../../components/customers/CustomerContactActions';
-import { Users, Plus, Filter, Edit, Phone, MessageSquare, Mail, AlertTriangle, ChevronRight } from "lucide-react";
+import { Users, Plus, Filter, Edit, Phone, MessageSquare, Mail, AlertTriangle } from "lucide-react";
 
 const normalizeCustomerType = (value) =>
   /business|company/i.test(String(value || '')) ? 'Business / Company' : 'Individual';
@@ -21,6 +24,10 @@ const backendCustomerType = (value) =>
 
 export const CustomerList = () => {
   const navigate = useNavigate();
+  const { can } = useFeatureAccess();
+  const canCreateCustomer = can('customers.create');
+  const canEditCustomer = can('customers.edit');
+  const canViewCustomerMoney = can('invoices.view');
   const [searchParams, setSearchParams] = useSearchParams();
   const search = (searchParams.get('q') || '').slice(0, 120);
   const statusFilter = searchParams.get('status') || 'All';
@@ -38,10 +45,13 @@ export const CustomerList = () => {
   const setBranchFilter = (value) => updateFilter('branch', value);
   const setTypeFilter = (value) => updateFilter('type', value);
   const resetFilters = () => setSearchParams(new URLSearchParams());
+  const hasActiveFilters = Boolean(search.trim() || statusFilter !== 'All' || branchFilter !== 'All' || typeFilter !== 'All');
+  const activeFilterCount = [statusFilter !== 'All', branchFilter !== 'All', typeFilter !== 'All'].filter(Boolean).length;
 
 
   // Core Data State
   const [customers, setCustomers] = useState([]);
+  const [remoteSearchIds, setRemoteSearchIds] = useState(null);
   const [branchChoices, setBranchChoices] = useState([]);
   const [branchLoadError, setBranchLoadError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -103,7 +113,11 @@ export const CustomerList = () => {
       const data = Array.isArray(response) ? response : (response?.results || []);
 
       let partialErrors = 0;
-      const enriched = await Promise.all(data.map(async (customer) => {
+      let enriched = [];
+      if (USE_MOCK_API) {
+        // Preserve existing rich local demo fixtures; the live app never
+        // issues three subresource requests per customer.
+        enriched = await Promise.all(data.map(async (customer) => {
         // Optional vehicle/job permissions or endpoint errors should never hide
         // the entire customer directory or misrepresent unpaid invoice amounts as zero.
         const [vehicleResult, jobResult, invoiceResult] = await Promise.allSettled([
@@ -146,6 +160,36 @@ export const CustomerList = () => {
         };
       }));
 
+
+      } else {
+        let summary = null;
+        try {
+          const result = await customerService.getCustomerDirectorySummary();
+          if (!Array.isArray(result?.results)) throw new Error('Invalid directory summary.');
+          summary = new Map(result.results.map(row => [String(row.customerId), row]));
+        } catch {
+          partialErrors += 1;
+        }
+        enriched = data.map(customer => {
+          const details = summary?.get(String(customer.id));
+          const spent = details?.moneyAvailable && details.totalSpent != null
+            ? Number(details.totalSpent) : null;
+          const due = details?.moneyAvailable && details.outstanding != null
+            ? Number(details.outstanding) : null;
+          const moneyAvailable = Boolean(details?.moneyAvailable &&
+            Number.isFinite(spent) && Number.isFinite(due));
+          return {
+            ...customer,
+            status: customerStatusLabel(customer.status),
+            customerType: customer.customerType || customer.customer_type || 'Individual',
+            vehicleCount: details?.vehiclesAvailable ? details.vehicleCount : null,
+            jobsCount: details?.jobsAvailable ? details.jobsCount : null,
+            totalSpent: moneyAvailable ? spent : null,
+            outstanding: moneyAvailable ? Math.max(0, due) : null,
+            moneyAvailable,
+          };
+        });
+      }
       setCustomers(enriched);
       setLoadError(partialErrors
         ? 'Some linked customer records could not load. Missing invoice balances are shown as — instead of ₹0. Please check permissions or retry.'
@@ -157,6 +201,24 @@ export const CustomerList = () => {
       setLoading(false);
     }
   };
+
+  // Registration/VIN and job-number matches are resolved by Django with
+  // vehicles.view / jobs.view permissions, not by leaking subresource data.
+  useEffect(() => {
+    if (!search.trim() || USE_MOCK_API) { setRemoteSearchIds(null); return undefined; }
+    let active = true;
+    setRemoteSearchIds(null);
+    const timer = setTimeout(() => {
+      customerService.getCustomers({ search: search.trim() })
+        .then(value => {
+          if (!active) return;
+          const rows = Array.isArray(value) ? value : value?.results || [];
+          setRemoteSearchIds(new Set(rows.map(item => String(item.id))));
+        })
+        .catch(() => { if (active) setRemoteSearchIds(null); });
+    }, 250);
+    return () => { active = false; clearTimeout(timer); };
+  }, [search]);
 
   const availableBranches = useMemo(() => [...new Set(
     branchChoices.map((item) => item.name).filter(Boolean)
@@ -179,9 +241,10 @@ export const CustomerList = () => {
         customer.__vehicles?.some((vehicle) =>
           [vehicle.regNo, vehicle.vin].some((value) => String(value || '').toLowerCase().includes(q))) ||
         customer.__jobs?.some((job) =>
-          [job.jobNumber, job.id, job.vehicleReg].some((value) => String(value || '').toLowerCase().includes(q)));
+          [job.jobNumber, job.id, job.vehicleReg].some((value) => String(value || '').toLowerCase().includes(q))) ||
+        remoteSearchIds?.has(String(customer.id));
     });
-  }, [customers, search, statusFilter, branchFilter, typeFilter]);
+  }, [customers, search, statusFilter, branchFilter, typeFilter, remoteSearchIds]);
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -340,7 +403,7 @@ export const CustomerList = () => {
 
 
   return (
-    <div className="customer-directory-page cg-customers" style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', maxWidth: '100%', boxSizing: 'border-box', paddingBottom: '70px' }}>
+    <div className="customer-directory-page cg-customers cg-directory-refined">
       
       {/* Toast Banner */}
       {toastMsg && (
@@ -349,42 +412,26 @@ export const CustomerList = () => {
         </div>
       )}
 
-      {/* PAGE HEADER */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h1 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>Customers</h1>
+      <header className="cg-directory-header">
+        <div className="cg-directory-heading">
+          <span className="cg-directory-eyebrow">WORKSHOP DIRECTORY</span>
+          <h1>Customers</h1>
+          <p>Customer profiles, vehicles and service records.</p>
         </div>
-        <button
-          onClick={openAddModal}
-          style={{
-            height: '44px',
-            padding: '0 18px',
-            borderRadius: '11px',
-            backgroundColor: 'var(--primary)',
-            color: '#ffffff',
-            border: 'none',
-            fontSize: '13px',
-            fontWeight: '700',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            width: 'auto'
-          }}
-          className="mobile-full-width-btn"
-        >
-          <Plus size={16} /> Add Customer
+        <button type="button" className="cg-directory-add mobile-full-width-btn"
+          onClick={openAddModal} disabled={!canCreateCustomer}
+          title={!canCreateCustomer ? 'Customer creation permission required' : undefined}>
+          <Plus size={18} aria-hidden="true"/> Add Customer
         </button>
-      </div>
+      </header>
 
       {loadError && <div role="alert" className="customer-directory-error">{loadError} <button type="button" onClick={fetchCustomers}>Retry</button></div>}
 
       {/* SEARCH + FILTERS TOOLBAR */}
-      <div className="customer-directory-toolbar" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', width: '100%' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <Search
+      <section className="customer-directory-toolbar" aria-label="Customer search and filters">
+        <div className="cg-directory-toolbar-row">
+          <div className="cg-directory-search">
+            <Search aria-label="Search customers"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, phone, WhatsApp, email or vehicle..."
@@ -422,18 +469,32 @@ export const CustomerList = () => {
 
           {/* Mobile Filter Button */}
           <button
-            className="mobile-filter-trigger"
+            className="mobile-filter-trigger" type="button"
+            aria-label={activeFilterCount ? `Filters, ${activeFilterCount} active` : 'Filter customers'}
             onClick={() => setIsFilterSheetOpen(true)}
             style={{ height: '44px', padding: '0 14px', borderRadius: '11px', border: '1px solid var(--border)', backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)', fontSize: '13px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
           >
-            <Filter size={16} /> Filters
+            <Filter size={16} aria-hidden="true"/> Filters{activeFilterCount ? ` (${activeFilterCount})` : ''}
           </button>
         </div>
-      </div>
+        {hasActiveFilters && (
+          <div className="cg-directory-active-filters" aria-label="Active customer filters">
+            {search.trim() && <button type="button" onClick={() => setSearch('')}
+              aria-label="Clear customer search">Search: {search.trim()} <span aria-hidden="true">×</span></button>}
+            {statusFilter !== 'All' && <button type="button" onClick={() => setStatusFilter('All')}
+              aria-label="Clear status filter">Status: {statusFilter} <span aria-hidden="true">×</span></button>}
+            {typeFilter !== 'All' && <button type="button" onClick={() => setTypeFilter('All')}
+              aria-label="Clear customer type filter">Type: {typeFilter} <span aria-hidden="true">×</span></button>}
+            {branchFilter !== 'All' && <button type="button" onClick={() => setBranchFilter('All')}
+              aria-label="Clear branch filter">Branch: {branchFilter} <span aria-hidden="true">×</span></button>}
+            <button type="button" className="cg-directory-clear-all" onClick={resetFilters}>Clear all</button>
+          </div>
+        )}
+      </section>
 
       {/* CUSTOMER LIST: DESKTOP TABLE & MOBILE CARDS */}
       <div className="customer-directory-list-heading">
-        <div><h2>All Customers</h2><span className="customer-directory-count">{loading || (loadError && !customers.length) ? '—' : `${visibleCustomers.length} / ${customers.length}`}</span></div>
+        <div><h2>All Customers</h2><span className="customer-directory-count">{loading || (loadError && !customers.length) ? '—' : `${visibleCustomers.length} of ${customers.length} customers`}</span></div>
         <span className="customer-directory-heading-spacer" aria-hidden="true" />
       </div>
       {loading ? (
@@ -442,14 +503,19 @@ export const CustomerList = () => {
         <div style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '40px 20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
           <Users size={36} style={{ color: 'var(--text-muted)' }} />
           <strong style={{ fontSize: '15px', color: 'var(--text-primary)' }}>No customers found.</strong>
-          <button onClick={openAddModal} style={{ padding: '8px 16px', borderRadius: '10px', backgroundColor: 'var(--primary)', color: '#fff', border: 'none', fontWeight: '700', fontSize: '12.5px', cursor: 'pointer', marginTop: '6px' }}>
-            + Add First Customer
-          </button>
+          {hasActiveFilters ? (
+            <button type="button" className="cg-directory-empty-action" onClick={resetFilters}>Clear filters</button>
+          ) : (
+            <button type="button" className="cg-directory-empty-action" onClick={openAddModal}
+              disabled={!canCreateCustomer} title={!canCreateCustomer ? 'Customer creation permission required' : undefined}>
+              <Plus size={16} aria-hidden="true"/> Add First Customer
+            </button>
+          )}
         </div>
       ) : (
         <>
           {/* DESKTOP TABLE */}
-          <div className="desktop-customers-table" style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', overflow: 'hidden' }}>
+          <div className="desktop-customers-table" role="region" aria-label="Customer directory table" tabIndex={0}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
               <thead>
                 <tr style={{ backgroundColor: 'var(--surface-2)', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '600' }}>
@@ -470,8 +536,13 @@ export const CustomerList = () => {
                     onKeyDown={(event) => handleCustomerKeyDown(event, c)}
                     style={{ borderBottom: '1px solid var(--border)', transition: 'background-color 0.15s ease' }}>
                     <td style={{ padding: '12px 14px' }}>
-                      <strong style={{ display: 'block', color: 'var(--text-primary)' }}>{c.name}</strong>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{c.email || c.phone || 'Customer'}</span>
+                      <div className="cg-directory-person">
+                        <span className="cg-directory-avatar" aria-hidden="true">{String(c.name || 'C').trim().charAt(0).toUpperCase()}</span>
+                        <span className="cg-directory-person-copy">
+                          <Link to={`/customers/${c.id}`} className="cg-directory-name">{c.name}</Link>
+                          <small>{c.email || c.phone || 'Customer'}</small>
+                        </span>
+                      </div>
                     </td>
                     <td style={{ padding: '12px 14px' }}>
                       <div className="customer-directory-phone">{c.phone || 'No phone number'}</div>
@@ -482,23 +553,23 @@ export const CustomerList = () => {
                     <td style={{ padding: '12px 14px', color: 'var(--text-secondary)' }}>{c.jobsCount ?? '—'}</td>
                     <td title={!c.moneyAvailable ? 'Invoice balance unavailable' : undefined}
                       style={{ padding: '12px 14px', fontWeight: '700', color: c.outstanding === null ? 'var(--text-muted)' : c.outstanding > 0 ? 'var(--warning)' : 'var(--success)' }}>
-                      {formatCustomerMoney(c.outstanding)}
+                      {canViewCustomerMoney ? formatCustomerMoney(c.outstanding) : 'Restricted'}
                     </td>
                     <td style={{ padding: '12px 14px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '6px', backgroundColor: c.status === 'Active' ? 'var(--success-soft)' : 'var(--surface-2)', color: c.status === 'Active' ? 'var(--success)' : 'var(--text-muted)' }}>
-                        {c.status}
-                      </span>
+                      <span className={`cg-directory-status ${c.status === 'Active' ? 'is-active' : ''}`}><span aria-hidden="true"/>{c.status}</span>
                     </td>
                     <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                       <button
                         onClick={(event) => { event.stopPropagation(); openCustomer(c); }}
-                        style={{ padding: '6px 10px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--surface-2)', color: 'var(--primary)', fontWeight: '600', fontSize: '12px', cursor: 'pointer', marginRight: '6px' }}
+                        className="cg-directory-view-action" aria-label={`View ${c.name} profile`}
                       >
                         View
                       </button>
                       <button
                         onClick={(event) => { event.stopPropagation(); openEditModal(c); }}
-                        style={{ padding: '6px 8px', borderRadius: '8px', border: '1px solid var(--border)', backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)', cursor: 'pointer' }}
+                        disabled={!canEditCustomer}
+                        title={!canEditCustomer ? 'Customer edit permission required' : undefined}
+                        aria-label={`Edit ${c.name}`} className="cg-directory-edit-action"
                       >
                         <Edit size={14} />
                       </button>
@@ -510,21 +581,20 @@ export const CustomerList = () => {
           </div>
 
           {/* MOBILE CARDS VIEW */}
-          <div className="mobile-customers-cards" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div className="mobile-customers-cards">
             {visibleCustomers.map((c) => (
               <div key={c.id} tabIndex={0} role="link" className="customer-directory-card"
                 aria-label={`Open ${c.name} profile`}
                 onClick={(event) => handleCustomerClick(event, c)}
                 onKeyDown={(event) => handleCustomerKeyDown(event, c)}
                 style={{ backgroundColor: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '14px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-primary)', margin: 0 }}>{c.name}</h3>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{c.phone || 'No phone number'}</div>
+                <div className="cg-directory-card-header">
+                  <span className="cg-directory-avatar" aria-hidden="true">{String(c.name || 'C').trim().charAt(0).toUpperCase()}</span>
+                  <div className="cg-directory-card-identity">
+                    <h3>{c.name}</h3>
+                    <span>{c.phone || 'No phone number'}</span>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 8px', borderRadius: '6px', backgroundColor: c.status === 'Active' ? 'var(--success-soft)' : 'var(--surface-2)', color: c.status === 'Active' ? 'var(--success)' : 'var(--text-muted)' }}>
-                    {c.status}
-                  </span>
+                  <span className={`cg-directory-status ${c.status === 'Active' ? 'is-active' : ''}`}><span aria-hidden="true"/>{c.status}</span>
                 </div>
 
                 <div className="customer-directory-card__summary" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', backgroundColor: 'var(--surface-2)', padding: '10px', borderRadius: '10px', fontSize: '12px' }}>
@@ -532,20 +602,22 @@ export const CustomerList = () => {
                   <div><span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Last Visit</span><strong>{c.lastVisit || '—'}</strong></div>
                   <div><span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Customer Type</span><strong>{c.customerType || 'Individual'}</strong></div>
                   <div><span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Outstanding</span><strong title={!c.moneyAvailable ? 'Invoice balance unavailable' : undefined}
-                    style={{ color: c.outstanding === null ? 'var(--text-muted)' : c.outstanding > 0 ? 'var(--warning)' : 'var(--success)' }}>{formatCustomerMoney(c.outstanding)}</strong></div>
+                    style={{ color: c.outstanding === null ? 'var(--text-muted)' : c.outstanding > 0 ? 'var(--warning)' : 'var(--success)' }}>{canViewCustomerMoney ? formatCustomerMoney(c.outstanding) : 'Restricted'}</strong></div>
                 </div>
 
                 <CustomerContactActions customer={c} />
                 <div style={{ display: 'flex', gap: '8px', paddingTop: '4px' }}>
                   <button
                     onClick={(event) => { event.stopPropagation(); openCustomer(c); }}
-                    style={{ flex: 1, height: '38px', borderRadius: '10px', backgroundColor: 'var(--primary)', color: '#fff', border: 'none', fontSize: '12.5px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                    className="cg-directory-mobile-view" aria-label={`View ${c.name} profile`}
                   >
-                    View Customer <ChevronRight size={16} />
+                    View Customer
                   </button>
                   <button
                     onClick={(event) => { event.stopPropagation(); openEditModal(c); }}
-                    style={{ width: '38px', height: '38px', borderRadius: '10px', border: '1px solid var(--border)', backgroundColor: 'var(--surface-2)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                        disabled={!canEditCustomer}
+                        title={!canEditCustomer ? 'Customer edit permission required' : undefined}
+                    className="cg-directory-mobile-edit" aria-label={`Edit ${c.name}`}
                   >
                     <Edit size={16} />
                   </button>

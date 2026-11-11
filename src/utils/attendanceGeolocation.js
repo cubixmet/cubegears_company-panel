@@ -30,7 +30,7 @@ export const acquireWorkshopLocation = (
   maxWaitMs = 18000,
 ) => new Promise((resolve, reject) => {
   const radius = Number(radiusMeters);
-  if (!Number.isFinite(radius) || radius < 50 || radius > 5000) {
+  if (!Number.isFinite(radius) || radius < 20 || radius > 5000) {
     reject(locationError('Workshop punch radius is not configured correctly. Contact the administrator.', 'LOCATION_RULE_INVALID'));
     return;
   }

@@ -1,0 +1,54 @@
+.customer-credit-ledger {
+  border: 1px solid var(--border, #d7dce4);
+  background: var(--surface, #fff);
+  color: var(--text-primary, #182231);
+  border-radius: 14px;
+  padding: clamp(12px, 2vw, 20px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  width: 100%;
+}
+.customer-credit-head,
+.customer-credit-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.customer-credit-head h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 17px; }
+.customer-credit-head p, .customer-credit-note { margin: 0; color: var(--text-secondary, #536174); font-size: 13px; line-height: 1.45; }
+.customer-credit-ledger button,
+.customer-credit-ledger select,
+.customer-credit-ledger input { min-height: 44px; font-size: 16px; border-radius: 9px; }
+.customer-credit-ledger button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; border: 1px solid var(--border, #d7dce4); background: var(--surface-2, #f7f9fc); color: inherit; padding: 8px 14px; font-weight: 600; }
+.customer-credit-ledger button[type="submit"], .customer-credit-actions button:first-child { background: var(--primary, #156db3); color: #fff; border-color: var(--primary, #156db3); }
+.customer-credit-ledger button:disabled { opacity: .6; cursor: not-allowed; }
+.customer-credit-stats { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
+.customer-credit-stats > div { border: 1px solid var(--border, #d7dce4); border-radius: 12px; padding: 13px; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.customer-credit-stats span { color: var(--text-secondary, #526175); font-size: 12px; }
+.customer-credit-stats strong { font-size: clamp(16px, 2vw, 19px); overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.customer-credit-note { border-left: 3px solid var(--primary, #156db3); padding-left: 10px; }
+.customer-credit-error, .customer-credit-success { margin: 0; padding: 10px 12px; border-radius: 8px; font-size: 13px; }
+.customer-credit-error { color: #ac1d26; background: #fff0f1; }
+.customer-credit-success { color: #185b32; background: #e9f7ed; }
+.customer-credit-form { display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--border, #d7dce4); border-radius: 12px; padding: 14px; min-width: 0; }
+.customer-credit-form h4, .customer-credit-history h4 { margin: 0; font-size: 15px; }
+.customer-credit-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.customer-credit-form-grid label { display: flex; flex-direction: column; gap: 6px; min-width: 0; font-size: 13px; font-weight: 600; }
+.customer-credit-form-grid input, .customer-credit-form-grid select { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px 10px; border: 1px solid var(--border, #ccd4e1); background: var(--surface, #fff); color: var(--text-primary, #172231); }
+.customer-credit-form > button { align-self: flex-start; }
+.customer-credit-history { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.customer-credit-table-wrap { max-width: 100%; overflow-x: auto; border: 1px solid var(--border, #d7dce4); border-radius: 10px; }
+.customer-credit-table-wrap table { border-collapse: collapse; width: 100%; min-width: 650px; font-size: 13px; }
+.customer-credit-table-wrap th, .customer-credit-table-wrap td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border, #d7dce4); white-space: nowrap; }
+.customer-credit-table-wrap th { color: var(--text-secondary, #526175); font-weight: 600; background: var(--surface-2, #f7f9fc); }
+.customer-credit-table-wrap td button { min-height: 36px; font-size: 12px; padding: 6px 10px; }
+.customer-credit-out { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 760px) {
+  .customer-credit-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
+  .customer-credit-form-grid { grid-template-columns: 1fr; }
+  .customer-credit-head { align-items: flex-start; }
+  .customer-credit-form > button { width: 100%; }
+}
+@media (max-width: 390px) {
+  .customer-credit-stats { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .customer-credit-stats > div { padding: 10px; }
+  .customer-credit-head > button { width: 100%; }
+}

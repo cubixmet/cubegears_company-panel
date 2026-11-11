@@ -8,7 +8,7 @@ const money = (value) => new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 2
 }).format(Number(value) || 0);
 
-export function JobTotalCostPanel({ jobId, refreshVersion = 0, refreshOnTab = '' }) {
+export function JobTotalCostPanel({ jobId, refreshVersion = 0, refreshOnTab = '', customerServiceCharges = 0 }) {
   const { user } = useAuth();
   const permitted = ['jobs.view', 'payroll.view', 'expenses.view', 'stock.view']
     .every((code) => hasPermission(user, code));
@@ -108,6 +108,15 @@ export function JobTotalCostPanel({ jobId, refreshVersion = 0, refreshOnTab = ''
               </div>
             ))}
           </div>
+          {refreshOnTab === 'work' && (
+            <div className="job-total-customer-service" aria-label="Recorded customer service charges">
+              <div>
+                <strong>Customer Service Charges</strong>
+                <small>Added services selling value — not included in Total Cost, invoice or payment.</small>
+              </div>
+              <strong>{money(customerServiceCharges)}</strong>
+            </div>
+          )}
           {!!summary && (
             <div className="job-total-cost-footnotes">
               {Number(summary.outsidePartsCost || 0) > 0 && (

@@ -89,7 +89,7 @@ export const EditVehicle = () => {
 
   const customerOptions = customers.map((customer) => ({
     value: customer.id,
-    label: `${customer.name} (${customer.phone}) - ID: ${customer.id}`
+    label: `${customer.name} (${customer.phone || 'No phone'})`
   }));
 
   const submit = async (event) => {

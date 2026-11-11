@@ -520,3 +520,13 @@
   }
   .cg-job-detail .cg-inspection-two-fields {grid-template-columns:1fr}
 }
+
+/* Keep the Skip/Complete footer clear of the fixed bottom navigation. */
+@media (max-width: 767px) {
+  .cg-job-detail .cg-inspection {
+    padding-bottom: calc(192px + env(safe-area-inset-bottom, 0px));
+  }
+  .cg-job-detail .cg-inspection-footer {
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  }
+}

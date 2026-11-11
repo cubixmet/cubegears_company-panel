@@ -1,7 +1,7 @@
+import '../../../styles/staff-payment-settings.css';
 import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
-  ArrowLeft,
   BriefcaseBusiness,
   Building2,
   CalendarDays,
@@ -19,6 +19,7 @@ import {
   Unlock,
   User,
   WalletCards,
+  Settings2,
   Wrench,
 } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -28,6 +29,8 @@ import {
   StaffDocumentAddSheet,
   StaffProfileEditSheet,
 } from '../../../components/staff-management';
+import { EmployeePayConfigurationSheet } from '../../../components/payroll/EmployeePayConfigurationSheet';
+import { ResponsiveModalSheet } from '../../../components/common/ResponsiveModalSheet';
 import { getEmployeeLabel } from '../../../components/staff-management/staffDisplay';
 import { useAuth } from '../../../hooks/useAuth';
 import { useFeatureAccess } from '../../../context/FeatureAccessContext';
@@ -39,6 +42,7 @@ import { staffService } from '../../../services/staff.service';
 import { copyManualStaffInvite, shareManualStaffInvite } from '../../../utils/staffManualInvite';
 import '../../../styles/staff-mobile-onboarding.css';
 import { staffManagementService } from '../../../services/staffManagement.service';
+import { dailyWageService } from '../../../services/dailyWage.service';
 
 const money = (value) =>
   new Intl.NumberFormat('en-IN', {
@@ -112,10 +116,8 @@ const TABS = [
   ['Overview', User],
   ['Attendance', CalendarDays],
   ['Assigned Work', BriefcaseBusiness],
-  ['Performance', Gauge],
   ['Payroll', WalletCards],
   ['Documents', FileText],
-  ['Activity History', Activity],
 ];
 
 const InfoItem = ({ label, value, icon: Icon }) => (
@@ -160,12 +162,11 @@ const normalizeActivity = (item = {}) => ({
   ),
 });
 
-export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
+export const StaffProfile = ({ staffId: staffIdProp }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { staffId: routeStaffId } = useParams();
   const staffId = staffIdProp || routeStaffId;
-  const goBack = onBack || (() => navigate('/staff-management/staff'));
   const { user } = useAuth();
   const { can } = useFeatureAccess();
 
@@ -193,6 +194,11 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
 
   const [editOpen, setEditOpen] = useState(false);
   const [documentOpen, setDocumentOpen] = useState(false);
+  const [paymentSettingsOpen, setPaymentSettingsOpen] = useState(false);
+  const [wageRateOpen, setWageRateOpen] = useState(false);
+  const [paymentSettingsBusy, setPaymentSettingsBusy] = useState(false);
+  const [paymentSettingsError, setPaymentSettingsError] = useState('');
+  const [paymentStructure, setPaymentStructure] = useState(null);
 
   const isOwnProfile =
     Boolean(user?.employeeProfileId) &&
@@ -205,6 +211,13 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
   const canManageAttendance = can('attendance.manage');
   const canViewPayroll = can('payroll.view');
   const canManagePayroll = can('payroll.edit');
+  const canEditWageRate = canViewPayroll && can('payroll.rates.manage');
+  const canRecordWagePayment = canViewPayroll && can('payroll.payments.record');
+  const canEditPaymentSettings = canEditWageRate || canRecordWagePayment;
+  // The owner and system administrators manage their own password under
+  // Account Security. Django correctly rejects a staff invitation for them.
+  const canResetStaffPassword = canManageLogin && !isOwnProfile &&
+    !['owner', 'super admin', 'platform admin'].includes(String(staff?.role || '').trim().toLowerCase());
   const visibleTabs = TABS.filter(([tab]) =>
     !['Assigned Work', 'Performance'].includes(tab) || canViewJobs
   ).filter(([tab]) =>
@@ -409,7 +422,7 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
   }, [jobs, staff]);
 
   const handleSendInvite = async () => {
-    if (inviteBusy || !canManageLogin) return;
+    if (inviteBusy || !canResetStaffPassword || !staff?.id) return;
     if (!staff.whatsappConsent) {
       setInviteError('Record staff WhatsApp consent before sharing a setup link.');
       return;
@@ -419,12 +432,17 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
     setInviteNotice('');
     try {
       const handoff = await shareManualStaffInvite(
-        () => staffService.sendLoginInvite(staff.id),
+        () => staffService.sendLoginInvite(staff.id, {
+          manualOnly: true,
+          replace: staff.loginStatus === 'Active',
+        }),
         { phone: staff.phone, staffName: staff.name, workshopName: user?.company?.name },
       );
-      setInviteNotice(handoff.localOnlyLink
-        ? 'WhatsApp opened, but the password link uses localhost. Set backend FRONTEND_URL to your public HTTPS company-panel URL before sharing with staff.'
-        : 'WhatsApp opened — review the message and press Send manually.');
+      setInviteNotice(['queued', 'sending', 'sent'].includes(handoff.status)
+        ? 'Password reset has been handed to the official WhatsApp delivery service. Check its delivery status; no manual message was sent.'
+        : handoff.localOnlyLink
+          ? 'WhatsApp opened, but the setup URL is localhost. Set backend FRONTEND_URL to the public HTTPS company-panel address before the employee opens the link.'
+          : 'Password link is ready in WhatsApp. Review it and press Send to share manually.');
       await refreshAll();
     } catch (requestError) {
       setInviteError(staffInviteErrorMessage(requestError));
@@ -434,13 +452,16 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
   };
 
   const handleCopyInvite = async () => {
-    if (inviteBusy || !canManageLogin || !staff?.whatsappConsent) return;
+    if (inviteBusy || !canResetStaffPassword || !staff?.whatsappConsent) return;
     setInviteBusy(true);
     setInviteError('');
     setInviteNotice('');
     try {
       await copyManualStaffInvite(
-        () => staffService.sendLoginInvite(staff.id),
+        () => staffService.sendLoginInvite(staff.id, {
+          manualOnly: true,
+          replace: staff.loginStatus === 'Active',
+        }),
         { phone: staff.phone, staffName: staff.name, workshopName: user?.company?.name },
       );
       setInviteNotice('Setup message copied. Paste it into the staff WhatsApp chat and manually press Send.');
@@ -462,6 +483,41 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
     } catch (requestError) {
       setInviteError(requestError?.message || 'Unable to change login access.');
     }
+  };
+
+  const openPaymentSettings = () => {
+    if (!canEditPaymentSettings || !staff?.id) return;
+    setPaymentSettingsError('');
+    setPaymentSettingsOpen(true);
+  };
+
+  const openWageRateSettings = async () => {
+    if (!canEditWageRate || paymentSettingsBusy || !staff?.id) return;
+    setPaymentSettingsBusy(true);
+    setPaymentSettingsError('');
+    try {
+      const account = await dailyWageService.account(staff.id);
+      setPaymentStructure({
+        employee: { id: staff.id, name: staff.name },
+        staffId: staff.id,
+        staffName: staff.name,
+        dailyRate: account?.currentRate ?? account?.dailyRate ?? '',
+      });
+      setPaymentSettingsOpen(false);
+      setWageRateOpen(true);
+    } catch (cause) {
+      setPaymentSettingsError(cause?.message || 'Unable to load daily wage rate.');
+    } finally {
+      setPaymentSettingsBusy(false);
+    }
+  };
+
+  const openCashBankPayment = (method) => {
+    if (!canRecordWagePayment || !staff?.id) return;
+    setPaymentSettingsOpen(false);
+    navigate(`/staff/${staff.id}/wages`, {
+      state: { openPayment: true, paymentMethod: method },
+    });
   };
 
   const handleEdit = async (payload) => {
@@ -503,16 +559,14 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
           <button type="button" aria-label="Dismiss WhatsApp invitation notice" onClick={() => setInviteNotice('')}>Dismiss</button>
         </div>
       )}
-
-      <div className="staff-profile-topbar">
-        <button type="button" onClick={goBack} aria-label="Back to staff">
-          <ArrowLeft size={15} />
-        </button>
-        <div>
-          <h2>Staff Profile</h2>
-          
+      {paymentSettingsError && (
+        <div className="staff-directory-message is-error" role="alert">
+          <span>{paymentSettingsError}</span>
+          <button type="button" onClick={() => setPaymentSettingsError('')}>Dismiss</button>
         </div>
-      </div>
+      )}
+
+
 
       <section className="staff-profile-hero staff360-hero">
         <div className="staff360-person">
@@ -533,37 +587,55 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
           </div>
         </div>
 
-        {(canEdit || canManagePayroll) && (
+        {(canEdit || canEditPaymentSettings) && (
           <div className="staff360-hero-actions">
-            {canManagePayroll && (
-              <button type="button" className="staff360-secondary-button" onClick={() => navigate(`/staff/${staff.id}/wages`)}>
-                <WalletCards size={14}/>
-                Daily Wage Account
+            {canEditPaymentSettings && (
+              <button type="button" className="staff360-secondary-button staff360-payment-settings"
+                onClick={openPaymentSettings} disabled={paymentSettingsBusy}
+                aria-label={`Payment Settings for ${staff.name}`}>
+                <Settings2 size={15} aria-hidden="true" />
+                {paymentSettingsBusy ? 'Loading…' : 'Payment Settings'}
               </button>
             )}
-            {canManageLogin && (
+            {canEdit && (
+              <button type="button" className="staff360-secondary-button" onClick={() => setEditOpen(true)}>
+                <Pencil size={14}/> Edit Profile
+              </button>
+            )}
+            {isOwnProfile && (
+              <button type="button" className="staff360-secondary-button"
+                onClick={() => navigate('/account/security')}>
+                <Settings2 size={14} aria-hidden="true" /> Account Security
+              </button>
+            )}
+            {canResetStaffPassword && (
               <>
-                <button type="button" className="staff360-secondary-button" onClick={() => setEditOpen(true)}>
-                  <Pencil size={14}/>
-                  Edit Profile
-                </button>
                 <button type="button" onClick={handleSendInvite}
-                  disabled={inviteBusy || staff.loginStatus === 'Disabled' || !staff.whatsappConsent}
+                  disabled={inviteBusy || staff.loginStatus === 'Disabled'}
                   title={staff.loginStatus === 'Disabled'
-                    ? 'Enable staff login first' : !staff.whatsappConsent ? 'Record WhatsApp consent first' : undefined}
-                  className="staff360-secondary-button">
-                  <Send size={14}/>
-                  {staff.loginStatus === 'Active' ? 'Reset via WhatsApp' : 'Resend via WhatsApp'}
+                    ? 'Enable staff login first' : !staff.whatsappConsent ? 'Record WhatsApp consent in Edit Profile before sending' : undefined}
+                  className="staff360-secondary-button staff360-manual-reset"
+                  aria-label={staff.loginStatus === 'Active'
+                    ? 'Send password reset link manually via WhatsApp'
+                    : 'Send password setup link manually via WhatsApp'}>
+                  <Send size={14} aria-hidden="true"/>
+                  {inviteBusy ? 'Preparing link…' : staff.loginStatus === 'Active'
+                    ? 'Send Reset Link via WhatsApp' : 'Resend via WhatsApp'}
                 </button>
-                <button type="button" className="staff360-secondary-button"
-                  disabled={inviteBusy || staff.loginStatus === 'Disabled' || !staff.whatsappConsent}
-                  onClick={handleCopyInvite}>
-                  <Copy size={14}/> Copy Setup Message
-                </button>
-                <button type="button" onClick={handleToggleAccount} className="staff360-secondary-button">
-                  {staff.loginStatus === 'Disabled' ? <Unlock size={14}/> : <Lock size={14}/>}
-                  {staff.loginStatus === 'Disabled' ? 'Enable Login' : 'Disable Login'}
-                </button>
+                <details className="staff360-more-actions">
+                  <summary>More</summary>
+                  <div>
+                    <button type="button" className="staff360-secondary-button"
+                      disabled={inviteBusy || staff.loginStatus === 'Disabled' || !staff.whatsappConsent}
+                      onClick={handleCopyInvite}>
+                      <Copy size={14}/> Copy Password Link Message
+                    </button>
+                    <button type="button" onClick={handleToggleAccount} className="staff360-secondary-button">
+                      {staff.loginStatus === 'Disabled' ? <Unlock size={14}/> : <Lock size={14}/>}
+                      {staff.loginStatus === 'Disabled' ? 'Enable login' : 'Disable login'}
+                    </button>
+                  </div>
+                </details>
               </>
             )}
           </div>
@@ -591,15 +663,9 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
           <div className="staff360-overview">
             <div className="staff360-overview-commandbar">
               <div>
-                <strong>Profile Overview</strong>
-                <span>Use Edit Profile to change role, team, shift, skills or employment details.</span>
+                <strong>Employee details</strong>
               </div>
-              {canEdit && (
-                <button type="button" onClick={() => setEditOpen(true)}>
-                  <Pencil size={13}/>
-                  Edit / Change
-                </button>
-              )}
+
             </div>
 
             <div className="staff360-section">
@@ -624,31 +690,18 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
               </div>
             </div>
 
-            <div className="staff360-section">
-              <div className="staff360-section__title"><Wrench size={15}/> Skills & Specialization</div>
+            {Boolean(staff.skills?.length) && <div className="staff360-section">
+              <div className="staff360-section__title"><Wrench size={15}/> Skills</div>
               <div className="staff-chip-row">
                 {staff.skills?.length
                   ? staff.skills.map((skill, index) => {
                       const label = displayText(skill, 'Skill');
                       return <span key={String(skill?.id || skill?.name || label || index)}>{label}</span>;
                     })
-                  : <span className="is-muted">No skills assigned</span>}
+                  : null}
               </div>
-            </div>
+            </div>}
 
-            <div className="staff360-quick-grid">
-              {[
-                ['Attendance', 'Attendance', CalendarDays],
-                ['Assigned Work', 'Assigned Work', BriefcaseBusiness],
-                ['Payroll', 'Payroll', WalletCards],
-                ['Documents', 'Documents', FileText],
-              ].map(([label, tab, Icon]) => (
-                <button type="button" key={label} onClick={() => setActiveTab(tab)}>
-                  <Icon size={14}/>
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
           </div>
         )}
 
@@ -790,8 +843,7 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
                 <div>
                   <WalletCards size={17}/>
                   <div>
-                    <strong>Daily Wage Account</strong>
-                    <span>Approved attendance, extra earnings, running balance and payment history.</span>
+                    <strong>Salary &amp; payments</strong>
                   </div>
                 </div>
                 <button type="button" onClick={() => navigate(`/staff/${staff.id}/wages`)}>
@@ -879,6 +931,46 @@ export const StaffProfile = ({ staffId: staffIdProp, onBack }) => {
           </div>
         )}
       </section>
+
+      {canEditPaymentSettings && (
+        <ResponsiveModalSheet isOpen={paymentSettingsOpen}
+          onClose={() => setPaymentSettingsOpen(false)}
+          title={`Payment Settings · ${staff.name}`} maxWidth="540px">
+          <div className="staff-payment-settings-menu">
+            {paymentSettingsError && <p className="staff-directory-message is-error" role="alert">{paymentSettingsError}</p>}
+            {canEditWageRate && (
+              <button type="button" onClick={openWageRateSettings} disabled={paymentSettingsBusy}>
+                <Settings2 size={17} aria-hidden="true" />
+                <span><strong>Daily Wage Rate</strong><small>Set the rate and effective date</small></span>
+              </button>
+            )}
+            {canRecordWagePayment && (
+              <>
+                <p>Pay an outstanding wage using an existing funded account. Each confirmed payment updates the wage and financial ledgers once.</p>
+                <div className="staff-payment-settings-ways">
+                  <button type="button" onClick={() => openCashBankPayment('Cash')}>
+                    <WalletCards size={17} aria-hidden="true" /> Cash Payment
+                  </button>
+                  <button type="button" onClick={() => openCashBankPayment('Bank Transfer')}>
+                    <WalletCards size={17} aria-hidden="true" /> Bank Payment
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </ResponsiveModalSheet>
+      )}
+      {canEditWageRate && (
+        <EmployeePayConfigurationSheet
+          isOpen={wageRateOpen}
+          onClose={() => setWageRateOpen(false)}
+          structure={paymentStructure}
+          onSaved={() => {
+            setWageRateOpen(false);
+            showToast('Daily wage rate updated.');
+          }}
+        />
+      )}
 
       {canEdit && (
         <>

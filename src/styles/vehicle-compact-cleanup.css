@@ -58,7 +58,7 @@
   line-height:1.2;
 }
 .cg-vehicles.vehicle-dashboard .vehicle-dashboard-stat-top span {
-  font-size:13px!important;
+  font-size:16px!important;
   line-height:1.35;
   font-weight:600;
 }
@@ -280,7 +280,7 @@
   overflow-wrap:anywhere;
 }
 .cg-vehicles.vehicle-profile-page .vehicle-profile-kpis span {
-  font-size:13px!important;
+  font-size:16px!important;
   line-height:1.35;
 }
 .cg-vehicles.vehicle-profile-page .vehicle-profile-tabs {
@@ -323,7 +323,7 @@
 }
 .cg-vehicles.vehicle-profile-page .vehicle-info-card span {font-size:12px!important}
 .cg-vehicles.vehicle-profile-page .vehicle-info-card strong {
-  font-size:14px!important;
+  font-size:16px!important;
   line-height:1.4;
   overflow-wrap:anywhere;
 }

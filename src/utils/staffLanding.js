@@ -3,7 +3,7 @@ import { getPermissionForPath, hasPermission } from './permissions.js';
 
 /** Only send a signed-in staff member to an actual permitted workshop page. */
 export const getStaffLandingPath = (user, requestedPath = '') => {
-  if (user?.isCompanyOwner === true) return '/account';
+  if (user?.isCompanyOwner === true) return user?.onboardingRequired ? '/onboarding' : '/account';
   const requested = typeof requestedPath === 'string' ? requestedPath.trim() : '';
   const safePath = requested.startsWith('/') && !requested.startsWith('//')
     && !requested.includes('\\') ? requested : '';

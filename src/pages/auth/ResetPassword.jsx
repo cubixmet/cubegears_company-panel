@@ -104,7 +104,7 @@ export const ResetPassword = () => {
           <div className="login-brand-row">
             <div className="login-brand-mark">CG</div>
             <div>
-              <div className="login-brand-name">CubixGear</div>
+              <div className="login-brand-name">cubixgear</div>
               <div className="login-brand-subtitle">Password Recovery</div>
             </div>
           </div>

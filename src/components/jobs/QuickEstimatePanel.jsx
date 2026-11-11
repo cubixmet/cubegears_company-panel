@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, ChevronDown, ClipboardList, Download, Package, Pencil, Plus, ReceiptText, Trash2, Wrench, SkipForward } from 'lucide-react';
 import { jobService } from '../../services/job.service';
+import { WhatsAppManualShareButton } from '../common/WhatsAppManualShareButton';
 import { serviceService } from '../../services/service.service';
 import { stockCatalogService } from '../../services/stockCatalog.service';
 import { EstimateCatalogPicker } from './EstimateCatalogPicker';
@@ -11,6 +12,7 @@ import { latestApprovedEstimate } from '../../utils/approvedEstimatePdf';
 import { INDIA_STATES, calculateEstimateIndiaGst } from '../../utils/indiaGst';
 import { estimateGstOptions, ESTIMATE_ZERO_TAX_TREATMENTS } from './estimateGstRates';
 import { ResponsiveModalSheet } from '../common/ResponsiveModalSheet';
+import { customerEstimateDeclines } from './customerEstimateDeclines';
 import { invoiceTaxMode, invoiceChoiceFromTotalRate } from '../../utils/invoiceTaxUi';
 
 const emptyLine = (type = 'Labour') => ({
@@ -54,11 +56,19 @@ const inspectSuggestions = (findings) => findings.flatMap((item) => {
 });
 
 export function QuickEstimatePanel({
-  job, estimates = [], findings = [], canEdit, onSaved, onApprove, onSkip,
-  onReject, onEditInspection, onGoToWork, onDownloadApproved
+  job, estimates = [], findings = [], canEdit, canReopen = false, wasSkipped = false, onReopen, onSaved, onApprove, onSkip,
+  onReject, onShare, onEditInspection, onGoToWork, onDownloadApproved
 }) {
   const latest = estimates.at(-1) || null;
   const approvedEstimate = latestApprovedEstimate(estimates);
+  // Backend JobActivity receipts survive later quote revisions, unlike the
+  // latest-only workflow_progress pointer.
+  const declineByEstimate = useMemo(
+    () => customerEstimateDeclines(job?.activities),
+    [job?.activities]
+  );
+  const latestDecline = latest?.id
+    ? declineByEstimate.get(String(latest.id)) : null;
   const [lines, setLines] = useState([]);
   const [discount, setDiscount] = useState('0');
   const registered = Boolean(job?.gstInfo?.registered);
@@ -82,7 +92,12 @@ export function QuickEstimatePanel({
   const [skipDetails, setSkipDetails] = useState('');
   const [skipError, setSkipError] = useState('');
   const [skipBusy, setSkipBusy] = useState(false);
+  const [reopenBusy, setReopenBusy] = useState(false);
   const formRef = useRef(null);
+  // Preserve the same operation token across retries. Different quote
+  // contents get a new token, preventing accidental duplicate versions.
+  const pendingSaveRef = useRef(null);
+  const savedEstimateRef = useRef(null);
   const revisedAt = job?.inspection?.revisedAt;
   const stale = !!(latest?.created_at && revisedAt &&
     new Date(latest.created_at).getTime() < new Date(revisedAt).getTime());
@@ -194,52 +209,123 @@ export function QuickEstimatePanel({
     setChanged(true);
     setFeedback('');
   };
-  const approve = async () => {
-    if (!canEdit || busy) return;
-    if (validation) {
-      setShowValidation(true);
-      setFeedback('');
-      requestAnimationFrame(() => {
-        const field = formRef.current?.querySelector('[aria-invalid="true"]');
-        field?.focus();
-        field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
-      return;
+  const validateBeforeDecision = () => {
+    if (!validation) return true;
+    setShowValidation(true);
+    setFeedback('');
+    requestAnimationFrame(() => {
+      const field = formRef.current?.querySelector('[aria-invalid="true"]');
+      field?.focus();
+      field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return false;
+  };
+
+  const saveDraftForDecision = async () => {
+    if (!latest || changed || stale || ['Rejected', 'Customer Rejected'].includes(latest.status)) {
+      // A declined estimate needs a NEW operation identity even if the
+      // customer requests the same amount again; never replay a rejected ID.
+      if (latest && ['Rejected', 'Customer Rejected'].includes(latest.status)) {
+        pendingSaveRef.current = null;
+        savedEstimateRef.current = null;
+      }
+      const preparedLines = lines.map(line => legalizeLineGst(line, taxMode));
+      if (registered && preparedLines.some(line => !String(line.taxRate ?? '').trim())) {
+        setShowValidation(true);
+        throw new Error('Choose an applicable GST rate for each item before proceeding.');
+      }
+      const draftId = latest?.status === 'Draft' && !stale
+        ? latest.id : (!latest && !stale ? savedEstimateRef.current?.id || null : null);
+      const payload = {
+        lines: preparedLines.map(({ description, type, quantity, unitPrice, catalogId, taxRate, taxChoice, taxTreatment, taxTreatmentConfirmed, hsnSac }) => ({
+          description: description.trim(), type, quantity, unitPrice,
+          taxRate: taxRate || '0', taxChoice: taxChoice || '', hsnSac: hsnSac || '',
+          ...(taxChoice === 'none' ? { taxTreatment, taxTreatmentConfirmed } : {}),
+          ...(catalogId ? { catalogId } : {}),
+        })),
+        taxPercent: '0', discount,
+        gst: { mode: registered ? 'gst' : 'non_gst', placeOfSupply },
+      };
+      const fingerprint = JSON.stringify(payload);
+      if (!pendingSaveRef.current || pendingSaveRef.current.fingerprint !== fingerprint) {
+        pendingSaveRef.current = { id: crypto.randomUUID(), fingerprint };
+      }
+      payload.requestId = pendingSaveRef.current.id;
+      const saved = await jobService.saveQuickJobEstimate(job.id, payload, draftId);
+      savedEstimateRef.current = { id: saved.id, version: saved.version };
+      setChanged(false);
+      setShowValidation(false);
+      try {
+        await onSaved?.();
+      } catch {
+        setFeedback('Estimate saved. Refresh the Job Card to see the latest quote.');
+      }
     }
+    const target = savedEstimateRef.current || latest;
+    if (!target?.id) throw new Error('Save a valid estimate before proceeding.');
+    return target;
+  };
+
+  const approve = async () => {
+    if (!canEdit || busy || latest?.status === 'Awaiting Customer') return;
+    if (!validateBeforeDecision()) return;
     setBusy(true);
     setFeedback('');
     try {
-      // One primary action: save a fresh estimate when necessary, then
-      // request the existing server-side customer approval/workflow transition.
-      if (!latest || changed || stale || latest.status === 'Rejected') {
-        const preparedLines = lines.map(line => legalizeLineGst(line, taxMode));
-        if (registered && preparedLines.some(line => !String(line.taxRate ?? '').trim())) {
-          setShowValidation(true);
-          setFeedback('Choose an applicable GST rate for each item before approval.');
-          return;
-        }
-        const draftId = latest?.status === 'Draft' && !stale ? latest.id : null;
-        await jobService.saveQuickJobEstimate(job.id, {
-          lines: preparedLines.map(({ description, type, quantity, unitPrice, catalogId, taxRate, taxChoice, taxTreatment, taxTreatmentConfirmed, hsnSac }) => ({
-            description: description.trim(), type, quantity, unitPrice,
-            taxRate: taxRate || '0', taxChoice: taxChoice || '', hsnSac: hsnSac || '',
-            ...(taxChoice === 'none' ? { taxTreatment, taxTreatmentConfirmed } : {}),
-            ...(catalogId ? { catalogId } : {}),
-          })),
-          taxPercent: '0', discount,
-          gst: { mode: registered ? 'gst' : 'non_gst', placeOfSupply },
-        }, draftId);
-        await onSaved?.();
-        setChanged(false);
-        setShowValidation(false);
-      }
-      await onApprove?.();
+      const target = await saveDraftForDecision();
+      await onApprove?.(target.id, target.version);
     } catch (err) {
-      setFeedback(err?.message || 'Unable to save and approve estimate.');
+      setFeedback(err?.message || 'Estimate could not be finalized.');
     } finally {
       setBusy(false);
     }
   };
+
+  const shareForReview = async () => {
+    if (!canEdit || busy || !onShare) return;
+    if (!validateBeforeDecision()) return;
+    setBusy(true);
+    setFeedback('');
+    try {
+      const target = await saveDraftForDecision();
+      await onShare(target.id, 'share');
+      setFeedback('Estimate shared to the customer portal. Await their response.');
+    } catch (err) {
+      setFeedback(err?.message || 'Could not share the estimate with the customer.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const withdrawReview = async () => {
+    if (!canEdit || busy || latest?.status !== 'Awaiting Customer' || !onShare) return;
+    setBusy(true);
+    setFeedback('');
+    try {
+      await onShare(latest.id, 'withdraw');
+      savedEstimateRef.current = null;
+      setFeedback('Estimate withdrawn from customer review. You may edit and re-share it.');
+    } catch (err) {
+      setFeedback(err?.message || 'Could not withdraw the estimate.');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const reopenSkippedEstimate = async () => {
+    if (!canReopen || reopenBusy || busy || !onReopen) return;
+    setReopenBusy(true);
+    setFeedback('');
+    try {
+      await onReopen();
+    } catch (error) {
+      const data = error?.response?.data;
+      setFeedback(data?.estimate || data?.detail || error?.message ||
+        'Unable to reopen the estimate after work has started.');
+    } finally {
+      setReopenBusy(false);
+    }
+  };
+
   const confirmSkip = async (event) => {
     event.preventDefault();
     if (!canEdit || busy || skipBusy || !onSkip) return;
@@ -457,11 +543,43 @@ export function QuickEstimatePanel({
           <span className="job-quick-eyebrow">Job Card / Estimate</span>
           <h2><ReceiptText size={19} aria-hidden="true"/> Quick Estimate</h2>
           <p>Add work or spare parts, review the total and ask for customer approval.</p>
+          {wasSkipped && (
+            <p role="status">Estimate was skipped. {canReopen
+              ? 'Choose Edit Skipped Estimate to reopen it before starting Work.'
+              : 'Later work or billing prevents reopening this skipped stage.'}</p>
+          )}
+          {latest?.status === 'Awaiting Customer' &&
+            <p role="status">Shared with customer. The amount is locked until they respond or you withdraw it.</p>}
+          {latest?.status === 'Customer Approved' &&
+            <p role="status">Customer accepted Estimate V{latest.version} in the secure portal. Confirm to advance the Job Card.</p>}
+          {latest?.status === 'Customer Rejected' &&
+            <p role="status">Customer declined this quote. Save and share a revised estimate before continuing.</p>}
         </div>
-        <button type="button" className="job-quick-outline" onClick={onEditInspection} disabled={!canEdit}>
-          <Pencil size={15} aria-hidden="true"/> Edit Inspection
-        </button>
+        <div className="job-quick-header-actions">
+          {wasSkipped && (
+            <button type="button" className="job-quick-outline job-quick-reopen"
+              disabled={!canReopen || busy || reopenBusy}
+              onClick={reopenSkippedEstimate}>
+              <Pencil size={15} aria-hidden="true" />
+              {reopenBusy ? 'Reopening…' : 'Edit Skipped Estimate'}
+            </button>
+          )}
+          <button type="button" className="job-quick-outline" onClick={onEditInspection} disabled={!canEdit}>
+            <Pencil size={15} aria-hidden="true"/> Edit Inspection
+          </button>
+        </div>
       </header>
+
+      {latest?.status === 'Customer Rejected' && latestDecline && (
+        <section className="job-estimate-customer-feedback" aria-label="Customer revision request">
+          <h3>Customer requested an estimate revision</h3>
+          <p><strong>Reason:</strong> {latestDecline.reasonLabel}</p>
+          {latestDecline.note && <p className="job-estimate-customer-message">{latestDecline.note}</p>}
+          <small>Estimate V{latestDecline.version || latest.version} ·
+            Decision receipt: {latestDecline.receiptId}</small>
+          <p>Update the work/parts above, save a new version, then share it to the customer portal.</p>
+        </section>
+      )}
 
       {stale && <p className="job-quick-warning" role="status">
         Inspection has changed. Approve & Continue will save the revised estimate before approval.
@@ -565,11 +683,38 @@ export function QuickEstimatePanel({
                   disabled={busy || skipBusy} onClick={() => { setSkipError(''); setShowSkipModal(true); }}>
                   <SkipForward size={16} aria-hidden="true"/> Skip Estimate
                 </button>
-              <button type="button" className="job-quick-approve"
-                disabled={busy || skipBusy} onClick={approve}>
-                <CheckCircle2 size={16} aria-hidden="true"/>
-                {busy ? 'Please wait…' : 'Approve & Continue'}
-              </button>
+              {latest?.status === 'Awaiting Customer' ? (
+                <>
+                  <div className="job-quote-whatsapp">
+                    <WhatsAppManualShareButton
+                      targetType="estimate" targetId={latest.id}
+                      label="Send Estimate via WhatsApp"
+                    />
+                    <small>Manual option: review the prepared message and press Send in WhatsApp. Automatic alerts require customer consent and an approved template.</small>
+                  </div>
+                  <button type="button" className="job-quick-outline"
+                    disabled={busy || skipBusy} onClick={withdrawReview}>
+                    {busy ? 'Please wait…' : 'Withdraw from customer review'}
+                  </button>
+                </>
+              ) : (
+                <>
+                  {latest?.status !== 'Customer Approved' && onShare && (
+                    <button type="button" className="job-quick-outline"
+                      disabled={busy || skipBusy} onClick={shareForReview}>
+                      {busy ? 'Please wait…' : 'Save & Share with Customer'}
+                    </button>
+                  )}
+                  {latest?.status !== 'Customer Rejected' && (
+                    <button type="button" className="job-quick-approve"
+                      disabled={busy || skipBusy} onClick={approve}>
+                      <CheckCircle2 size={16} aria-hidden="true"/>
+                      {busy ? 'Please wait…' : latest?.status === 'Customer Approved'
+                        ? 'Confirm Customer Acceptance & Continue' : 'Approve & Continue'}
+                    </button>
+                  )}
+                </>
+              )}
               </div>
             </div>
           ) : (
@@ -633,6 +778,14 @@ export function QuickEstimatePanel({
               <span>{'Estimate V' + (typeof item.version === 'number' ? item.version : String(item.version || ''))}</span>
               <strong>{money(item.total ?? item.grandTotal)}</strong>
               <span>{item.approvalStatus || item.status || 'Draft'}</span>
+              {item.status === 'Customer Rejected' && declineByEstimate.has(String(item.id)) && (
+                <div className="job-estimate-history-feedback">
+                  <strong>Customer feedback: {declineByEstimate.get(String(item.id)).reasonLabel}</strong>
+                  {declineByEstimate.get(String(item.id)).note &&
+                    <p>{declineByEstimate.get(String(item.id)).note}</p>}
+                  <small>Receipt: {declineByEstimate.get(String(item.id)).receiptId}</small>
+                </div>
+              )}
               {canEdit && item.id === latest?.id && item.status === 'Draft' &&
                 <button type="button" disabled={busy} onClick={() => onReject?.(item.id)}>Reject</button>}
             </div>

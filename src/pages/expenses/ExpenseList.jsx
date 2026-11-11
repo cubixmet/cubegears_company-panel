@@ -1,10 +1,15 @@
-import { appConfirm } from '../../components/common/appDialogs';
+import { appConfirm, appPrompt } from '../../components/common/appDialogs';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { BarChart3, Calendar, CheckCircle2, CircleDollarSign, Edit3, FileText, IndianRupee, Layers3, Receipt, Trash2, Link2, WalletCards } from "lucide-react";
 import { expenseService } from '../../services/expense.service';
+import { ExpenseBudgetPanel } from '../../components/expenses/ExpenseBudgetPanel';
+import { financeService } from '../../services/finance.service';
+import { FINANCE_CHANNELS, financeAccountsForChannel, assertFinanceAccount } from '../../utils/financeCashBank';
+import GstRateDropdown from '../../components/common/GstRateDropdown';
+import { expenseIncludedGst } from '../../utils/expenseGst';
 import { localDate } from '../../services/expense.mapper';
 import {
   ExpenseListView,
@@ -24,7 +29,11 @@ const money = new Intl.NumberFormat('en-IN', {
 });
 
 const expenseCategories = [
-  'Stock Purchase',
+  'Workshop Rent',
+  'Electricity',
+  'Water',
+  'Internet',
+  'Fuel',
   'Utilities',
   'Equipment Maintenance',
   'Consumables & Tools',
@@ -38,7 +47,7 @@ const expenseCategories = [
   'Miscellaneous'
 ];
 
-const paymentMethods = ['Cash', 'UPI', 'Bank Transfer', 'Company Card', 'Cheque'];
+const paymentMethods = FINANCE_CHANNELS;
 
 const today = () => localDate();
 
@@ -48,13 +57,23 @@ const emptyForm = {
   amount: '',
   expenseDate: today(),
   vendor: '',
-  paymentMethod: 'UPI',
+  paymentMethod: 'Cash',
   referenceNo: '',
   taxAmount: '',
+  gstRate: '',
   status: 'approved',
   notes: '',
-  receiptUrl: ''
+  receiptUrl: '',
+  accountId: '',
+  budgetItemId: '',
+  requestKey: ''
 };
+
+const freshExpenseForm = () => ({
+  ...emptyForm,
+  expenseDate: today(),
+  requestKey: globalThis.crypto?.randomUUID?.() || `expense-${Date.now()}-${Math.random()}`,
+});
 
 const Metric = ({ label, value, icon: Icon, tone = 'primary', note }) => (
   <article className="expense-metric-card">
@@ -81,18 +100,25 @@ const ExpenseForm = ({
   onSubmit,
   onCancel,
   submitting,
-  error
+  error,
+  accounts = [],
+  budgetItems = [],
+  budgetError = ''
 }) => (
   <div className="expense-form-page cg-expenses">
     <header className="expense-form-header">
       <div>
         <h1>{title}</h1>
-        <p>Record workshop operational costs, vendor bills, payment method, reference and receipt link.</p>
+        <p>Enter workshop running costs such as utilities, rent or maintenance. Record parts purchased from suppliers in the Supplier Purchase workflow instead.</p>
       </div>
     </header>
 
     <form className="expense-form" onSubmit={onSubmit}>
       {error ? <div className="expense-alert" role="alert">{error}</div> : null}
+      <div className="expense-alert" role="note">
+        Spare parts purchases and supplier payments belong on each Supplier Details page, not as duplicate expenses.
+        A supplier bill must never be recorded again as an operational expense.
+      </div>
       <section className="expense-form-section">
         <div className="expense-section-header">
           <div>
@@ -103,13 +129,28 @@ const ExpenseForm = ({
 
         <div className="expense-form-grid">
           <Field label="Expense Date">
-            <input type="date" required value={values.expenseDate} onChange={(e)=>setValues({...values,expenseDate:e.target.value})}/>
+            <input type="date" required value={values.expenseDate} onChange={(e)=>setValues({...values,expenseDate:e.target.value,budgetItemId:''})}/>
           </Field>
 
           <Field label="Category">
-            <select value={values.category} onChange={(e)=>setValues({...values,category:e.target.value})}>
+            <select value={values.category} onChange={(e)=>setValues({...values,category:e.target.value,budgetItemId:''})}>
               {expenseCategories.map((category)=><option key={category}>{category}</option>)}
             </select>
+          </Field>
+
+          <Field label="Monthly Budget Item (optional)">
+            <select value={values.budgetItemId || ''}
+              onChange={e => setValues({ ...values, budgetItemId: e.target.value })}>
+              <option value="">Unbudgeted expense</option>
+              {budgetItems.filter(item => item.isActive && item.category === values.category &&
+                item.month === values.expenseDate.slice(0, 7)).map(item => (
+                <option value={item.id} key={item.id}>
+                  {item.name} (₹{Number(item.remainingAmount).toLocaleString('en-IN')} remaining)
+                </option>
+              ))}
+            </select>
+            <small>Budget use increases when the expense is approved. Paying it later only reduces the chosen Cash/Bank balance.</small>
+            {budgetError && <small role="alert">{budgetError}</small>}
           </Field>
 
           <Field label="Expense Title" wide>
@@ -135,24 +176,50 @@ const ExpenseForm = ({
       <section className="expense-form-section">
         <div className="expense-section-header">
           <div>
-            <h2>Payment & Amount</h2>
+            <h2>Amount &amp; Payment</h2>
             <p>Expense value, tax, payment method and bill reference.</p>
           </div>
         </div>
 
         <div className="expense-form-grid">
           <Field label="Expense Amount">
-            <input type="number" min="0.01" step="0.01" required value={values.amount} onChange={(e)=>setValues({...values,amount:e.target.value})}/>
+            <input type="number" min="0.01" step="0.01" required value={values.amount}
+              onChange={(e)=>setValues({...values,amount:e.target.value,
+                taxAmount: values.gstRate !== '' ? expenseIncludedGst(e.target.value, values.gstRate) : values.taxAmount})}/>
           </Field>
 
-          <Field label="Tax / GST Amount">
-            <input type="number" min="0" step="0.01" value={values.taxAmount} onChange={(e)=>setValues({...values,taxAmount:e.target.value})}/>
+          <Field label="GST Rate (included in amount)">
+            <GstRateDropdown selectLabel="Expense GST percentage" value={values.gstRate ?? ''}
+              blankLabel="Previously saved / enter GST amount"
+              onChange={rate => setValues({ ...values, gstRate: rate,
+                taxAmount: rate === '' ? values.taxAmount :
+                  expenseIncludedGst(values.amount, rate) })}/>
+          </Field>
+          <Field label="Tax / GST Amount (included)">
+            <input type="number" min="0" step="0.01" value={values.taxAmount}
+              readOnly={values.gstRate !== ''}
+              onChange={(e)=>setValues({...values,taxAmount:e.target.value})}/>
+            <small>The GST component is included, not charged twice. Input tax credit must follow the supplier tax invoice.</small>
           </Field>
 
           <Field label="Payment Method">
-            <select value={values.paymentMethod} onChange={(e)=>setValues({...values,paymentMethod:e.target.value})}>
+            <select value={values.paymentMethod} onChange={(e)=>setValues({...values,paymentMethod:e.target.value,accountId:''})}>
               {paymentMethods.map((method)=><option key={method}>{method}</option>)}
             </select>
+          </Field>
+
+          <Field label="Pay from Bank / Cash Account">
+            <select value={values.accountId || ''} required={values.status === 'paid'}
+              onChange={(e) => setValues({ ...values, accountId: e.target.value })}
+              disabled={submitting}>
+              <option value="">Select account {values.status === 'paid' ? '*' : '(optional until paid)'}</option>
+              {financeAccountsForChannel(accounts, values.paymentMethod).map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name} ({account.kind}) — {money.format(Number(account.currentBalance || 0))}
+                </option>
+              ))}
+            </select>
+            <small>Unpaid or approved expenses will not debit this account.</small>
           </Field>
 
           <Field label="Reference / Bill Number">
@@ -164,7 +231,7 @@ const ExpenseForm = ({
       <section className="expense-form-section">
         <div className="expense-section-header">
           <div>
-            <h2>Receipt & Notes</h2>
+            <h2>Bill / Receipt &amp; Notes</h2>
             <p>Attach bill metadata and store additional accounting notes.</p>
           </div>
         </div>
@@ -208,11 +275,35 @@ export const ExpenseList = () => {
   const canEdit = hasPermission(user, 'expenses.edit');
   const canDelete = hasPermission(user, 'expenses.delete');
 
-  const isNew = location.pathname === '/expenses/new';
+  const isNew = location.pathname.endsWith('/new');
   const isEdit = Boolean(id && location.pathname.endsWith('/edit'));
-  const isDetail = Boolean(id && !isEdit && location.pathname !== '/expenses');
+  const isDetail = Boolean(id && !isEdit);
 
   const [expenses, setExpenses] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [budgetItems, setBudgetItems] = useState([]);
+  const [budgetError, setBudgetError] = useState('');
+  const [linkedSupplierTotals, setLinkedSupplierTotals] = useState(null);
+  const [linkedSupplierError, setLinkedSupplierError] = useState('');
+  const canViewSupplierAccounting = hasPermission(user, 'payments.view') && hasPermission(user, 'stock.view');
+
+  useEffect(() => {
+    if (!canViewSupplierAccounting || isNew || isEdit || isDetail) return undefined;
+    let alive = true;
+    financeService.getPaymentActivity({ page_size: 1 }).then(result => {
+      if (alive) {
+        setLinkedSupplierTotals(result);
+        setLinkedSupplierError('');
+      }
+    }).catch(error => {
+      if (alive) setLinkedSupplierError(error?.message || 'Linked supplier finance unavailable.');
+    });
+    return () => { alive = false; };
+  }, [canViewSupplierAccounting, isNew, isEdit, isDetail]);
+  const [settlement, setSettlement] = useState({
+    amount: '', account: '', method: 'Cash', reference: '',
+    idempotencyKey: globalThis.crypto?.randomUUID?.() || `settlement-${Date.now()}-${Math.random()}`,
+  });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
@@ -221,7 +312,7 @@ export const ExpenseList = () => {
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
-  const [form, setForm] = useState(() => ({ ...emptyForm, expenseDate: today() }));
+  const [form, setForm] = useState(freshExpenseForm);
 
   const load = async () => {
     setLoading(true);
@@ -242,6 +333,28 @@ export const ExpenseList = () => {
   }, []);
 
   useEffect(() => {
+    if (!canEdit) return;
+    financeService.listAccounts()
+      .then((list) => setAccounts(Array.isArray(list) ? list : []))
+      .catch(() => setAccounts([]));
+  }, [canEdit]);
+
+  useEffect(() => {
+    if (!isNew && !isEdit) return undefined;
+    let alive = true;
+    const month = String(form.expenseDate || today()).slice(0, 7);
+    expenseService.getExpenseBudgets(month).then(rows => {
+      if (alive) { setBudgetItems(rows); setBudgetError(''); }
+    }).catch(err => {
+      if (alive) {
+        setBudgetItems([]);
+        setBudgetError(err?.message || 'Unable to load monthly budget items.');
+      }
+    });
+    return () => { alive = false; };
+  }, [isNew, isEdit, form.expenseDate]);
+
+  useEffect(() => {
     if (!isEdit || !id || !expenses.length) return;
     const expense = expenses.find((item)=>String(item.id)===String(id));
     if (!expense) return;
@@ -251,12 +364,16 @@ export const ExpenseList = () => {
       amount: expense.amount || '',
       expenseDate: expense.expenseDate || today(),
       vendor: expense.vendor || '',
-      paymentMethod: expense.paymentMethod || 'Cash',
+      paymentMethod: expense.paymentMethod === 'Cash' ? 'Cash' : 'Bank',
       referenceNo: expense.referenceNo || '',
       taxAmount: expense.taxAmount || '',
+      gstRate: '',
       status: expense.status || 'approved',
       notes: expense.notes || '',
-      receiptUrl: expense.receiptUrl || ''
+      receiptUrl: expense.receiptUrl || '',
+      accountId: expense.accountId || '',
+      budgetItemId: expense.budgetItemId || '',
+      requestKey: ''
     });
   }, [isEdit, id, expenses]);
 
@@ -313,6 +430,9 @@ export const ExpenseList = () => {
     setSubmitting(true);
     setActionError('');
     try {
+      if (form.status === 'paid') {
+        assertFinanceAccount(accounts, form.accountId, form.paymentMethod);
+      }
       const payload = { ...form };
 
       if (isEdit && id) {
@@ -322,14 +442,54 @@ export const ExpenseList = () => {
             String(item.id) === String(id) ? updated : item
           ));
         }
-        navigate(`/expenses/${id}`);
+        navigate(`/finance/expenses/${id}`);
       } else {
         const created = await expenseService.createExpense(payload);
         if (created?.id) setExpenses((current) => [created, ...current]);
-        navigate(created?.id ? `/expenses/${created.id}` : '/expenses');
+        setForm(freshExpenseForm());
+        navigate(created?.id ? `/finance/expenses/${created.id}` : '/finance/expenses');
       }
     } catch (error) {
       setActionError(error?.message || 'Could not save expense. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const settleExpense = async (event) => {
+    event.preventDefault();
+    if (!canEdit || !selectedExpense || submitting) return;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      assertFinanceAccount(accounts, settlement.account, settlement.method);
+      await expenseService.settleExpense(selectedExpense.id, settlement);
+      await load();
+      setSettlement({
+        amount: '', account: '', method: 'Cash', reference: '',
+        idempotencyKey: globalThis.crypto?.randomUUID?.() || `settlement-${Date.now()}-${Math.random()}`,
+      });
+    } catch (error) {
+      setActionError(error?.message || 'Unable to settle expense.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const reverseExpenseSettlement = async (entry) => {
+    if (!canEdit || !selectedExpense || submitting || entry.reversedAt) return;
+    const reason = await appPrompt('Reason for reversing this expense payment:');
+    if (!reason?.trim()) return;
+    if (!await appConfirm('Reverse this payment and restore its bank/cash balance?', {
+      title: 'Reverse Expense Payment', confirmLabel: 'Reverse Payment', tone: 'danger'
+    })) return;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      await expenseService.reverseSettlement(selectedExpense.id, entry.id, reason.trim());
+      await load();
+    } catch (err) {
+      setActionError(err?.message || 'Unable to reverse this payment.');
     } finally {
       setSubmitting(false);
     }
@@ -340,7 +500,7 @@ export const ExpenseList = () => {
     setActionError('');
     try {
       await expenseService.deleteExpense(expense.id);
-      if (isDetail) navigate('/expenses');
+      if (isDetail) navigate('/finance/expenses');
       else await load();
     } catch (error) {
       setActionError(error?.message || 'Could not delete expense. Please retry.');
@@ -362,9 +522,12 @@ export const ExpenseList = () => {
         values={form}
         setValues={setForm}
         onSubmit={saveExpense}
-        onCancel={()=>navigate('/expenses')}
+        onCancel={()=>navigate('/finance/expenses')}
         submitting={submitting}
         error={actionError}
+        accounts={accounts}
+        budgetItems={budgetItems}
+        budgetError={budgetError}
       />
     );
   }
@@ -377,9 +540,12 @@ export const ExpenseList = () => {
         values={form}
         setValues={setForm}
         onSubmit={saveExpense}
-        onCancel={()=>navigate(`/expenses/${id}`)}
+        onCancel={()=>navigate(`/finance/expenses/${id}`)}
         submitting={submitting}
         error={actionError}
+        accounts={accounts}
+        budgetItems={budgetItems}
+        budgetError={budgetError}
       />
     );
   }
@@ -398,7 +564,7 @@ export const ExpenseList = () => {
           </div>
 
           <div className="expense-detail-actions">
-            {canEdit ? <button type="button" onClick={()=>navigate(`/expenses/${selectedExpense.id}/edit`)}><Edit3 size={16}/> Edit</button> : null}
+            {canEdit ? <button type="button" onClick={()=>navigate(`/finance/expenses/${selectedExpense.id}/edit`)}><Edit3 size={16}/> Edit</button> : null}
             {canDelete ? <button type="button" className="is-danger" onClick={()=>removeExpense(selectedExpense)}><Trash2 size={16}/> Delete</button> : null}
           </div>
         </header>
@@ -409,6 +575,88 @@ export const ExpenseList = () => {
           <div><Calendar size={16}/><span>Date</span><strong>{selectedExpense.expenseDate}</strong></div>
           <div><CheckCircle2 size={16}/><span>Status</span><strong>{selectedExpense.status}</strong></div>
         </div>
+
+        <section className="expense-panel">
+          <div className="expense-section-header">
+            <div>
+              <h2>Pay This Expense</h2>
+              <p>Posted settlements debit your internal Cash/Bank ledger; unpaid expenses do not.</p>
+            </div>
+          </div>
+          <div className="expense-detail-kpis">
+            <div><span>Paid through ledger</span><strong>{money.format(selectedExpense.paidAmount || 0)}</strong></div>
+            <div><span>Outstanding</span><strong>{money.format(selectedExpense.balanceDue ?? selectedExpense.amount)}</strong></div>
+          </div>
+          {selectedExpense.status === 'paid' && !selectedExpense.paidAmount && (
+            <p className="expense-alert">Historical paid expense: reconcile its existing payment before posting a new debit.</p>
+          )}
+          {canEdit && Number(selectedExpense.balanceDue) > 0 &&
+            !['draft', 'rejected', 'cancelled', 'pending approval', 'paid'].includes(selectedExpense.status) && (
+            <form className="expense-form" onSubmit={settleExpense}>
+              <div className="expense-form-grid">
+                <Field label="Settlement Amount (₹)">
+                  <input type="number" step="0.01" min="0.01" required
+                    max={selectedExpense.balanceDue} value={settlement.amount}
+                    disabled={submitting}
+                    onChange={(event) => setSettlement((prev) => ({ ...prev, amount: event.target.value }))} />
+                </Field>
+                <Field label="Debit Account">
+                  <select required value={settlement.account} disabled={submitting}
+                    onChange={(event) => setSettlement((prev) => ({ ...prev, account: event.target.value }))}>
+                    <option value="">Choose account</option>
+                    {financeAccountsForChannel(accounts, settlement.method).map((item) => (
+                      <option value={item.id} key={item.id}>{item.name} — {money.format(Number(item.currentBalance || 0))}</option>
+                    ))}
+                  </select>
+                </Field>
+                <Field label="Payment Method">
+                  <select value={settlement.method} disabled={submitting}
+                    onChange={(event) => setSettlement((prev) => ({ ...prev, method: event.target.value, account: '' }))}>
+                    {paymentMethods.map((method) => <option key={method}>{method}</option>)}
+                  </select>
+                </Field>
+                <Field label="Reference">
+                  <input value={settlement.reference} maxLength={120} disabled={submitting}
+                    onChange={(event) => setSettlement((prev) => ({ ...prev, reference: event.target.value }))} />
+                </Field>
+              </div>
+              <div className="expense-form-actions">
+                <button className="finance-primary-btn" type="submit" disabled={submitting}>
+                  {submitting ? 'Posting…' : 'Pay Expense & Debit Account'}
+                </button>
+              </div>
+            </form>
+          )}
+        </section>
+
+        <section className="expense-panel">
+          <div className="expense-section-header">
+            <div>
+              <h2>Expense Payment History</h2>
+              <p>Posted account movements, references and audited reversals.</p>
+            </div>
+          </div>
+          {(selectedExpense.settlementHistory || []).length === 0 ? (
+            <p>No account-linked expense settlements recorded yet.</p>
+          ) : (
+            <div className="expense-info-grid">
+              {selectedExpense.settlementHistory.map((entry) => (
+                <div key={entry.id} className="expense-settlement-record">
+                  <span>{new Date(entry.postedAt).toLocaleDateString('en-IN')} · {entry.accountName}</span>
+                  <strong>{money.format(Number(entry.amount))}</strong>
+                  <small>{entry.method} · {entry.reference || 'No reference'}</small>
+                  <small>{entry.reversedAt ? `Reversed: ${entry.reversalReason || 'Audited correction'}` : 'Posted'}</small>
+                  {canEdit && !entry.reversedAt && (
+                    <button type="button" disabled={submitting} className="is-danger"
+                      onClick={() => reverseExpenseSettlement(entry)}>
+                      Reverse Payment
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         <div className="expense-two-column">
           <section className="expense-panel">
@@ -464,24 +712,54 @@ export const ExpenseList = () => {
   return (
     <div className="expense-management-page cg-expenses">
       {actionError ? <div className="expense-alert" role="alert">{actionError}</div> : null}
-      <ExpensesHeader onAdd={()=>navigate('/expenses/new')} />
+      <ExpensesHeader onAdd={()=>navigate('/finance/expenses/new')} />
+      {canViewSupplierAccounting && (
+        <section className="expense-panel" aria-label="Linked supplier purchase accounting">
+          <div className="expense-section-header">
+            <div>
+              <h2>Supplier Purchases &amp; Pending Payments</h2>
+              <p>Parts purchases are recorded against supplier bills and inventory;
+                they are not counted again as operational expense payments.</p>
+            </div>
+          </div>
+          {linkedSupplierError && <p className="expense-alert" role="alert">{linkedSupplierError}</p>}
+          {!linkedSupplierTotals && !linkedSupplierError && <p>Loading linked supplier amounts…</p>}
+          {linkedSupplierTotals && <div className="expense-detail-kpis">
+            <div><span>Posted Supplier Purchases</span>
+              <strong>{money.format(Number(linkedSupplierTotals.supplierPurchases))}</strong></div>
+            <div><span>Supplier Payments Made</span>
+              <strong>{money.format(Number(linkedSupplierTotals.supplierPayments))}</strong></div>
+            <div><span>Credit Outstanding</span>
+              <strong>{money.format(Number(linkedSupplierTotals.supplierOutstanding))}</strong></div>
+          </div>}
+          <p>To record a supplier transaction, open that supplier from the Suppliers directory.</p>
+        </section>
+      )}
+
 
       <ExpenseOverviewStats
         currentMonthTotal={currentMonthRows.reduce((sum,item)=>sum+item.amount,0)}
         approvedTotal={approvedRows.reduce((sum,item)=>sum+item.amount,0)}
         pendingCount={pendingRows.length}
-        todayTotal={todayRows.reduce((sum,item)=>sum+item.amount,0)}
+        todayTotal={todayRows.reduce((sum,item)=>sum+Number(item.amount || 0),0)}
+        paidTotal={expenses.reduce((sum,item)=>sum+Number(item.paidAmount || 0),0)}
+        outstandingTotal={expenses.filter(item=>!['draft','rejected','cancelled'].includes(item.status))
+          .reduce((sum,item)=>sum+Number(item.balanceDue ?? Math.max(0,Number(item.amount || 0)-Number(item.paidAmount || 0))),0)}
         formatMoney={(value)=>money.format(value || 0)}
       />
 
       <ExpenseTabs active={activeView} onChange={setActiveView} />
+
+      {activeView === 'budgets' ? (
+        <ExpenseBudgetPanel categories={expenseCategories} canEdit={canEdit} />
+      ) : null}
 
       {activeView === 'overview' ? (
         <ExpenseOverview
           expenses={expenses}
           categoryTotals={categoryTotals}
           formatMoney={(value)=>money.format(value || 0)}
-          onOpen={(expense)=>navigate(`/expenses/${expense.id}`)}
+          onOpen={(expense)=>navigate(`/finance/expenses/${expense.id}`)}
         />
       ) : null}
 
@@ -496,8 +774,8 @@ export const ExpenseList = () => {
           onStatusChange={setStatusFilter}
           categories={expenseCategories}
           formatMoney={(value)=>money.format(value || 0)}
-          onView={(expense)=>navigate(`/expenses/${expense.id}`)}
-          onEdit={(expense)=>navigate(`/expenses/${expense.id}/edit`)}
+          onView={(expense)=>navigate(`/finance/expenses/${expense.id}`)}
+          onEdit={(expense)=>navigate(`/finance/expenses/${expense.id}/edit`)}
           onDelete={removeExpense}
         />
       ) : null}

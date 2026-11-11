@@ -1,6 +1,7 @@
 import { appConfirm } from '../../components/common/appDialogs';
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -17,9 +18,13 @@ import {
   X
 } from 'lucide-react';
 import { stockService } from '../../services/stock.service';
+import { financeService } from '../../services/finance.service';
 import { jobPartsService } from '../../services/jobParts.service';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
+import { financeAccountsForChannel } from '../../utils/financeCashBank';
+import GstRateDropdown from '../../components/common/GstRateDropdown';
+import SupplierSelectField from '../../components/common/SupplierSelectField';
 
 const money = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -32,7 +37,8 @@ const today = () => new Date().toISOString().slice(0, 10);
 export function JobPartsWorkflow({ jobId, assignedTo = '', initialPanel = null }) {
   const { user } = useAuth();
   const canApproveOutside = hasPermission(user, 'jobs.view') && hasPermission(user, 'expenses.edit');
-  const canCompleteOutside = hasPermission(user, 'jobs.edit') && hasPermission(user, 'expenses.view');
+  const canCompleteOutside = hasPermission(user, 'jobs.edit') && hasPermission(user, 'expenses.edit');
+  const canPayOutside = hasPermission(user, 'payments.edit');
   const [data, setData] = useState({ lines: [], transactions: [], purchaseOrders: [], canComplete: true, blockingReasons: [] });
   const [stock, setStock] = useState([]);
   const [outsideParts, setOutsideParts] = useState([]);
@@ -407,6 +413,15 @@ export function JobPartsWorkflow({ jobId, assignedTo = '', initialPanel = null }
                     </div>
                     <span>{row.vendor} · Qty {row.quantity} {row.sku ? `· ${row.sku}` : ''}</span>
                     <small>{purchased ? (row.invoiceNo ? `Bill ${row.invoiceNo} · ` : '') + 'Purchased' : 'Supplier quotation pending workflow'} · Quoted {money.format(quotedTotal)}</small>
+                    {purchased && row.expenseId && (
+                      <small className="job-outside-finance-record">
+                        Job Purchase: {money.format(row.totalCost)} · GST included {money.format(Number(row.purchaseGstAmount || 0))}
+                        {' · '}Paid {money.format(Number(row.paidAmount || 0))}
+                        {' · '}Credit Due {money.format(Number(row.balanceDue ??
+                          Math.max(0, Number(row.totalCost || 0) - Number(row.paidAmount || 0))))}
+                        {' · '}<Link to={`/finance/expenses/${row.expenseId}`}>Open Finance Expense</Link>
+                      </small>
+                    )}
                     <div className="job-parts-outside-controls">
                       {purchaseStatus === 'Pending Approval' && canApproveOutside && (
                         <>
@@ -471,6 +486,7 @@ export function JobPartsWorkflow({ jobId, assignedTo = '', initialPanel = null }
       {panel?.type === 'outsideComplete' && (
         <OutsidePartCompletionPanel
           purchase={panel.purchase}
+          canPayNow={canPayOutside}
           busy={busy === 'completeOutside'}
           error={error}
           onClose={() => setPanel(null)}
@@ -689,17 +705,19 @@ function OutsidePartPurchasePanel({ initial, onClose, onSave, busy, error }) {
   const [form, setForm] = useState(() => ({
     partName: initial.partName || '', sku: initial.sku || '',
     vendor: '', invoiceNo: '', quantity: '1',
-    unitCost: '', sellingPrice: String(initial.sellingPrice ?? '')
+    unitCost: '', sellingPrice: String(initial.sellingPrice ?? ''), purchaseGstRate: '0'
   }));
   const set = (key, value) => setForm((old) => ({ ...old, [key]: value }));
   const quantity = Number(form.quantity);
   const cost = Number(form.unitCost);
   const selling = Number(form.sellingPrice);
+  const gst = Number(form.purchaseGstRate);
   const valid = !!form.partName.trim() && !!form.vendor.trim() &&
     form.unitCost !== '' && form.sellingPrice !== '' &&
     Number.isFinite(quantity) && quantity > 0 && quantity <= 999999.99 &&
     Number.isFinite(cost) && cost >= 0 && cost <= 999999999.99 &&
-    Number.isFinite(selling) && selling >= 0 && selling <= 999999999.99;
+    Number.isFinite(selling) && selling >= 0 && selling <= 999999999.99 &&
+    Number.isFinite(gst) && gst >= 0 && gst <= 100 && form.purchaseGstRate !== '';
   const submit = (event) => {
     event.preventDefault();
     if (!valid || busy) return;
@@ -707,7 +725,7 @@ function OutsidePartPurchasePanel({ initial, onClose, onSave, busy, error }) {
       requestId, partName: form.partName.trim(), sku: form.sku.trim(),
       vendor: form.vendor.trim(), invoiceNo: form.invoiceNo.trim(),
       quantity: form.quantity, unitCost: form.unitCost,
-      sellingPrice: form.sellingPrice
+      sellingPrice: form.sellingPrice, purchaseGstRate: form.purchaseGstRate
     });
   };
   return (
@@ -717,10 +735,9 @@ function OutsidePartPurchasePanel({ initial, onClose, onSave, busy, error }) {
           <input className="cubegears-input" required maxLength={160} autoFocus
             value={form.partName} onChange={(e) => set('partName', e.target.value)} placeholder="Part / spare name" />
         </label>
-        <label className="form-label job-parts-modal-full">Shop / Supplier Name *
-          <input className="cubegears-input" required maxLength={160}
-            value={form.vendor} onChange={(e) => set('vendor', e.target.value)} placeholder="Outside shop name" />
-        </label>
+        <SupplierSelectField fullWidth required label="Shop / Supplier Name"
+          valueMode="name" allowManual value={form.vendor} disabled={busy}
+          className="cubegears-input" onChange={vendor => set('vendor', vendor)}/>
         <label className="form-label">SKU / Part Number
           <input className="cubegears-input" maxLength={80}
             value={form.sku} onChange={(e) => set('sku', e.target.value)} placeholder="Optional" />
@@ -738,18 +755,25 @@ function OutsidePartPurchasePanel({ initial, onClose, onSave, busy, error }) {
             min="0" step="0.01" max="999999999.99"
             value={form.unitCost} onChange={(e) => set('unitCost', e.target.value)} placeholder="Cost from shop" />
         </label>
+        <label className="form-label">Purchase GST Rate (%) *
+          <GstRateDropdown required className="cubegears-select"
+            selectLabel="Outside Purchase GST Rate (%)" value={form.purchaseGstRate}
+            onChange={rate => set('purchaseGstRate', rate)}/>
+        </label>
         <label className="form-label job-parts-modal-full">Customer Selling Price / Unit (₹) *
           <input className="cubegears-input" type="number" required inputMode="decimal"
             min="0" step="0.01" max="999999999.99"
             value={form.sellingPrice} onChange={(e) => set('sellingPrice', e.target.value)} placeholder="Selling price" />
         </label>
         <div className="job-parts-outside-calculation job-parts-modal-full">
-          <div><span>Quoted Purchase Total</span><strong>{money.format(valid ? quantity * cost : 0)}</strong></div>
+          <div><span>Purchase Total (incl. GST)</span><strong>{money.format(valid ? quantity * cost * (1 + gst / 100) : 0)}</strong></div>
           <div><span>Customer Value</span><strong>{money.format(valid ? quantity * selling : 0)}</strong></div>
         </div>
         <p className="job-parts-modal-stock-note job-parts-modal-full">
           Submitting this request does not purchase the part or affect Total Cost.
           Manager approval and a supplier bill are required. Workshop inventory stays unchanged.
+          For parts that must enter workshop stock, use the <Link to="/stock">Stock → Supplier Purchase</Link>
+          {' '}flow instead; it handles supplier bills, verified GST, Cash in Hand/Bank and credit without duplicating this Job Expense.
         </p>
         {error && <p className="job-parts-modal-warning job-parts-modal-full" role="alert">{error}</p>}
         <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>Cancel</button>
@@ -761,18 +785,51 @@ function OutsidePartPurchasePanel({ initial, onClose, onSave, busy, error }) {
   );
 }
 
-function OutsidePartCompletionPanel({ purchase, onClose, onSave, busy, error }) {
+function OutsidePartCompletionPanel({ purchase, onClose, onSave, busy, error, canPayNow = false }) {
   const [invoiceNo, setInvoiceNo] = useState('');
+  const [paymentType, setPaymentType] = useState('Credit');
+  const [accountId, setAccountId] = useState('');
+  const [paidAmount, setPaidAmount] = useState('');
+  const [accounts, setAccounts] = useState([]);
+  const [accountsError, setAccountsError] = useState('');
+  const [accountsLoading, setAccountsLoading] = useState(false);
   const [unitCost, setUnitCost] = useState(String(purchase.unitCost || ''));
   const [bill, setBill] = useState(null);
   const [uploadError, setUploadError] = useState('');
+  useEffect(() => {
+    if (paymentType === 'Credit') return;
+    let active = true;
+    setAccountsLoading(true);
+    setAccountsError('');
+    financeService.listAccounts().then(result => {
+      if (active) setAccounts(Array.isArray(result) ? result : []);
+    }).catch(err => {
+      if (active) setAccountsError(err?.message || 'Unable to load accounts. Check Finance permissions or choose Credit.');
+    }).finally(() => {
+      if (active) setAccountsLoading(false);
+    });
+    return () => { active = false; };
+  }, [paymentType]);
+  const eligibleAccounts = financeAccountsForChannel(accounts, paymentType);
   const quantity = Number(purchase.quantity);
-  const actualTotal = quantity * Number(unitCost);
+  const gstRate = Number(purchase.purchaseGstRate || 0);
+  // Approximate display only; Django validates the authoritative Decimal amount.
+  const purchaseBase = Math.round(quantity * Number(unitCost) * 100) / 100;
+  const purchaseGST = Math.round(purchaseBase * gstRate) / 100;
+  const actualTotal = purchaseBase + purchaseGST;
+  const payNow = paymentType === 'Credit' ? 0
+    : paidAmount.trim() === '' ? actualTotal : Number(paidAmount);
+  const remainingCredit = Math.max(0, Math.round((actualTotal - payNow) * 100) / 100);
+  const validPaidAmount = paymentType === 'Credit' ||
+    (Number.isFinite(payNow) && payNow > 0 && payNow <= actualTotal &&
+      (paidAmount === '' || /^\d+(?:\.\d{1,2})?$/.test(paidAmount)));
   const approvedTotal = Number(purchase.quotedTotal || 0);
   const withinApproval = Number.isFinite(actualTotal) &&
     Number(unitCost) >= 0 && actualTotal <= approvedTotal && Number(unitCost) <= 999999999.99;
   const valid = invoiceNo.trim().length > 0 && invoiceNo.trim().length <= 120 &&
-    bill && withinApproval && unitCost !== '';
+    bill && withinApproval && unitCost !== '' && Number(unitCost) > 0 && validPaidAmount &&
+    (paymentType === 'Credit' || (canPayNow && accountId && !accountsLoading && !accountsError &&
+      eligibleAccounts.some(account => String(account.id) === String(accountId))));
   const chooseFile = (file) => {
     setBill(null);
     if (!file) {
@@ -794,7 +851,11 @@ function OutsidePartCompletionPanel({ purchase, onClose, onSave, busy, error }) 
     <Sheet title="Complete Outside Purchase" subtitle="Approved quotation → supplier invoice → actual Job Cost" onClose={onClose}>
       <form className="job-parts-modal-form job-parts-outside-form" onSubmit={(event) => {
         event.preventDefault();
-        if (valid && !busy) onSave({ invoiceNo: invoiceNo.trim(), unitCost, bill });
+        if (valid && !busy) onSave({
+          invoiceNo: invoiceNo.trim(), unitCost, bill, paymentType,
+          accountId: paymentType === 'Credit' ? '' : accountId,
+          paidAmount: paymentType === 'Credit' ? '0.00' : payNow.toFixed(2),
+        });
       }}>
         <div className="job-parts-approval-note job-parts-modal-full">
           <strong>{purchase.partName}</strong>
@@ -811,6 +872,41 @@ function OutsidePartCompletionPanel({ purchase, onClose, onSave, busy, error }) 
             min="0" max="999999999.99" step="0.01" required
             value={unitCost} onChange={(event) => setUnitCost(event.target.value)} />
         </label>
+        <label className="form-label">Payment Type *
+          <select className="cubegears-select" required value={paymentType}
+            onChange={event => { setPaymentType(event.target.value); setAccountId(''); setPaidAmount(''); }}>
+            {canPayNow && <option value="Cash">Cash in Hand — Pay Now</option>}
+            {canPayNow && <option value="Bank">Bank — Pay Now</option>}
+            <option value="Credit">Credit — Pay Later</option>
+          </select>
+        </label>
+        {paymentType !== 'Credit' && <label className="form-label">
+          Pay From Account *
+          <select className="cubegears-select" required value={accountId}
+            onChange={event => setAccountId(event.target.value)} disabled={accountsLoading}>
+            <option value="">{accountsLoading ? 'Loading accounts…' : 'Choose Cash/Bank account'}</option>
+            {eligibleAccounts.map(account => (
+              <option key={account.id} value={account.id}>{account.name} ({account.kind})</option>
+            ))}
+          </select>
+        </label>}
+        {paymentType !== 'Credit' && <label className="form-label">Pay Now (₹) *
+          <input className="cubegears-input" type="number" inputMode="decimal"
+            min="0.01" max={actualTotal.toFixed(2)} step="0.01"
+            value={paidAmount} placeholder={actualTotal.toFixed(2)}
+            onChange={event => setPaidAmount(event.target.value)}/>
+          <small>Leave empty to pay the whole bill. Enter a smaller amount for part payment.</small>
+        </label>}
+        {paymentType === 'Credit' && <p className="job-parts-modal-stock-note">
+          Full credit: no money is debited. Pay the remaining expense later in <Link to="/finance/expenses">Finance → Expenses</Link>.
+        </p>}
+        {paymentType !== 'Credit' && !accountsLoading && !eligibleAccounts.length &&
+          <p className="job-parts-modal-warning job-parts-modal-full" role="alert">
+            No matching active Cash/Bank account. Create one under Finance → Accounts before paying.
+          </p>}
+        {accountsError && <p className="job-parts-modal-warning job-parts-modal-full" role="alert">
+          {accountsError}
+        </p>}
         <label className="form-label job-parts-modal-full">Supplier Bill (PDF or Image, max 8 MB) *
           <input className="cubegears-input job-parts-file-input" type="file" required
             accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp"
@@ -818,10 +914,30 @@ function OutsidePartCompletionPanel({ purchase, onClose, onSave, busy, error }) 
         </label>
         <div className="job-parts-outside-calculation job-parts-modal-full">
           <div><span>Approved Quote</span><strong>{money.format(approvedTotal)}</strong></div>
-          <div><span>Actual Purchase Total</span><strong>{money.format(Number.isFinite(actualTotal) ? actualTotal : 0)}</strong></div>
+          <div><span>Purchase Before GST</span><strong>{money.format(Number.isFinite(purchaseBase) ? purchaseBase : 0)}</strong></div>
+          <div><span>Purchase GST ({gstRate}%)</span><strong>{money.format(Number.isFinite(purchaseGST) ? purchaseGST : 0)}</strong></div>
+          <div><span>Actual Purchase Total / Job Expense</span><strong>{money.format(Number.isFinite(actualTotal) ? actualTotal : 0)}</strong></div>
+          <div><span>Cash / Bank Paid Now</span><strong>{money.format(Number.isFinite(payNow) ? payNow : 0)}</strong></div>
+          <div><span>Remaining Supplier Credit</span><strong>{money.format(Number.isFinite(remainingCredit) ? remainingCredit : 0)}</strong></div>
         </div>
+        {!validPaidAmount && <p className="job-parts-modal-warning job-parts-modal-full" role="alert">
+          Pay Now must be greater than zero and no more than the purchase total, with at most two decimals.
+        </p>}
+        <p className="job-parts-modal-stock-note job-parts-modal-full">
+          Purchase price is recorded as Job Cost and in Expenses. Customer invoice uses the separate selling price only.
+          {paymentType === 'Credit' ? ' No money is debited until settlement.' :
+            ' Only the entered payment debits the selected workshop Cash/Bank account.'}
+          Purchase GST is included in the supplier total, not added to the payment again.
+          Outside-part GST is for cost tracking, not automatically verified as input tax credit.
+        </p>
         {!withinApproval && <p className="job-parts-modal-warning job-parts-modal-full" role="alert">
           Actual purchase total exceeds the approved quotation. Request a revised approval.
+        </p>}
+        {paymentType === 'Credit' && <p className="job-parts-modal-stock-note job-parts-modal-full">
+          Credit is recorded as an unpaid workshop expense. No bank or cash balance changes until settled.
+        </p>}
+        {paymentType !== 'Credit' && <p className="job-parts-modal-stock-note job-parts-modal-full">
+          After confirming, only Pay Now is debited. Any remaining credit stays on the same Finance Expense until settled.
         </p>}
         {uploadError && <p className="job-parts-modal-warning job-parts-modal-full" role="alert">{uploadError}</p>}
         {error && <p className="job-parts-modal-warning job-parts-modal-full" role="alert">{error}</p>}
@@ -855,13 +971,19 @@ function OrderPanel({ line, error, onClose, onSave, busy }) {
         <strong>{line.pendingQty} still needed</strong><br />
         Stock updates after you record the delivery in Inward / Goods Receipt.
       </div>
-      <label className="form-label job-parts-modal-full">Supplier / Vendor *<input className="cubegears-input mt-1" name="vendor" autoComplete="organization" required maxLength={120} value={form.vendor} onChange={(e) => set('vendor', e.target.value)} placeholder="Enter supplier name"/></label>
+      <SupplierSelectField fullWidth required label="Supplier / Vendor"
+        valueMode="name" allowManual value={form.vendor} disabled={busy}
+        className="cubegears-input mt-1" onChange={vendor => set('vendor', vendor)}/>
       <label className="form-label">Payment Type<select className="cubegears-select mt-1" name="type" value={form.type} onChange={(e) => set('type', e.target.value)}><option>Cash</option><option>Credit</option></select></label>
       <label className="form-label">Order Date *<input name="orderDate" type="date" required className="cubegears-input mt-1" value={form.orderDate} onChange={(e) => set('orderDate', e.target.value)}/></label>
       <label className="form-label">Order Quantity *<input name="orderedQty" className="cubegears-input mt-1" type="number" inputMode="decimal" min="0.01" step="0.01" required value={form.orderedQty} onChange={(e) => set('orderedQty', e.target.value)}/></label>
       <label className="form-label">Unit Cost (₹) *<input name="unitCost" className="cubegears-input mt-1" type="number" inputMode="decimal" min="0" step="0.01" required value={form.unitCost} onChange={(e) => set('unitCost', e.target.value)} placeholder="Enter supplier price"/></label>
       <label className="form-label">Discount (%)<input name="discount" className="cubegears-input mt-1" type="number" inputMode="decimal" min="0" max="100" step="0.01" value={form.discount} onChange={(e) => set('discount', e.target.value)}/></label>
-      <label className="form-label">GST Rate (%)<input name="tax" className="cubegears-input mt-1" type="number" inputMode="decimal" min="0" max="100" step="0.01" value={form.tax} onChange={(e) => set('tax', e.target.value)}/></label>
+      <label className="form-label">GST Rate (%)
+        <GstRateDropdown name="tax" className="cubegears-select mt-1"
+          selectLabel="Purchase Order GST Rate (%)" value={form.tax}
+          onChange={rate => set('tax', rate)}/>
+      </label>
       <button type="button" className="secondary-button" onClick={onClose} disabled={busy}>Cancel</button>
       <button type="submit" className="primary-button" disabled={busy}>{busy ? 'Creating…' : 'Create Purchase Order'}</button>
     </form>

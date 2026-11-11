@@ -1,0 +1,120 @@
+/* CubixGear GSTR-2B: separate Purchase GST, supplier payment and expense reviews.
+ * Data comes from existing permission-checked reporting endpoints. */
+@media screen {
+.cg-gstr-refined .cg-gstr-purchase-quick-links{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:14px;min-width:0;margin:15px 0;
+  padding:17px 18px;border:1px solid var(--cg-gstr-border,var(--border));
+  border-radius:16px;background:var(--cg-gstr-paper,var(--surface));
+  box-shadow:0 3px 15px rgba(20,47,54,.025);
+}
+.cg-gstr-refined .cg-gstr-purchase-heading{
+  display:flex;flex-direction:column;gap:5px;flex:1 1 240px;min-width:0;
+}
+.cg-gstr-refined .cg-gstr-purchase-kicker{
+  display:block;font-size:11px;font-weight:750;letter-spacing:.09em;
+  line-height:1.35;color:var(--primary);
+}
+.cg-gstr-refined .cg-gstr-purchase-heading strong{
+  font-size:17px;font-weight:750;line-height:1.4;
+  color:var(--cg-gstr-ink,var(--text-primary));overflow-wrap:anywhere;
+}
+.cg-gstr-refined .cg-gstr-purchase-heading small{
+  color:var(--cg-gstr-muted,var(--text-secondary));
+  font-size:12px;line-height:1.5;overflow-wrap:anywhere;
+}
+.cg-gstr-refined .cg-gstr-purchase-link-actions{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;min-width:0;
+}
+.cg-gstr-refined .cg-gstr-purchase-nav-link,
+.cg-gstr-refined .gstr-purchase-settlements .gstr-source-link{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-height:44px;padding:9px 13px;max-width:100%;text-align:center;
+  border:1px solid var(--cg-gstr-border,var(--border));
+  border-radius:11px;background:var(--cg-gstr-paper,var(--surface));
+  color:var(--primary);font-size:13px;font-weight:700;
+  line-height:1.4;text-decoration:none;white-space:normal;
+}
+.cg-gstr-refined .cg-gstr-purchase-nav-link:hover,
+.cg-gstr-refined .gstr-purchase-settlements .gstr-source-link:hover{
+  background:var(--cg-gstr-soft,var(--primary-soft));
+  color:var(--primary);
+}
+.cg-gstr-refined .gstr-purchase-settlements,
+.cg-gstr-refined .gstr-expense-gst-review{
+  min-width:0;margin-top:17px;padding:18px;
+  display:flex;flex-direction:column;gap:12px;
+  border:1px solid var(--cg-gstr-border,var(--border));
+  border-radius:16px;background:var(--cg-gstr-paper,var(--surface));
+}
+.cg-gstr-refined .gstr-purchase-settlements .gstr-panel-heading,
+.cg-gstr-refined .cg-gstr-expense-heading{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  gap:12px;min-width:0;margin:0;
+}
+.cg-gstr-refined .gstr-purchase-settlements .gstr-panel-heading h3,
+.cg-gstr-refined .cg-gstr-expense-heading .gstr-subheading{
+  margin:0;color:var(--cg-gstr-ink,var(--text-primary));
+  font-size:17px;font-weight:750;line-height:1.35;
+}
+.cg-gstr-refined .gstr-purchase-settlements .gstr-note,
+.cg-gstr-refined .gstr-expense-gst-review .gstr-note{
+  margin:0;color:var(--cg-gstr-muted,var(--text-secondary));
+  font-size:13px;line-height:1.65;
+}
+.cg-gstr-refined .gstr-purchase-settlements .gstr-table-scroll,
+.cg-gstr-refined .gstr-expense-gst-review .gstr-table-scroll{
+  width:100%;max-width:100%;min-width:0;
+  overflow-x:auto;scrollbar-width:thin;
+}
+.cg-gstr-refined .gstr-purchase-settlements .gstr-table th,
+.cg-gstr-refined .gstr-expense-gst-review .gstr-table th{
+  background:var(--surface-2);
+  color:var(--cg-gstr-muted,var(--text-secondary));
+  font-size:12px;font-weight:750;
+}
+.cg-gstr-refined .gstr-purchase-settlements .gstr-table td,
+.cg-gstr-refined .gstr-expense-gst-review .gstr-table td{
+  color:var(--cg-gstr-ink,var(--text-primary));
+  font-size:13px;line-height:1.5;
+}
+.cg-gstr-refined .gstr-purchase-settlements .gstr-mobile-rows,
+.cg-gstr-refined .gstr-expense-gst-review .gstr-mobile-rows{width:100%;min-width:0}
+.cg-gstr-refined .gstr-purchase-settlements .gstr-mobile-row,
+.cg-gstr-refined .gstr-expense-gst-review .gstr-mobile-row{
+  background:var(--cg-gstr-paper,var(--surface));
+  border:1px solid var(--cg-gstr-border,var(--border));border-radius:13px;
+}
+.cg-gstr-refined .cg-gstr-purchase-nav-link:focus-visible,
+.cg-gstr-refined .gstr-purchase-settlements .gstr-source-link:focus-visible{
+  outline:2px solid var(--primary);outline-offset:3px;
+}
+@media(max-width:900px){
+  .cg-gstr-refined .cg-gstr-purchase-quick-links{align-items:stretch}
+  .cg-gstr-refined .cg-gstr-purchase-link-actions{width:100%}
+}
+@media(max-width:700px){
+  .cg-gstr-refined .cg-gstr-purchase-quick-links,
+  .cg-gstr-refined .gstr-purchase-settlements,
+  .cg-gstr-refined .gstr-expense-gst-review{
+    padding:13px;margin-top:13px;gap:11px;
+  }
+  .cg-gstr-refined .cg-gstr-purchase-link-actions{
+    display:grid;grid-template-columns:minmax(0,1fr);gap:8px;
+  }
+  .cg-gstr-refined .cg-gstr-purchase-nav-link{width:100%;min-height:46px}
+  .cg-gstr-refined .cg-gstr-expense-heading .cg-gstr-purchase-nav-link{width:100%}
+  .cg-gstr-refined .gstr-purchase-settlements .gstr-panel-heading{align-items:stretch}
+  .cg-gstr-refined .gstr-purchase-settlements .gstr-source-link{width:100%}
+  .cg-gstr-refined .gstr-purchase-settlements .gstr-mobile-row,
+  .cg-gstr-refined .gstr-expense-gst-review .gstr-mobile-row{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+  }
+}
+@media(max-width:365px){
+  .cg-gstr-refined .gstr-purchase-settlements .gstr-mobile-row,
+  .cg-gstr-refined .gstr-expense-gst-review .gstr-mobile-row{
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+}

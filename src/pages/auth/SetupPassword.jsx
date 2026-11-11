@@ -101,7 +101,7 @@ export const SetupPassword = () => {
           <div className="login-brand-row">
             <div className="login-brand-mark">CG</div>
             <div>
-              <div className="login-brand-name">CubixGear</div>
+              <div className="login-brand-name">cubixgear</div>
               <div className="login-brand-subtitle">Workshop Account Setup</div>
             </div>
           </div>
@@ -116,7 +116,7 @@ export const SetupPassword = () => {
           ) : (
             <>
               <h1 className="login-title">Create your password</h1>
-              <p className="login-description">{email ? 'Set the password for ' + email + '. You can use this email and password to sign in later.' : 'Secure your new CubixGear workshop account before signing in.'}</p>
+              <p className="login-description">{email ? 'Set the password for ' + email + '. You can use this email and password to sign in later.' : 'Secure your new cubixgear workshop account before signing in.'}</p>
 
               {(!uid || !token) && <div className="auth-message is-error" role="alert">This setup link is incomplete. Ask your administrator to resend the invitation.</div>}
               {formError && <div className="auth-message is-error" role="alert">{formError}</div>}

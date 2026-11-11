@@ -154,6 +154,7 @@ apiClient.interceptors.response.use(
       'Something went wrong. Please try again.';
 
     const normalized = new Error(message);
+    normalized.requestId = error?.response?.headers?.['x-request-id'] || null;
     normalized.status = status;
     normalized.code = error?.code;
     normalized.data = payload;

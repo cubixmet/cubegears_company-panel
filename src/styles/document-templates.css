@@ -137,3 +137,52 @@
 /* API-backed field validation. Accessible on desktop and mobile. */
 .document-templates-page input[aria-invalid="true"],.document-templates-page textarea[aria-invalid="true"],.document-templates-page select[aria-invalid="true"]{border-color:#dc2626!important;box-shadow:0 0 0 2px rgba(220,38,38,.12)}
 .document-templates-page .template-input-error{display:block;margin-top:4px;color:#b91c1c;font-size:11px;line-height:1.4;font-weight:650;overflow-wrap:anywhere}
+
+/* Account Templates: canonical workshop profile bridge. */
+.template-workshop-sync {
+  display: flex; flex-wrap: wrap; justify-content: space-between;
+  align-items: center; gap: 12px; padding: 14px 16px;
+  margin: 0 0 16px; border: 1px solid #c9dfea; border-radius: 12px;
+  background: #f3f9fc; color: #15344a;
+}
+.template-workshop-sync > div { flex: 1 1 280px; min-width: 0; }
+.template-workshop-sync strong { display: block; font-size: 14px; }
+.template-workshop-sync p { font-size: 12px; line-height: 1.6; margin: 5px 0 0; color: #486078; }
+.template-workshop-sync button {
+  min-height: 44px; padding: 10px 14px; border-radius: 10px;
+  border: 1px solid #147e87; background: #fff; color: #115e68;
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.template-workshop-sync button:disabled { opacity: .55; cursor: not-allowed; }
+.template-workshop-sync small { flex: 0 0 100%; font-size: 12px; color: #166534; }
+@media (max-width: 540px) {
+  .template-workshop-sync button { width: 100%; }
+}
+
+/* Branding image and optional document identity visibility controls. */
+.document-templates-page .business-logo-preview img { object-fit: contain; }
+.document-templates-page .template-identity-field {
+  display: flex; flex-direction: column; gap: 7px;
+  min-width: 0; padding: 10px; border: 1px solid var(--border);
+  border-radius: 10px; background: var(--surface);
+}
+.document-templates-page .template-identity-field > label:not(.template-identity-toggle) {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.document-templates-page .template-identity-field input:disabled {
+  opacity: .65; cursor: not-allowed;
+}
+.document-templates-page .template-identity-toggle {
+  display: flex !important; flex-direction: row !important;
+  justify-content: space-between; align-items: center; gap: 12px;
+  min-height: 32px; font-size: 12px !important; cursor: pointer;
+}
+.document-templates-page .template-identity-toggle input[type="checkbox"] {
+  appearance: auto; width: 20px; height: 20px; accent-color: #087f8c;
+  margin: 0; flex: 0 0 20px; cursor: pointer;
+}
+.document-templates-page .template-tax-identity-notice {
+  margin: 12px 0 0; padding: 10px 12px; border-radius: 9px;
+  background: var(--surface-2); color: var(--text-secondary);
+  font-size: 12px; line-height: 1.5;
+}

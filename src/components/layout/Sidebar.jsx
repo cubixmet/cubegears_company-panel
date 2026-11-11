@@ -1,3 +1,4 @@
+import { CubixgearLogo } from '../branding/CubixgearLogo';
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from 'react-router-dom';
 import { routeConfig, ROUTE_SECTIONS } from '../../routes/routeConfig';
@@ -13,6 +14,7 @@ export const Sidebar = () => {
   const location = useLocation();
   const { user, logout } = useAuth();
   const featureAccess = useFeatureAccess();
+  const canViewNotifications = featureAccess.can('notifications.view');
   const { themeMode, setThemeMode } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -28,6 +30,11 @@ export const Sidebar = () => {
   }, [location.pathname]);
 
   useEffect(() => {
+    // Never poll an API that the logged-in staff role cannot read.
+    if (!canViewNotifications) {
+      setNotificationCount(0);
+      return undefined;
+    }
     let mounted = true;
     const loadNotificationCount = async () => {
       try {
@@ -42,30 +49,39 @@ export const Sidebar = () => {
     const onStorage = (event) => {
       if (!event.key || event.key === 'cubixgear:notifications') loadNotificationCount();
     };
+    const onVisible = () => {
+      if (!document.hidden) void loadNotificationCount();
+    };
+    const timer = window.setInterval(onVisible, 60000);
     window.addEventListener('storage', onStorage);
     window.addEventListener('cubixgear:notifications-changed', loadNotificationCount);
+    document.addEventListener('visibilitychange', onVisible);
 
     return () => {
       mounted = false;
+      window.clearInterval(timer);
       window.removeEventListener('storage', onStorage);
       window.removeEventListener('cubixgear:notifications-changed', loadNotificationCount);
+      document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [location.pathname]);
+  }, [location.pathname, canViewNotifications]);
 
   const sections = Object.values(ROUTE_SECTIONS);
-  const isRouteActive = (route) =>
-    route.path === '/dashboard'
-      ? location.pathname === '/dashboard'
-      : location.pathname === route.path || location.pathname.startsWith(`${route.path}/`);
+  const isRouteActive = (route) => {
+    if (route.path === '/dashboard') return location.pathname === '/dashboard';
+    // Customer Website is a standalone navigation entry, not an active Settings tab.
+    if (route.path === '/settings' && location.pathname.startsWith('/settings/customer-website')) return false;
+    return location.pathname === route.path || location.pathname.startsWith(`${route.path}/`);
+  };
 
   return (
     <aside className={`app-sidebar ${collapsed ? 'is-collapsed' : ''}`}>
       <div className="sidebar-brand-row">
         <div className="sidebar-brand">
-          <span className="sidebar-logo">CG</span>
+          <span className="sidebar-logo" aria-hidden="true"><CubixgearLogo /></span>
           {!collapsed && (
             <span className="sidebar-brand-copy">
-              <strong>CubeGears</strong>
+              <strong>cubixgear</strong>
               <small>Workshop Management</small>
             </span>
           )}
@@ -86,7 +102,7 @@ export const Sidebar = () => {
         <div className="sidebar-sections">
           {sections.map((section) => {
             const items = routeConfig.filter(
-              (route) => route.section === section && featureAccess.can(route.permission)
+              (route) => route.section === section && (route.accessAny ? route.accessAny.some(featureAccess.can) : featureAccess.can(route.permission))
             );
             if (!items.length) return null;
 
@@ -104,6 +120,7 @@ export const Sidebar = () => {
                       <NavLink
                         key={route.id}
                         to={route.path}
+                        end={route.path === '/settings'}
                         ref={active ? activeItemRef : null}
                         title={collapsed ? route.label : undefined}
                         className={`sidebar-nav-item ${active ? 'is-active' : ''} ${collapsed ? 'is-icon-only' : ''}`}

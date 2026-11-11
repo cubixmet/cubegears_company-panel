@@ -111,10 +111,18 @@ export const Staff = () => {
 
       {error && <div className="staff-directory-message is-error">{error}</div>}
 
+      <div className="staff-directory-results" role="status">
+        {loading ? 'Loading staff…' : `${filteredStaff.length} of ${staffList.length} staff`}
+      </div>
       {loading ? (
         <div className="staff-workshop-empty">Loading staff…</div>
       ) : filteredStaff.length ? (
-        <div className="staff-card-grid">
+        <div className={`staff-card-grid staff-directory-table ${canViewPayroll || canManagePayroll ? 'has-wages' : 'without-wages'}`}>
+          <div className="staff-directory-table-header" aria-hidden="true">
+            <span>Employee</span><span>Branch / Shift</span><span>Mobile / Login</span>
+            {(canViewPayroll || canManagePayroll) && <span>Daily wage</span>}
+            <span>Status</span><span>Actions</span>
+          </div>
           {filteredStaff.map((staff, index) => (
             <StaffDirectoryCard
               key={staff.id}

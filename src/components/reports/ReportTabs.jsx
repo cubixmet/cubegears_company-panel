@@ -1,11 +1,11 @@
 
 import { BarChart3, IndianRupee, LayoutDashboard, Package, WalletCards } from 'lucide-react';
 const tabs = [
-  ['overview', 'Overview', LayoutDashboard],
-  ['sales', 'Sales', BarChart3],
-  ['payments', 'Payments', WalletCards],
+  ['overview', 'Summary', LayoutDashboard],
+  ['sales', 'Customer Bills', BarChart3],
+  ['payments', 'Money Received', WalletCards],
   ['expenses', 'Expenses', IndianRupee],
-  ['stock', 'Stock', Package],
+  ['stock', 'Parts & Stock', Package],
 ];
 export const ReportTabs = ({ active, onChange }) => (
   <nav className="reports-dashboard-tabs no-print" aria-label="Report sections">

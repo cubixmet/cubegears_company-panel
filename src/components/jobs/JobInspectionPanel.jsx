@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Camera, CheckCircle2, ClipboardCheck, Plus, RefreshCcw, Search, SkipForward, Trash2, Wrench } from 'lucide-react';
 import { ResponsiveModalSheet } from '../common/ResponsiveModalSheet';
 import { jobInspectionService, DEFAULT_INSPECTION_CATEGORIES } from '../../services/jobInspection.service';
+import { vehiclePhotoService } from '../../services/vehiclePhoto.service';
+import { VehiclePhotoGallery } from '../vehicles/VehiclePhotoGallery';
 
 const SKIP_REASONS = [
   'Quick Service',
@@ -19,14 +21,7 @@ const newFinding = () => ({
 
 const formatMoney = (number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(Number(number) || 0);
 
-const readImage = (file) => new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.onload = () => resolve(reader.result);
-  reader.onerror = () => reject(new Error('Unable to read the photo.'));
-  reader.readAsDataURL(file);
-});
-
-export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit = false, startEditing = false, onDoneEditing }) {
+export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit = false, canReopen = false, startEditing = false, onDoneEditing }) {
   const [inspection, setInspection] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
@@ -65,6 +60,13 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
     setBusy(label);
     setError('');
     try {
+      // Users can record a check immediately: start the backend inspection
+      // first, then save the actual choice. Keep the existing audit/workflow
+      // transition and never fabricate an inspection locally.
+      if (['check', 'finding', 'diagnostic', 'photo'].includes(label) &&
+          inspection && !['In Progress', 'Completed', 'Skipped'].includes(inspection.status)) {
+        await jobInspectionService.startInspection(job.id);
+      }
       await operation();
       await reload();
       await onChanged?.(label);
@@ -91,7 +93,7 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
   const isCompleted = inspection?.status === 'Completed';
   const isSkipped = inspection?.status === 'Skipped';
   const isStarted = inspection?.status === 'In Progress' || isCompleted;
-  const editable = canEdit && isStarted && !isSkipped && (!isCompleted || (canCorrect && editing));
+  const editable = canEdit && Boolean(inspection) && !isSkipped && (!isCompleted || (canCorrect && editing));
   const maySkip = canEdit && !isCompleted && !isSkipped && inspection?.skipAllowed !== false;
   const skipBlockedReason = inspection?.skipBlockedReason || 'Inspection cannot be skipped in this stage.';
   const skipReason = skipChoice === 'Other' ? skipOther.trim() : skipChoice;
@@ -133,6 +135,7 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
       ...finding,
       title: finding.description.trim(),
       description: finding.description.trim(),
+      estimatedCost: finding.estimatedCost === '' ? null : Number(finding.estimatedCost),
       estimatedPartCharge: Number(finding.estimatedCost) || 0
     }));
     if (saved) setFinding(newFinding());
@@ -151,18 +154,21 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!file.type.startsWith('image/') || file.size > 2 * 1024 * 1024) {
-      setError('Choose an image under 2 MB.');
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
+        file.size <= 0 || file.size > 10 * 1024 * 1024) {
+      setError('Choose a JPEG, PNG or WebP image under 10 MB.');
       return;
     }
-    try {
-      const url = await readImage(file);
-      await perform('photo', () => jobInspectionService.addInspectionPhoto(job.id, {
-        url, type: 'Inspection', caption: file.name
-      }));
-    } catch (e) {
-      setError(e?.message || 'Photo could not be saved.');
-    }
+    await perform('photo', async () => {
+      // Only the private Django file endpoint stores image bytes. The
+      // inspection JSON contains a server-verified reference, not Base64.
+      const uploaded = await vehiclePhotoService.upload({
+        jobId: job.id, file, category: 'damage', phase: 'before',
+        caption: file.name.slice(0, 255), published: true,
+      });
+      if (!uploaded?.id) throw new Error('Private photo upload was not confirmed.');
+      await jobInspectionService.addInspectionPhoto(job.id, { photoId: uploaded.id });
+    });
   };
 
 
@@ -186,6 +192,15 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
           </div>
           <div className="cg-inspection-header-actions">
             <button type="button" className="cg-inspection-icon-button" aria-label="Refresh inspection" disabled={!!busy} onClick={() => perform('refresh', async () => {})}><RefreshCcw size={16} /></button>
+            {isSkipped && canEdit && (
+              <button type="button" className="cg-inspection-primary cg-inspection-reopen"
+                disabled={!canReopen || !!busy}
+                title={!canReopen ? 'Reopen the skipped Estimate first, or return before later stages have been completed.' : 'Restore this skipped inspection to editing'}
+                onClick={() => perform('reopen', () => jobInspectionService.reopenInspection(job.id))}>
+                <ClipboardCheck size={16} aria-hidden="true" />
+                {busy === 'reopen' ? 'Reopening…' : 'Edit Skipped Inspection'}
+              </button>
+            )}
             {isCompleted && canCorrect && (
               <button type="button" className="cg-inspection-primary" disabled={!!busy}
                 onClick={() => {
@@ -213,6 +228,9 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
       </section>
 
       {error && <div className="cg-inspection-error" role="alert">{error}</div>}
+      {!isStarted && !isSkipped && !canEdit && (
+        <p className="cg-inspection-hint" role="status">Inspection is read-only for your role or the current job stage.</p>
+      )}
 
       <section className="cg-inspection-checklist">
         <div className="cg-inspection-section-heading">
@@ -225,8 +243,8 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
             <input aria-label="Search inspection items" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search checks"/>
           </label>
         </div>
-        {!isStarted && !isSkipped && <p className="cg-inspection-hint">Start inspection to enable checklist options.</p>}
-        {isSkipped && <p className="cg-inspection-hint">Skipped — checklist results are retained but locked. No unchecked items were marked Good.</p>}
+        {!isStarted && !isSkipped && canEdit && <p className="cg-inspection-hint">Choose Good, Attention, Critical or N/A to automatically start inspection and save your check.</p>}
+        {isSkipped && <p className="cg-inspection-hint">Skipped — saved results are preserved. No unchecked items were marked Good. {canReopen ? 'Choose Edit Skipped Inspection above to continue.' : 'If Estimate was also skipped, reopen Estimate first. Completed work cannot be rolled back.'}</p>}
         <div className="cg-inspection-category-row">
           <label htmlFor="cg-inspection-category">Category</label>
           <select
@@ -267,7 +285,7 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
                       </button>
                     ))}
                     {selected !== 'Not Checked' && editable && (
-                      <button type="button" className="cg-inspection-reset" aria-label={'Clear ' + item} title="Clear check" disabled={!!busy} onClick={() => perform('check', () => jobInspectionService.updateChecklistItem(job.id, item, 'Not Checked'))}>×</button>
+                      <button type="button" className="cg-inspection-reset" aria-label={'Clear ' + item} title="Clear check" disabled={!editable || !!busy || !isStarted} onClick={() => perform('check', () => jobInspectionService.updateChecklistItem(job.id, item, 'Not Checked'))}>×</button>
                     )}
                   </div>
                 </div>
@@ -339,12 +357,12 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
         <div className="cg-inspection-attachment-content">
           <section>
             <h4>Inspection photos</h4>
-            <p>Use your camera or upload an image (max 2 MB).</p>
+            <p>Capture or upload a JPEG, PNG or WebP image (max 10 MB). Photos remain private until you explicitly publish them.</p>
             <label className={'cg-inspection-upload ' + (!editable || busy ? 'is-disabled' : '')}>
               <Camera size={16}/> Take / upload photo
               <input type="file" accept="image/*" capture="environment" disabled={!editable || !!busy} onChange={savePhoto}/>
             </label>
-            {!!photos.length && <div className="cg-inspection-photo-grid">{photos.map((photo) => <a key={photo.id} href={photo.url} target="_blank" rel="noreferrer" title={photo.caption || 'Inspection photo'}><img src={photo.url} alt={photo.caption || 'Inspection photo'}/></a>)}</div>}
+            <VehiclePhotoGallery jobId={job.id} canEdit={editable} canPublish={canEdit} refreshKey={photos.length} />
           </section>
           <section>
             <h4>Diagnostic codes</h4>
@@ -364,7 +382,7 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
 
       <footer className="cg-inspection-footer">
         <div>
-          <strong>{isSkipped ? 'Inspection skipped' : isCompleted ? 'Inspection completed' : !isStarted ? 'Start the inspection' : completed ? 'Ready to finish inspection' : 'Check the vehicle to continue'}</strong>
+          <strong>{isSkipped ? 'Inspection skipped' : isCompleted ? 'Inspection completed' : !isStarted ? 'Choose a condition to begin' : completed ? 'Ready to finish inspection' : 'Check the vehicle to continue'}</strong>
           <p>{isSkipped ? 'Reason: ' + (inspection.skipReason || 'Not supplied')
             : isCompleted
               ? canCorrect ? 'Use Edit Inspection to correct checks before estimate approval.' : 'Inspection is approved and read-only.'
@@ -383,13 +401,10 @@ export function JobInspectionPanel({ job, onChanged, canCorrect = false, canEdit
               <SkipForward size={16} aria-hidden="true" /> Skip Inspection
             </button>
             <button type="button" className="cg-inspection-primary"
-              disabled={!canEdit || !!busy || (isStarted && completed === 0)}
-              onClick={() => perform(isStarted ? 'complete' : 'start',
-                () => isStarted
-                  ? jobInspectionService.completeInspection(job.id, true)
-                  : jobInspectionService.startInspection(job.id))}>
+              disabled={!canEdit || !inspection || !!busy || !isStarted || completed === 0}
+              onClick={() => perform('complete', () => jobInspectionService.completeInspection(job.id, true))}>
               <CheckCircle2 size={16} aria-hidden="true"/>
-              {busy === 'complete' ? 'Finishing…' : busy === 'start' ? 'Starting…' : isStarted ? 'Complete Inspection' : 'Start Inspection'}
+              {busy === 'complete' ? 'Finishing…' : 'Complete Inspection'}
             </button>
           </div>
         )}

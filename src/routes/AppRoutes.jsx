@@ -1,11 +1,21 @@
 import { lazyPage } from './lazyPage';
 const OwnerCompanyProfile = lazyPage(() => import('../pages/saas/OwnerCompanyProfile'), 'OwnerCompanyProfile');
+const OwnerOnboarding = lazyPage(() => import('../pages/saas/OwnerOnboarding'), 'OwnerOnboarding');
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getStaffLandingPath } from '../utils/staffLanding';
 import { ProtectedRoute } from './ProtectedRoute';
 
 const CreditWorkspace = lazyPage(() => import('../pages/saas/CreditWorkspace'), 'CreditWorkspace');
+
+// Old supplier finance URLs remain safe bookmarks, but no duplicate UI/page is
+// mounted. All purchase, payment and credit actions now live on /suppliers/:id.
+function LegacySupplierRouteRedirect() {
+  const { search } = useLocation();
+  const selected = new URLSearchParams(search).get('supplier');
+  return <Navigate to={selected ? '/suppliers/' + encodeURIComponent(selected) : '/suppliers'} replace />;
+}
+
 
 const Login = lazyPage(() => import('../pages/auth/Login'), 'Login');
 const StaffSetPasswordPage = lazyPage(() => import('../pages/auth/StaffSetPasswordPage'), 'default');
@@ -41,20 +51,23 @@ const JobDetails = lazyPage(() => import('../pages/jobs/JobDetails'), 'JobDetail
 const JobStatus = lazyPage(() => import('../pages/jobs/JobStatus'), 'JobStatus');
 const JobReports = lazyPage(() => import('../pages/jobs/JobReports'), 'JobReports');
 const StockEasyPage = lazyPage(() => import('../pages/stock/StockEasyPage'), 'default');
-const SupplierWorkspace = lazyPage(() => import('../pages/suppliers/SupplierWorkspace'), 'default');
 const SuppliersPage = lazyPage(() => import('../pages/suppliers/SuppliersPage'), 'default');
-const SupplierFinancePage = lazyPage(() => import('../pages/stock/SupplierFinancePage'), 'default');
 const InvoiceList = lazyPage(() => import('../pages/invoices/InvoiceList'), 'InvoiceList');
 const EWayBillPage = lazyPage(() => import('../pages/invoices/EWayBillPage'), 'EWayBillPage');
 const PaymentList = lazyPage(() => import('../pages/payments/PaymentList'), 'PaymentList');
 const ExpenseList = lazyPage(() => import('../pages/expenses/ExpenseList'), 'ExpenseList');
+const FinanceWorkspace = lazyPage(() => import('../pages/finance/FinanceWorkspace'), 'default');
+const FinanceDashboard = lazyPage(() => import('../pages/finance/FinanceDashboard'), 'FinanceDashboard');
+const AccountingWorkspace = lazyPage(() => import('../pages/finance/AccountingWorkspace'), 'default');
+const AccountsPage = lazyPage(() => import('../pages/finance/AccountsPage'), 'AccountsPage');
+const TransfersPage = lazyPage(() => import('../pages/finance/TransfersPage'), 'TransfersPage');
+const TransactionsPage = lazyPage(() => import('../pages/finance/TransactionsPage'), 'TransactionsPage');
 const Reports = lazyPage(() => import('../pages/reports/Reports'), 'Reports');
 const GSTRDashboard = lazyPage(() => import('../pages/gstr/GSTRDashboard'), 'default');
 const Notifications = lazyPage(() => import('../pages/notifications/Notifications'), 'Notifications');
 const Settings = lazyPage(() => import('../pages/settings/Settings'), 'Settings');
 const WhatsAppSettingsPage = lazyPage(() => import('../pages/settings/WhatsAppSettingsPage'), 'default');
 const CustomerWebsiteSettingsPage = lazyPage(() => import('../pages/settings/CustomerWebsiteSettingsPage'), 'default');
-const CustomerWebsiteDomainsPage = lazyPage(() => import('../pages/settings/CustomerWebsiteDomainsPage'), 'default');
 const Profile = lazyPage(() => import('../pages/profile/Profile'), 'Profile');
 const SaaSAccount = lazyPage(() => import('../pages/saas/SaaSAccount'), 'SaaSAccount');
 
@@ -73,6 +86,11 @@ function RootRedirect() {
       replace
     />
   );
+}
+
+function LegacyFinanceRedirect() {
+  const { pathname, search, hash } = useLocation();
+  return <Navigate to={`/finance${pathname}${search}${hash}`} replace />;
 }
 
 export const AppRoutes = () => (
@@ -98,6 +116,7 @@ export const AppRoutes = () => (
       <Route path="/my-attendance/leave" element={<MyAttendance />} />
       <Route path="/my-attendance/overtime" element={<MyAttendance />} />
       <Route path="/my-attendance/summary" element={<MyAttendance />} />
+      <Route path="/my-attendance/salary" element={<Navigate to="/my-attendance/calendar" replace />} />
 
       <Route path="/attendance-manager" element={<Navigate to="/attendance-manager/overview" replace />} />
       <Route path="/attendance-manager/overview" element={<AttendanceManager />} />
@@ -198,12 +217,12 @@ export const AppRoutes = () => (
       <Route path="/jobs/:id/*" element={<JobDetails />} />
 
       <Route path="/suppliers" element={<SuppliersPage />} />
-      <Route path="/suppliers/credits" element={<SupplierFinancePage section="credits" />} />
+      <Route path="/suppliers/credits" element={<LegacySupplierRouteRedirect />} />
       <Route path="/suppliers/purchases" element={<SuppliersPage section="purchases" />} />
-      <Route path="/suppliers/payments" element={<SupplierFinancePage section="payments" />} />
+      <Route path="/suppliers/payments" element={<LegacySupplierRouteRedirect />} />
       <Route path="/suppliers/:id" element={<SuppliersPage />} />
       <Route path="/stock" element={<StockEasyPage />} />
-      <Route path="/stock/suppliers" element={<SupplierFinancePage />} />
+      <Route path="/stock/suppliers" element={<LegacySupplierRouteRedirect />} />
       <Route path="/stock/*" element={<Navigate to="/stock" replace />} />
 
       <Route path="/invoices" element={<InvoiceList />} />
@@ -220,17 +239,34 @@ export const AppRoutes = () => (
       <Route path="/quotations" element={<Navigate to="/invoices?kind=estimate" replace />} />
       <Route path="/quotations/new" element={<Navigate to="/invoices/new?kind=estimate" replace />} />
 
-      <Route path="/payments" element={<PaymentList />} />
-      <Route path="/payments/new" element={<PaymentList />} />
-      <Route path="/payments/:id" element={<PaymentList />} />
-      <Route path="/payments/:id/edit" element={<PaymentList />} />
-      <Route path="/payments/:id/delete" element={<PaymentList />} />
+      {/* Existing external bookmarks keep working; there is only one Finance UI. */}
+      <Route path="/payments" element={<LegacyFinanceRedirect />} />
+      <Route path="/payments/:id" element={<LegacyFinanceRedirect />} />
+      <Route path="/payments/*" element={<LegacyFinanceRedirect />} />
+      <Route path="/expenses" element={<LegacyFinanceRedirect />} />
+      <Route path="/expenses/:id" element={<LegacyFinanceRedirect />} />
+      <Route path="/expenses/*" element={<LegacyFinanceRedirect />} />
 
-      <Route path="/expenses" element={<ExpenseList />} />
-      <Route path="/expenses/new" element={<ExpenseList />} />
-      <Route path="/expenses/:id" element={<ExpenseList />} />
-      <Route path="/expenses/:id/edit" element={<ExpenseList />} />
-      <Route path="/expenses/:id/delete" element={<ExpenseList />} />
+      <Route path="/finance" element={<FinanceWorkspace />}>
+        <Route index element={<FinanceDashboard />} />
+        <Route path="/finance/payments" element={<PaymentList />} />
+        <Route path="/finance/payments/new" element={<PaymentList />} />
+        <Route path="/finance/payments/:id" element={<PaymentList />} />
+        <Route path="/finance/payments/:id/edit" element={<PaymentList />} />
+        <Route path="/finance/payments/:id/delete" element={<PaymentList />} />
+        <Route path="/finance/expenses" element={<ExpenseList />} />
+        <Route path="/finance/expenses/new" element={<ExpenseList />} />
+        <Route path="/finance/expenses/:id" element={<ExpenseList />} />
+        <Route path="/finance/expenses/:id/edit" element={<ExpenseList />} />
+        <Route path="/finance/expenses/:id/delete" element={<ExpenseList />} />
+        <Route path="/finance/accounting" element={<AccountingWorkspace />} />
+        <Route path="/finance/accounts" element={<AccountsPage />} />
+        <Route path="/finance/accounts/new" element={<AccountsPage />} />
+        <Route path="/finance/accounts/:id" element={<AccountsPage />} />
+        <Route path="/finance/transfers" element={<TransfersPage />} />
+        <Route path="/finance/transfers/new" element={<TransfersPage />} />
+        <Route path="/finance/transactions" element={<TransactionsPage />} />
+      </Route>
 
       <Route path="/gstr" element={<GSTRDashboard />} />
       <Route path="/reports" element={<Reports />} />
@@ -249,13 +285,14 @@ export const AppRoutes = () => (
       <Route path="/settings" element={<Settings />} />
       <Route path="/settings/whatsapp" element={<WhatsAppSettingsPage />} />
       <Route path="/settings/customer-website" element={<CustomerWebsiteSettingsPage />} />
-       <Route path="/settings/customer-website/domains" element={<CustomerWebsiteDomainsPage />} />
+      <Route path="/settings/customer-website/domains" element={<Navigate to="/settings/customer-website" replace />} />
       <Route path="/account" element={<CreditWorkspace section="overview" />} />
       <Route path="/account/credits/buy" element={<CreditWorkspace section="buy" />} />
       <Route path="/account/credits" element={<CreditWorkspace section="overview" />} />
       <Route path="/account/credits/features" element={<Navigate to="/account/credits" replace />} />
       <Route path="/account/credits/logs" element={<CreditWorkspace section="logs" />} />
       <Route path="/account/company" element={<OwnerCompanyProfile />} />
+      <Route path="/onboarding" element={<OwnerOnboarding />} />
       <Route path="/account/billing" element={<Navigate to="/account" replace />} />
       <Route path="/account/plans" element={<Navigate to="/account/credits" replace />} />
       <Route path="/account/storage" element={<SaaSAccount section="storage" />} />

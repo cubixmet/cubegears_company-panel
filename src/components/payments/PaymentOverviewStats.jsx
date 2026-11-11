@@ -11,13 +11,16 @@ export const PaymentOverviewStats = ({ payments, formatMoney }) => {
   const refunded = payments.filter(
     (row) => String(row.status).toLowerCase() === 'refunded',
   );
-  const collected = completed.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const collected = completed.filter(row => (row.direction || 'IN') === 'IN')
+    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const paid = completed.filter(row => row.direction === 'OUT')
+    .reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
   const cards = [
-    { label: 'Total Payments', value: payments.length, meta: 'payment records', icon: Banknote },
-    { label: 'Collected', value: formatMoney(collected), meta: completed.length + ' completed', icon: CheckCircle2, tone: 'success' },
-    { label: 'Pending', value: pending.length, meta: 'awaiting completion', icon: Clock3, tone: 'warning' },
-    { label: 'Refunded', value: refunded.length, meta: 'refunded payments', icon: RotateCcw, tone: 'danger' },
+    { label: 'All Payments', value: payments.length, meta: 'received and paid', icon: Banknote },
+    { label: 'Received', value: formatMoney(collected), meta: 'confirmed money in', icon: CheckCircle2, tone: 'success' },
+    { label: 'Paid Out', value: formatMoney(paid), meta: 'confirmed supplier, payroll, expense and other payments', icon: Clock3, tone: 'warning' },
+    { label: 'Reversed / Refunded', value: refunded.length + payments.filter(row => String(row.status).toLowerCase() === 'reversed').length, meta: 'audited corrections', icon: RotateCcw, tone: 'danger' },
   ];
 
   return (

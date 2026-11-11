@@ -3,7 +3,7 @@
  * sessionStorage, localStorage, route query params or app-wide state.
  * Share only on an explicit authorized administrator gesture.
  */
-export const buildStaffWhatsAppUrl = ({ phone, workshopName, staffName, setupLink }) => {
+export const buildStaffWhatsAppUrl = ({ phone, workshopName, staffName, setupLink, purpose = 'setup' }) => {
   const raw = String(phone || '').trim();
   const compact = raw.replace(/[\s().-]/g, '');
   if (!/^\+[1-9]\d{7,14}$/.test(compact)) {
@@ -20,20 +20,23 @@ export const buildStaffWhatsAppUrl = ({ phone, workshopName, staffName, setupLin
       || !/^\/set-password\/[^/]+$/.test(link.pathname)) {
     throw new Error('A secure password setup link is required.');
   }
+  const resetting = purpose === 'reset';
   const message = [
-    'Welcome to CubeGears!',
+    resetting ? 'cubixgear · Staff Password Reset' : 'Welcome to cubixgear!',
     '',
-    'Your staff account has been created.',
+    resetting
+      ? 'Your workshop administrator has prepared a password reset link.'
+      : 'Your workshop administrator has prepared your account setup link.',
     '',
     `Workshop: ${String(workshopName || 'Your workshop').trim()}`,
     `Name: ${String(staffName || 'Staff member').trim()}`,
     `Login Mobile: ${compact}`,
     '',
-    'Please set your password using this secure link:',
+    resetting ? 'Reset your password using this secure link:' : 'Set your password using this secure link:',
     link.toString(),
     '',
-    'The link is valid for 24 hours and can be used only once.',
-    'After creating your password, log in using your mobile number and password.',
+    'This link is valid for up to 24 hours and works only once.',
+    'Do not forward the link. If you did not request it, contact your workshop administrator.',
   ].join('\n');
   return `https://wa.me/${compact.slice(1)}?text=${encodeURIComponent(message)}`;
 };
@@ -47,10 +50,17 @@ export const shareManualStaffInvite = async (getInvitation, details) => {
   const popup = typeof window !== 'undefined' ? window.open('about:blank', '_blank') : null;
   try {
     const invitation = await getInvitation();
-    if (!invitation || invitation.whatsappInviteStatus !== 'manual') {
-      throw new Error('Manual invitation is not ready. Try again.');
+    // Cloud API delivery is automatic: never open a redundant manual URL.
+    // Django owns the one-use invitation and its provider delivery state.
+    const status = invitation?.whatsappInviteStatus;
+    if (['queued', 'sending', 'sent'].includes(status)) {
+      if (popup && !popup.closed) popup.close();
+      return { status, expiresAt: invitation.expiresAt, localOnlyLink: false };
     }
-    const url = buildStaffWhatsAppUrl({ ...details, setupLink: invitation.setupLink });
+    if (!invitation || status !== 'manual') {
+      throw new Error('WhatsApp reset is not ready. Check staff role and consent.');
+    }
+    const url = buildStaffWhatsAppUrl({ ...details, setupLink: invitation.setupLink, purpose: invitation.purpose });
     // A localhost setup URL works on the developer's PC but cannot be opened
     // by a staff member on another device. Surface this configuration issue.
     const setupHost = new URL(invitation.setupLink).hostname.toLowerCase();
@@ -77,7 +87,7 @@ export const copyManualStaffInvite = async (getInvitation, details) => {
   if (!invitation || invitation.whatsappInviteStatus !== 'manual') {
     throw new Error('Manual invitation is not ready. Try again.');
   }
-  const whatsappUrl = buildStaffWhatsAppUrl({ ...details, setupLink: invitation.setupLink });
+  const whatsappUrl = buildStaffWhatsAppUrl({ ...details, setupLink: invitation.setupLink, purpose: invitation.purpose });
   const text = new URL(whatsappUrl).searchParams.get('text');
   if (!text || typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
     throw new Error('Clipboard is unavailable. Use Share on WhatsApp instead.');

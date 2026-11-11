@@ -1,8 +1,8 @@
 import {useCallback,useEffect,useState} from 'react';
 import { appConfirm } from '../../components/common/appDialogs';
-import { Link } from 'react-router-dom';
-import {AlertCircle,ArrowUpRight,Check,Copy,Globe2,Palette,RefreshCw,ShieldCheck,Trash2} from 'lucide-react';
+import {AlertCircle,ArrowUpRight,Check,Copy,Globe2,Palette,RefreshCw,ShieldCheck} from 'lucide-react';
 import apiClient from '../../api/apiClient';
+import { customerWebsiteAddresses, isLocalCustomerWebsiteDevelopment } from '../../utils/customerWebsiteAddresses';
 import '../../styles/customer-website-settings.css';
 
 const empty = {
@@ -23,26 +23,26 @@ function ErrorMessage({children}) {
 export default function CustomerWebsiteSettingsPage(){
   const [fields,setFields] = useState(empty);
   const [subdomain,setSubdomain] = useState('');
+  const [subdomainLabel,setSubdomainLabel] = useState('');
+  const [subdomainDraft,setSubdomainDraft] = useState('');
+  const [wildcardReady,setWildcardReady] = useState(false);
+  const [subdomainSaving,setSubdomainSaving] = useState(false);
   const [logo,setLogo] = useState(false);
-  const [domains,setDomains] = useState([]);
-  const [hostname,setHostname] = useState('');
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
-  const [requesting,setRequesting] = useState(false);
   const [error,setError] = useState('');
   const [notice,setNotice] = useState('');
 
   const load = useCallback(async ()=>{
     setLoading(true);setError('');
     try {
-      const [website, domainRows] = await Promise.all([
-        apiClient.get('/company/customer-website'),
-        apiClient.get('/company/customer-website/domains')
-      ]);
+      const website = await apiClient.get('/company/customer-website');
       setFields(Object.fromEntries(Object.keys(empty).map(k=>[k,website[k]??empty[k]])));
       setSubdomain(website.subdomain||'');
+      setSubdomainLabel(website.subdomainLabel||'');
+      setSubdomainDraft(website.subdomainLabel||'');
+      setWildcardReady(website.wildcardReady===true);
       setLogo(!!website.hasLogo);
-      setDomains(Array.isArray(domainRows)?domainRows:[]);
     } catch(e) {setError(e.message||'Could not load your website settings.');}
     finally {setLoading(false);}
   },[]);
@@ -66,37 +66,46 @@ export default function CustomerWebsiteSettingsPage(){
     finally{setSaving(false);}
   }
 
-  async function requestDomain(event){
+  async function updateDefaultSubdomain(event){
     event.preventDefault();
-    if(requesting||!hostname.trim())return;
-    setRequesting(true);setError('');setNotice('');
+    if(subdomainSaving)return;
+    const label=subdomainDraft.trim().toLowerCase();
+    if(!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(label)){
+      setError('Use 3–63 lowercase letters, numbers or hyphens.');
+      return;
+    }
+    if(label===subdomainLabel)return;
+    if(!await appConfirm(
+      'Change your default website address? Existing customer links using the previous subdomain will need to be sent again.'
+    ))return;
+    setSubdomainSaving(true);setError('');setNotice('');
     try{
-      const result=await apiClient.post('/company/customer-website/domains',{hostname:hostname.trim()});
-      setDomains(old=>[result,...old]);
-      setHostname('');
-      setNotice(result.lastError ? "Saved, but Vercel setup needs attention: "+result.lastError : "Domain created. Open Manage Domains, DNS & SSL to copy records and verify.");
-    }catch(e){setError(e.message||'Could not submit domain request.');}
-    finally{setRequesting(false);}
+      const changed=await apiClient.patch('/company/customer-website/subdomain',{label});
+      setSubdomain(changed.subdomain);
+      setSubdomainLabel(changed.subdomainLabel);
+      setSubdomainDraft(changed.subdomainLabel);
+      setWildcardReady(changed.wildcardReady===true);
+      setNotice(changed.message||'Default website address updated.');
+    }catch(e){
+      setError(e?.response?.data?.label||e?.message||'Could not change this website address.');
+    }finally{setSubdomainSaving(false);}
   }
 
-  async function disableDomain(domain){
-    if(!await appConfirm('Disable this custom domain? Existing customer data will be preserved.'))return;
-    setError('');setNotice('');
-    try{
-      await apiClient.delete('/company/customer-website/domains/'+domain.id);
-      setDomains(old=>old.map(d=>d.id===domain.id?{...d,status:'disabled',isPrimary:false}:d));
-      setNotice('Custom domain disabled.');
-    }catch(e){setError(e.message||'Could not disable domain.');}
-  }
-
-  const primaryDomain = domains.find(d=>d.isPrimary && d.status==='active' && d.sslStatus==='ready' && d.ownershipVerified && d.dnsConfigured);
-  const websiteHost = primaryDomain?.hostname || subdomain;
+  const websiteReady = Boolean(wildcardReady);
+  const urls = customerWebsiteAddresses({
+    subdomain, subdomainLabel, wildcardReady,
+    localDevelopment: isLocalCustomerWebsiteDevelopment(
+      import.meta.env.DEV, window.location.hostname
+    ),
+    localOrigin: import.meta.env.VITE_CUSTOMER_WEBSITE_DEV_ORIGIN || '',
+  });
+  const websiteUrl = urls.displayUrl;
 
   async function copyLink(){
-    if(!websiteHost)return;
+    if(!urls.canOpen || !websiteUrl)return;
     try{
-      await navigator.clipboard.writeText('https://'+websiteHost);
-      setNotice('Default website address copied.');
+      await navigator.clipboard.writeText(websiteUrl);
+      setNotice(urls.isLocalPreview ? 'Local website address copied.' : 'Website address copied.');
     }catch{setError('Unable to copy. Please copy the address manually.');}
   }
 
@@ -104,7 +113,7 @@ export default function CustomerWebsiteSettingsPage(){
 
   return <main className="cws-page">
     <div className="cws-top">
-      <div><span className="cws-eyebrow"><Globe2 size={15}/> CubeGears Customer Website</span><h1>Customer Website</h1>
+      <div><span className="cws-eyebrow"><Globe2 size={15}/> CubixGear Customer Website</span><h1>Customer Website</h1>
         <p>Manage your workshop's public identity, website address and customer-facing branding.</p></div>
       <button type="button" className="cws-btn cws-secondary" onClick={load}><RefreshCw size={17}/>Refresh</button>
     </div>
@@ -114,15 +123,39 @@ export default function CustomerWebsiteSettingsPage(){
       <section className="cws-card">
         <div className="cws-heading"><div className="cws-square"><Globe2 size={23}/></div><div><h2>Your Customer Website</h2><p>Visitors see your workshop website at the domain root.</p></div></div>
         <div className="cws-domain-url">
-          <span>{websiteHost ? 'https://'+websiteHost+'/' : 'Website domain not configured'}</span>
-          <button type="button" aria-label="Copy website URL" onClick={copyLink} disabled={!websiteHost}><Copy size={17}/></button>
+          <span>{websiteUrl || 'Website domain not configured'}</span>
+          <button type="button" aria-label="Copy website URL" onClick={copyLink} disabled={!urls.canOpen||!websiteUrl}><Copy size={17}/></button>
         </div>
+        {urls.isLocalPreview&&<p className="cws-local-domain-info">
+          <strong>Local development website</strong>
+          <span>Production address: {urls.productionUrl || 'Not configured'} {websiteReady ? '(available only when deployed)' : '(DNS / HTTPS activation pending)'}</span>
+        </p>}
         <div className="cws-actions">
-          {websiteHost&&<a className="cws-btn cws-primary" href={'https://'+websiteHost+'/'} target="_blank" rel="noopener noreferrer">Open Website <ArrowUpRight size={16}/></a>}
-          <Link to="/settings/customer-website/domains" className="cws-btn cws-secondary">Domain Settings</Link>
+          {urls.canOpen&&websiteUrl&&<a className="cws-btn cws-primary" href={websiteUrl} target="_blank" rel="noopener noreferrer">Open Website <ArrowUpRight size={16}/></a>}
         </div>
+        <form className="cws-subdomain-form" onSubmit={updateDefaultSubdomain}>
+          <label className="cws-field"><span>Default Website Subdomain</span>
+            <div className="cws-subdomain-field">
+              <input type="text" value={subdomainDraft} maxLength={63} required
+                autoCapitalize="none" spellCheck={false}
+                aria-label="Default website subdomain name"
+                onChange={event=>setSubdomainDraft(event.target.value.toLowerCase())}/>
+              <span>{urls.suffix}</span>
+            </div>
+          </label>
+          <button type="submit" className="cws-btn cws-secondary"
+            disabled={subdomainSaving||!subdomainDraft.trim()||subdomainDraft.trim()===subdomainLabel}>
+            {subdomainSaving?'Saving…':'Update Subdomain'}
+          </button>
+          <small>Names are unique for every workshop. Changing this address does not change your login. Existing customer links on the old hostname must be sent again.</small>
+        </form>
+        {!wildcardReady&&<p className="cws-warning" role="status">
+          Production address reserved in CubeGears. Platform wildcard DNS and HTTPS have not been marked ready yet; do not share the production address until activation.
+        </p>}
         <div className="cws-hint"><ShieldCheck size={17}/><span>
-          {primaryDomain ? 'Primary verified domain. Default subdomain: '+subdomain : 'Using default subdomain. DNS and HTTPS must be live before the website opens publicly.'}
+          {urls.isLocalPreview
+            ? 'Local preview uses your saved workshop subdomain. Production DNS/HTTPS verification is separate.'
+            : 'Using default subdomain. DNS and HTTPS must be live before the website opens publicly.'}
         </span></div>
       </section>
 
@@ -143,22 +176,6 @@ export default function CustomerWebsiteSettingsPage(){
         </form>
       </section>
 
-      <section className="cws-card">
-        <div className="cws-heading"><div className="cws-square"><Globe2 size={23}/></div><div><h2>Custom Domain</h2><p>Use your own domain after DNS ownership and HTTPS verification.</p></div></div>
-        <Link to="/settings/customer-website/domains" className="cws-btn cws-primary" style={{marginBottom:16}}>Manage Domains, DNS & SSL <ArrowUpRight size={16}/></Link>
-        <form className="cws-domain-form" onSubmit={requestDomain}><label className="cws-field"><span>Domain Name</span>
-          <input type="text" value={hostname} maxLength={253} onChange={e=>setHostname(e.target.value)} placeholder="portal.yourworkshop.com" required autoCapitalize="none" spellCheck={false}/></label>
-          <button className="cws-btn cws-primary" disabled={requesting} type="submit">{requesting?'Submitting…':'Request Domain'}</button></form>
-        <div className="cws-hint"><ShieldCheck size={17}/>Unverified domains never serve customer records. Exact DNS records must come from your hosting provider.</div>
-        <div className="cws-domain-list">
-          {!domains.length&&<p className="cws-muted">No custom domains requested yet.</p>}
-          {domains.map(d=><div className="cws-domain-item" key={d.id}>
-            <div><strong>{d.hostname}</strong><span className={'cws-domain-status is-'+d.status}>{d.status.replaceAll('_',' ')}</span></div>
-            <div className="cws-domain-actions">{d.status==='active'&&<a href={'https://'+d.hostname} target="_blank" rel="noreferrer noopener" aria-label={'Open '+d.hostname}><ArrowUpRight size={18}/></a>}
-              {d.status!=='disabled'&&<button type="button" aria-label={'Disable '+d.hostname} onClick={()=>disableDomain(d)}><Trash2 size={17}/></button>}</div>
-          </div>)}
-        </div>
-      </section>
     </div>
   </main>;
 }

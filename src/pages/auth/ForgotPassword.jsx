@@ -75,7 +75,7 @@ export const ForgotPassword = () => {
           <Link to="/login" className="auth-back"><ArrowLeft size={14}/>Back to sign in</Link>
           <div className="login-brand-row">
             <div className="login-brand-mark">CG</div>
-            <div><div className="login-brand-name">CubeGears</div><div className="login-brand-subtitle">Secure Account Access</div></div>
+            <div><div className="login-brand-name">cubixgear</div><div className="login-brand-subtitle">Secure Account Access</div></div>
           </div>
 
           <h1 className="login-title">{mode === 'magic' ? 'Existing Account Magic Link' : 'Reset your password'}</h1>

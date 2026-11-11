@@ -1,9 +1,10 @@
-import { appConfirm } from '../../components/common/appDialogs';
-import { useEffect, useMemo, useState } from "react";
+import { appPrompt } from '../../components/common/appDialogs';
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Plus, Printer, ReceiptText, Trash2, CheckCircle2, XCircle, CopyPlus } from 'lucide-react';
 import { billingService, blankBillingDocument, calculateDocumentTotals } from '../../services/billing.service';
 import { INDIA_STATES } from '../../utils/indiaGst';
 import { invoiceTaxMode, invoiceLineTaxChoices, invoiceChoiceFromTotalRate } from '../../utils/invoiceTaxUi';
+import '../../styles/billing-part10.css';
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 const itemTypes = ['Stock Part', 'Outside Purchase', 'Labour', 'Service', 'Consumable', 'Custom Item'];
@@ -19,6 +20,21 @@ export function BillingWorkspace() {
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState('');
   const [gstConfig, setGstConfig] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const busyRef = useRef(false);
+  const readOnly = Boolean(form.id) && form.status !== 'Draft';
+
+  // Prevent duplicate POSTs on double-click before React state rerenders.
+  const beginOperation = () => {
+    if (busyRef.current) return false;
+    busyRef.current = true;
+    setBusy(true);
+    return true;
+  };
+  const finishOperation = () => {
+    busyRef.current = false;
+    setBusy(false);
+  };
 
   const load = async () => {
     const [docs, stock, gst] = await Promise.all([
@@ -53,11 +69,14 @@ export function BillingWorkspace() {
   };
 
   const edit = (doc) => {
-    setForm({ ...JSON.parse(JSON.stringify(doc)), seller: {
-      ...(doc.seller || {}),
-      name: gstConfig?.companyName || doc.seller?.name || '',
+    const saved = JSON.parse(JSON.stringify(doc));
+    // Issued documents must display their original saved legal identity;
+    // only new/editable drafts may use the workshop's latest GST settings.
+    setForm(doc.status === 'Draft' ? { ...saved, seller: {
+      ...(saved.seller || {}),
+      name: gstConfig?.companyName || saved.seller?.name || '',
       gstin: gstConfig?.gstin || '', stateCode: gstConfig?.supplierState || '',
-    } });
+    } } : saved);
     setSelected(doc);
     setError('');
     setMode('edit');
@@ -120,6 +139,8 @@ export function BillingWorkspace() {
   };
 
   const save = async () => {
+    if (readOnly) return setError('Issued and cancelled documents are locked. Open a new draft for changes.');
+    if (busyRef.current) return;
     setError('');
     if (!form.customer?.name?.trim()) return setError('Customer / company name is required.');
     if (!form.items.length) return setError('Add at least one bill item.');
@@ -127,16 +148,20 @@ export function BillingWorkspace() {
       return setError('Configure your valid workshop GSTIN in Company Settings.');
     }
     if (invalidGstSelection()) return setError('Selected GST type does not match Place of Supply.');
+    if (!beginOperation()) return;
     try {
       const saved = await billingService.saveDraft(form);
       setForm(saved);
       setSelected(saved);
       await load();
     } catch (e) { setError(e?.message || 'Could not save billing document.'); }
-
+    finally { finishOperation(); }
   };
 
   const finalize = async () => {
+    if (readOnly) return setError('This document has already been issued or cancelled.');
+    if (!beginOperation()) return;
+    setError('');
     try {
       if (invalidGstSelection()) throw new Error('Selected GST type does not match Place of Supply.');
       if (form.invoiceType === 'gst') {
@@ -153,25 +178,61 @@ export function BillingWorkspace() {
       await load();
     } catch (e) {
       setError(e.message || 'Could not finalize document.');
-    }
+    } finally { finishOperation(); }
   };
 
   const cancel = async () => {
-    if (!form.id || !await appConfirm('Cancel this document?')) return;
+    if (!form.id || readOnly || busyRef.current) return;
+    const reason = await appPrompt(
+      'Why are you cancelling this draft? A permanent audit record will be retained.',
+      '',
+      { title: 'Cancel saved draft', confirmLabel: 'Cancel draft',
+        placeholder: 'Enter cancellation reason (5–500 characters)', required: true, tone: 'danger' },
+    );
+    if (reason === null) return;
+    const clean = String(reason).trim();
+    if (clean.length < 5 || clean.length > 500) {
+      setError('Provide a cancellation reason between 5 and 500 characters.');
+      return;
+    }
+    if (!beginOperation()) return;
+    setError('');
     try {
-      const done = await billingService.cancel(form.id);
+      const done = await billingService.cancel(form.id, clean);
       setForm(done);
+      setSelected(done);
       await load();
-    } catch (e) { setError(e.message || 'Could not cancel document.'); }
+    } catch (e) {
+      setError(e?.message || 'Could not cancel this draft.');
+    } finally { finishOperation(); }
+  };
+
+  const downloadPdf = async () => {
+    if (!form.id) return setError('Save the document before downloading its official PDF.');
+    if (!beginOperation()) return;
+    setError('');
+    try {
+      // Always download PDF bytes rendered from the authorized saved Django
+      // record. An edited browser preview is never a legal invoice.
+      await billingService.downloadPdf(form);
+    } catch (e) {
+      setError(e?.message || 'Unable to download the official document PDF.');
+    } finally { finishOperation(); }
   };
 
   const convertToInvoice = async () => {
-    if (!form.id) return;
-    const invoice = await billingService.convertEstimateToInvoice(form.id);
-    setActiveTab('invoice');
-    setForm(invoice);
-    setSelected(invoice);
-    await load();
+    if (!form.id || form.kind !== 'estimate' || busyRef.current) return;
+    if (!beginOperation()) return;
+    setError('');
+    try {
+      const invoice = await billingService.convertEstimateToInvoice(form.id);
+      setActiveTab('invoice');
+      setForm(invoice);
+      setSelected(invoice);
+      await load();
+    } catch (e) {
+      setError(e?.message || 'Unable to convert estimate to invoice.');
+    } finally { finishOperation(); }
   };
 
   if (mode === 'edit') {
@@ -184,17 +245,33 @@ export function BillingWorkspace() {
             <p>Manual pricing supported for labour, service, outside purchase and custom items.</p>
           </div>
           <div className="billing-head-actions">
-            <button className="bill-btn secondary" onClick={save}>Save Draft</button>
-            {form.kind === 'estimate' && form.id && <button className="bill-btn secondary" onClick={convertToInvoice}><CopyPlus size={16}/> Convert to Invoice</button>}
-            <button className="bill-btn" onClick={finalize}><CheckCircle2 size={16}/> {form.kind === 'estimate' ? 'Issue Estimate' : 'Finalize Invoice'}</button>
-            <button className="bill-btn secondary" onClick={() => window.print()}><Printer size={16}/> Print / PDF</button>
-            {form.id && form.status !== 'Cancelled' && <button className="bill-btn danger" onClick={cancel}><XCircle size={16}/> Cancel</button>}
+            {!readOnly && <button type="button" className="bill-btn secondary" disabled={busy} onClick={save}>Save Draft</button>}
+            {form.kind === 'estimate' && form.id && ['Draft', 'Issued'].includes(form.status) &&
+              <button type="button" className="bill-btn secondary" disabled={busy} onClick={convertToInvoice}>
+                <CopyPlus size={16}/> Convert to Invoice
+              </button>}
+            {!readOnly && <button type="button" className="bill-btn" disabled={busy} onClick={finalize}>
+              <CheckCircle2 size={16}/> {form.kind === 'estimate' ? 'Issue Estimate' : 'Finalize Invoice'}
+            </button>}
+            <button type="button" className="bill-btn secondary" disabled={busy || !form.id} onClick={downloadPdf}>
+              <Printer size={16}/> Download Official PDF
+            </button>
+            {form.id && form.status === 'Draft' &&
+              <button type="button" className="bill-btn danger" disabled={busy} onClick={cancel}>
+                <XCircle size={16}/> Cancel Draft
+              </button>}
           </div>
         </div>
 
-        {error && <div className="billing-error no-print">{error}</div>}
+        {error && <div className="billing-error no-print" role="alert">{error}</div>}
+        {readOnly && <p className="billing-locked-note no-print" role="status">
+          This document is {form.status.toLowerCase()}. Its saved items, tax, number and template are locked.
+          Download the official PDF for the preserved document.
+          {form.cancellationReason ? ` Cancellation reason: ${form.cancellationReason}` : ''}
+        </p>}
 
-        <div className="billing-form-grid no-print">
+        <fieldset className="billing-editor-lock" disabled={readOnly || busy}>
+          <div className="billing-form-grid no-print">
           <section className="billing-card">
             <h3>Document</h3>
             <label>Type<select value={form.invoiceType} onChange={(e) => update('invoiceType', e.target.value)}><option value="regular">Regular Bill</option><option value="gst">GST Tax Invoice</option></select></label>
@@ -275,11 +352,12 @@ export function BillingWorkspace() {
               <strong>{totals.taxMode === 'cgst_sgst' ? 'CGST + SGST / UTGST' : totals.taxMode === 'igst' ? 'IGST' : 'Select place of supply'}</strong>
               <small>Item GST rates are calculated automatically for the selected State / UT.</small>
             </div>}
-            <label>Paid ₹<input type="number" min="0" value={form.paid || 0} onChange={(e) => update('paid', Number(e.target.value))}/></label>
+            <label>Received ₹ (posted payments)<input type="text" value={money.format(Number(form.paid || 0))} readOnly title="Customer receipts must be recorded in the Payments module."/><small>Record actual Cash/UPI/Bank receipts in Customer Payments after finalizing.</small></label>
             <label>Payment Mode<select value={form.paymentMode} onChange={(e) => update('paymentMode', e.target.value)}><option>Cash</option><option>UPI</option><option>Card</option><option>Bank Transfer</option><option>Cheque</option></select></label>
           </div>
         </section>
 
+        </fieldset>
         <InvoicePrint doc={form} totals={totals} />
       </div>
     );
@@ -313,7 +391,7 @@ function InvoicePrint({ doc, totals }) {
   return (
     <section className="invoice-print-sheet">
       <div className="invoice-print-head">
-        <div><div className="invoice-logo">CUBIXGEAR</div><strong>Workshop Management</strong></div>
+        <div><div className="invoice-logo">{doc.seller?.name || 'Workshop'}</div><strong>Document Preview</strong></div>
         <div className="invoice-title"><h2>{doc.kind === 'estimate' ? 'ESTIMATE' : doc.invoiceType === 'gst' ? 'TAX INVOICE' : 'INVOICE'}</h2><span>No: {doc.number || 'DRAFT'}</span><span>Date: {doc.date}</span><span>Job #: {doc.jobCardNo || '—'}</span></div>
       </div>
       <div className="invoice-info-band"><div><strong>Workshop</strong><span>{doc.seller?.name || 'Workshop'}</span><span>{doc.seller?.address || 'Workshop Address'}</span><span>GSTIN: {doc.seller?.gstin || 'Not registered'}</span></div><div><strong>Bill To</strong><span>{doc.customer?.name || '—'}</span><span>{doc.customer?.address || doc.customer?.phone || '—'}</span>{doc.invoiceType === 'gst' && <span>GSTIN: {doc.customer?.gstin || '—'}</span>}</div><div><strong>Vehicle</strong><span>{doc.vehicle?.registration || '—'}</span><span>{doc.vehicle?.makeModel || '—'}</span><span>Odometer: {doc.vehicle?.odometer || '—'}</span></div></div>

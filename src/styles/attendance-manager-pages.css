@@ -297,3 +297,34 @@
 .attendance-rules-page .attendance-rules-feedback-retry:focus-visible{
   outline:2px solid var(--danger);outline-offset:2px;
 }
+
+/* One source for punch geofence: owner-only onboarding. */
+.attendance-rules-page .attendance-location-from-onboarding {
+  display: flex; flex-direction: column; gap: 14px;
+}
+.attendance-rules-page .attendance-location-owner-note {
+  margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-secondary);
+}
+.attendance-rules-page .attendance-location-readonly {
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 14px; border-radius: 12px; border: 1px solid var(--border);
+  background: var(--surface-2); overflow-wrap: anywhere;
+  color: var(--text-primary); font-size: 14px;
+}
+.attendance-rules-page .attendance-location-readonly strong { font-size: 16px; }
+.attendance-rules-page .attendance-location-readonly small {
+  color: var(--text-secondary); font-size: 13px; line-height: 1.55;
+}
+.attendance-rules-page .attendance-location-setup-link {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: fit-content; min-height: 44px; padding: 9px 14px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); color: var(--primary); font-size: 14px;
+  font-weight: 700; text-decoration: none;
+}
+.attendance-rules-page .attendance-location-setup-link:hover {
+  background: var(--primary-soft); border-color: var(--primary);
+}
+@media (max-width: 520px) {
+  .attendance-rules-page .attendance-location-setup-link { width: 100%; }
+}

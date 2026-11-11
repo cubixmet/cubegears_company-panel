@@ -14,7 +14,7 @@ export const templateFieldLabels = {
 };
 const booleanFields = new Set([
   'showOriginal','showSellerMark','compactTable','customShowTransport',
-  'customShowTaxTable','showBusinessLogo','showBankDetails','showTerms','showSignature'
+  'customShowTaxTable','showBusinessLogo','showBankDetails','showGstin','showPan','showWebsite','showTerms','showSignature'
 ]);
 const largeFields = new Set(['businessAddress','termsText','customFooter']);
 const templates = new Set(['modern','classic','minimal','custom']);

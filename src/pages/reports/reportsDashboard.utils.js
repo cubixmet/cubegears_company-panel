@@ -95,7 +95,9 @@ export const isRealInvoice = (row) =>
   !['draft', 'cancelled', 'canceled', 'void'].includes(String(row.status || '').toLowerCase());
 
 export const isRealPayment = (row) =>
-  !['pending', 'refunded', 'failed', 'cancelled', 'canceled'].includes(String(row.status || 'completed').toLowerCase());
+  !row.reversed_at && !row.reversedAt &&
+  !['pending', 'refunded', 'reversed', 'failed', 'cancelled', 'canceled'].includes(
+    String(row.status || 'completed').toLowerCase());
 
 export const isRealExpense = (row) =>
   !['draft', 'cancelled', 'canceled', 'void', 'rejected'].includes(String(row.status || '').toLowerCase());
@@ -132,8 +134,17 @@ export const buildReportSummary = ({
 
   const sales = round(invoiceRows.reduce((sum, inv) => sum + (invoiceAmounts(inv).total || 0), 0));
   const outstanding = round(invoiceRows.reduce((sum, inv) => sum + (invoiceAmounts(inv).balance || 0), 0));
-  const collected = round(paymentRows.reduce((sum, item) => sum + (moneyNumber(item.amount) || 0), 0));
+  // Outgoing customer refunds reduce cash received; reversed receipts never count.
+  const collected = round(paymentRows.reduce((sum, item) =>
+    sum + (String(item.direction || 'IN').toUpperCase() === 'OUT' ? -1 : 1) *
+      (moneyNumber(item.amount) || 0), 0));
+  // Recognized operating expenses and paid cash expenses are different metrics.
   const expenseTotal = round(expenseRows.reduce((sum, item) => sum + (moneyNumber(item.amount) || 0), 0));
+  const expensePaidTotal = round(expenseRows.reduce((sum, item) =>
+    // Live Django sends paidAmount explicitly, including zero. Only legacy
+    // demo records with no paid field use their historical Paid status.
+    sum + (moneyNumber(item.paidAmount ?? item.paid_amount ??
+      (String(item.status || '').toLowerCase() === 'paid' ? item.amount : 0)) || 0), 0));
   const stockRows = available.stock && branch === 'All' && staff === 'All' ? stock : [];
   // Stock is a current snapshot, not a historical date-scoped financial series.
   const stockValue = round(stockRows.reduce((sum, row) =>
@@ -152,7 +163,7 @@ export const buildReportSummary = ({
 
   return {
     invoiceRows, paymentRows, expenseRows, sales, outstanding, collected,
-    expenseTotal, netCash: round(collected - expenseTotal), stockValue, lowStock,
+    expenseTotal, expensePaidTotal, netCash: round(collected - expensePaidTotal), stockValue, lowStock,
     expenseCategories, stockRows, available,
     comparable: branch === 'All' && staff === 'All',
   };
@@ -197,7 +208,9 @@ export const reportChartBuckets = (report, from, to) => {
   }
   for (const [rows, field, kind, amount] of [
     [report.invoiceRows, 'billed', 'invoice', (row) => invoiceAmounts(row).total],
-    [report.paymentRows, 'collected', 'payment', (row) => moneyNumber(row.amount) || 0],
+    [report.paymentRows, 'collected', 'payment', (row) =>
+      (String(row.direction || 'IN').toUpperCase() === 'OUT' ? -1 : 1) *
+      (moneyNumber(row.amount) || 0)],
     [report.expenseRows, 'expenses', 'expense', (row) => moneyNumber(row.amount) || 0],
   ]) {
     rows.forEach((row) => {

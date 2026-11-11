@@ -16,6 +16,7 @@ export function WhatsAppSettingsPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [events, setEvents] = useState({});
+  const [estimateReminderHours, setEstimateReminderHours] = useState(24);
   const [enabled, setEnabled] = useState(false);
   const [mode, setMode] = useState('manual');
   const [templateEvent, setTemplateEvent] = useState('job_created');
@@ -35,7 +36,10 @@ export function WhatsAppSettingsPage() {
         apiClient.get('/whatsapp/logs'),
       ]);
       setInfo(settings);
-      setEvents(settings.events || {});
+      setEvents(Object.fromEntries(
+        Object.entries(settings.events || {}).filter(([key]) => key !== 'estimate_reminder_hours')
+      ));
+      setEstimateReminderHours(settings.events?.estimate_reminder_hours === 48 ? 48 : 24);
       setEnabled(Boolean(settings.notificationsEnabled));
       setMode(settings.messagingMode || 'manual');
       setLogs(Array.isArray(recent) ? recent : []);
@@ -135,7 +139,10 @@ export function WhatsAppSettingsPage() {
   };
 
   const save = () => action(async () => {
-    await apiClient.patch('/whatsapp/settings', { messagingMode: mode, notificationsEnabled: enabled, events });
+    const reminderEvents = { ...events, estimate_reminder_hours: estimateReminderHours };
+    await apiClient.patch('/whatsapp/settings', {
+      messagingMode: mode, notificationsEnabled: enabled, events: reminderEvents,
+    });
     setSuccess(mode === 'manual' ? 'Manual mode saved. Staff will send WhatsApp drafts themselves.' : 'Automatic mode preferences saved. Sending requires a connected approved Meta account.');
   });
   const configureTemplate = () => action(async () => {
@@ -219,6 +226,19 @@ export function WhatsAppSettingsPage() {
               {event.replaceAll('_', ' ')}
             </label>
           ))}</div>
+          <div className="wa-reminder-settings">
+            <label htmlFor="wa-estimate-reminder-hours">
+              Estimate reminder interval
+              <select id="wa-estimate-reminder-hours"
+                value={estimateReminderHours}
+                disabled={!info.connected || busy || mode !== 'automatic' || !events.estimate_reminder}
+                onChange={e => setEstimateReminderHours(Number(e.target.value))}>
+                <option value={24}>Every 24 hours</option>
+                <option value={48}>Every 48 hours</option>
+              </select>
+            </label>
+            <p>Only for the latest shared estimate awaiting a customer decision. Requires customer WhatsApp opt-in, an approved estimate_reminder template and the backend reminder scheduler. Stops after acceptance, rejection or withdrawal.</p>
+          </div>
           <button type="button" className="wa-primary" disabled={busy} onClick={save}>Save Notification Settings</button>
           <p className="wa-info">Messages require an approved Meta template, explicit customer opt-in, and an enabled worker. New consent defaults to OFF.</p>
         </section>

@@ -92,3 +92,16 @@
   font-size: 12px;
   line-height: 1.55;
 }
+
+/* Each staff password field uses its own accessible eye toggle. Hide any
+   browser-provided reveal/clear control so two eye icons do not overlap. */
+[data-staff-password-setup] input[type="password"]::-ms-reveal,
+[data-staff-password-setup] input[type="password"]::-ms-clear {
+  display: none;
+}
+
+[data-staff-password-setup] .login-password-toggle {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}

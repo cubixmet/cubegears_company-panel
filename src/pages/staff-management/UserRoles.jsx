@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   RoleCardGrid,
   RoleEditorForm,
-  RoleOverviewStats,
   RolesHeader,
 } from '../../components/staff-management';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
@@ -26,6 +25,7 @@ export const UserRoles = () => {
   const { isCompanyOwner } = featureAccess;
   const availableModules = useMemo(() => companyPermissionModules(featureAccess.can), [featureAccess.can]);
   const [roles, setRoles] = useState([]);
+  const [roleSearch, setRoleSearch] = useState('');
   const [legacyPresetRoles, setLegacyPresetRoles] = useState([]);
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [cleanupError, setCleanupError] = useState('');
@@ -193,6 +193,11 @@ export const UserRoles = () => {
     }
   };
 
+  const visibleRoles = useMemo(() => roles.filter(role => (
+    [role.name, role.code, role.status].some(value => String(value || '')
+      .toLowerCase().includes(roleSearch.trim().toLowerCase()))
+  )), [roles, roleSearch]);
+
   const countEnabledPermissions = (permissions) => {
     if (!permissions || typeof permissions !== 'object') return 0;
 
@@ -218,7 +223,7 @@ export const UserRoles = () => {
         <section className="roles-legacy-review" aria-label="Review old signup roles">
           <div>
             <h3>Old automatically created roles</h3>
-            <p>These {legacyPresetRoles.length} roles match the old signup defaults and have no assigned staff. Review them before removing. Protected, edited and custom roles will stay.</p>
+            <p>{legacyPresetRoles.length} unused signup presets. Assigned and custom roles are protected.</p>
             <ul>
               {legacyPresetRoles.map(role => <li key={role.id}>{role.name}</li>)}
             </ul>
@@ -234,10 +239,16 @@ export const UserRoles = () => {
         <div className="roles-dashboard-loading">Loading company roles…</div>
       ) : (
         <>
-          <RoleOverviewStats roles={roles} />
-
+          <div className="roles-search-row">
+            <label className="roles-search-box">
+              <span className="sr-only">Search roles</span>
+              <input value={roleSearch} onChange={event => setRoleSearch(event.target.value)}
+                placeholder="Search roles…" aria-label="Search roles" />
+            </label>
+            <span>{visibleRoles.length} of {roles.length} roles</span>
+          </div>
           <RoleCardGrid
-            roles={roles}
+            roles={visibleRoles}
             countPermissions={countEnabledPermissions}
             onOpen={handleOpenEdit}
             onDelete={handleDeleteRole}
@@ -254,7 +265,7 @@ export const UserRoles = () => {
           setError('');
         }}
         title={editingRole ? `Role: ${editingRole.name}` : 'Add New Role'}
-        maxWidth="760px"
+        maxWidth="640px"
       >
         <RoleEditorForm
           editingRole={editingRole}

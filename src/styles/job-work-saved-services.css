@@ -1,0 +1,42 @@
+/* Compact service records. Selling amounts are not direct workshop costs. */
+.cg-job-detail .job-work-saved-services {
+  display:grid;gap:10px;padding:12px;min-width:0;
+  border:1px solid var(--border);border-radius:12px;background:var(--surface)
+}
+.cg-job-detail .job-work-saved-header,
+.cg-job-detail .job-work-saved-row,
+.cg-job-detail .job-work-saved-total {
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap
+}
+.cg-job-detail .job-work-saved-header h3 {margin:0;font-size:16px}
+.cg-job-detail .job-work-saved-header p {margin:3px 0 0}
+.cg-job-detail .job-work-saved-header p,
+.cg-job-detail .job-work-saved-info small,
+.cg-job-detail .job-work-saved-total small,
+.cg-job-detail .job-work-saved-empty {color:var(--text-secondary);font-size:12px}
+.cg-job-detail .job-work-saved-count {font-size:12px;white-space:nowrap}
+.cg-job-detail .job-work-saved-list,
+.cg-job-detail .job-work-saved-info {display:grid;gap:7px;min-width:0}
+.cg-job-detail .job-work-saved-row {
+  padding:11px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2)
+}
+.cg-job-detail .job-work-saved-info {flex:1;overflow-wrap:anywhere}
+.cg-job-detail .job-work-saved-info strong {font-size:14px}
+.cg-job-detail .job-work-saved-actions {
+  display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap
+}
+.cg-job-detail .job-work-saved-actions > strong {font-size:16px;white-space:nowrap}
+.cg-job-detail .job-work-saved-remove {
+  display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 11px;
+  border:1px solid var(--border);border-radius:9px;background:var(--surface);
+  color:var(--danger);cursor:pointer
+}
+.cg-job-detail .job-work-saved-remove:disabled {opacity:.55;cursor:not-allowed}
+.cg-job-detail .job-work-saved-total {padding-top:11px;border-top:1px solid var(--border)}
+.cg-job-detail .job-work-saved-total small {display:block}
+.cg-job-detail .job-work-saved-total strong {font-size:19px}
+.cg-job-detail .job-work-saved-error {color:var(--danger)}
+@media(max-width:600px) {
+  .cg-job-detail .job-work-saved-row {align-items:flex-start}
+  .cg-job-detail .job-work-saved-actions {flex:1 1 100%}
+}

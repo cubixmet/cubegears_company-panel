@@ -1,6 +1,7 @@
 
 import { RotateCcw, Save } from 'lucide-react';
 import { SettingsCompanyLogo } from './SettingsCompanyLogo';
+import GstRateDropdown from '../common/GstRateDropdown';
 
 export const SettingsEditor = ({
   active, sections, schema, data, themeMode, setThemeMode,
@@ -57,7 +58,11 @@ export const SettingsEditor = ({
           return (
             <label className={type === 'textarea' ? 'crud-field full' : 'crud-field'} key={key} htmlFor={inputId}>
               <span>{label}</span>
-              {type === 'select' ? (
+              {key === 'defaultTaxRate' ? (
+                <GstRateDropdown id={inputId} value={value}
+                  selectLabel="Default GST Rate (%)" disabled={saving}
+                  onChange={rate => onUpdate(key, rate === '' ? '' : Number(rate))}/>
+              ) : type === 'select' ? (
                 <select id={inputId} value={value} disabled={saving} onChange={(e) => onUpdate(key, e.target.value)}>
                   {options.map((option) => <option key={option} value={option}>{option}</option>)}
                 </select>

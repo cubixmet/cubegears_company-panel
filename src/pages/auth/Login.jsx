@@ -1,3 +1,4 @@
+import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
 import { useState } from "react";
 import { Eye, EyeOff, Lock, Phone } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -65,14 +66,16 @@ export const Login = () => {
       const needsSelection = Boolean(backendFields.workshop);
       setNeedsWorkshop(needsSelection || needsWorkshop);
       const hasFieldError = Boolean(backendFields.identifier || backendFields.password || backendFields.workshop);
+      // Show explicit field validation inline, but show generic invalid
+      // credentials only once in the form banner (not in three places).
       setFieldErrors({
         ...(backendFields.identifier ? { identifier: backendFields.identifier } : {}),
         ...(backendFields.workshop ? { workshop: backendFields.workshop } : {}),
         ...(backendFields.password ? { password: backendFields.password } : {}),
-        ...(!hasFieldError && [400, 401].includes(error?.status)
-          ? { identifier: credentialError, password: credentialError } : {}),
       });
-      setFormError(hasFieldError ? '' : credentialError);
+      setFormError(error?.status === 429
+        ? `Too many sign-in attempts. Try again${error?.retryAfterSeconds ? ` in ${error.retryAfterSeconds} seconds` : ' later'}.`
+        : hasFieldError ? '' : credentialError);
     }
   };
 
@@ -82,9 +85,9 @@ export const Login = () => {
         <section className="login-card">
           <div>
             <div className="login-brand-row">
-              <div className="login-brand-mark">CG</div>
+              <div className="login-brand-mark" aria-hidden="true"><CubixgearLogo /></div>
               <div>
-                <div className="login-brand-name">CubixGear</div>
+                <div className="login-brand-name">cubixgear</div>
                 <div className="login-brand-subtitle">Workshop Management</div>
               </div>
             </div>
@@ -109,7 +112,7 @@ export const Login = () => {
 
           <form onSubmit={handleSubmit} className="login-form" noValidate>
             <label className="block">
-              <span className="login-field-label">Mobile Number with Country Code</span>
+              <span className="login-field-label">Mobile Number with Country Code or Email</span>
               <div className={'login-input-shell ' + (fieldErrors.identifier ? 'is-error' : '')}>
                 <span className="login-input-icon" aria-hidden="true">
                   <Phone size={16} strokeWidth={1.8} />
@@ -118,7 +121,7 @@ export const Login = () => {
                   className="login-input"
                   type="text"
                   autoComplete="username"
-                  inputMode="text"
+                  inputMode={identifier.includes('@') ? 'email' : 'tel'}
                   value={identifier}
                   onChange={(event) => {
                     setIdentifier(event.target.value);
@@ -198,7 +201,7 @@ export const Login = () => {
           <div className="login-footer">
             <div className="login-secure">
               <span className="login-secure-dot" />
-              Secure CubixGear workspace access
+              Secure cubixgear workspace access
             </div>
 
             {isMockMode && <div className="login-mock">Development mock mode</div>}

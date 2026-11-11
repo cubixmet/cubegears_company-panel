@@ -426,14 +426,9 @@ const realService = {
       is_active: true,
     }),
 
-  assignStaffToTeam: async (teamId, staffIds = []) => {
-    await Promise.all(
-      staffIds.map((id) =>
-        apiClient.patch(`/employees/${id}`, { teamId }),
-      ),
-    );
-    return { id: teamId, assignedStaffIds: staffIds };
-  },
+  // One validated and atomic Django transaction, never several partial PATCHes.
+  assignStaffToTeam: (teamId, staffIds = []) =>
+    apiClient.post(`/employees/teams/${encodeURIComponent(teamId)}/assign`, { staffIds }),
 
   getShifts: async () => {
     const rows = await apiClient.get('/employees/shifts');

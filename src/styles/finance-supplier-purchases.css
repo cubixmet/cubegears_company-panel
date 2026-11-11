@@ -1,0 +1,70 @@
+/* Supplier Finance: read-only cross reference, no duplicate payment form. */
+.finance-supplier-purchases{
+  min-width:0;display:grid;gap:14px;padding:18px;
+  border:1px solid var(--fin-border,var(--border,#dce4ed));
+  border-radius:14px;background:var(--fin-surface,var(--surface,#fff));
+}
+.finance-supplier-purchases-head{display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+.finance-supplier-purchases-head>div{min-width:0}
+.finance-supplier-purchases-head h2{margin:0 0 5px;font-size:18px;line-height:1.35;font-weight:750}
+.finance-supplier-purchases-head p,.finance-supplier-purchases-info,.finance-supplier-purchases-foot{
+  margin:0;color:var(--text-secondary,#5b697d);font-size:13px;line-height:1.6;
+}
+.finance-supplier-purchases-reload,.finance-supplier-action{
+  display:inline-flex;justify-content:center;align-items:center;gap:8px;
+  min-height:44px;padding:10px 13px;
+  border:1px solid var(--border,#dce4ed);border-radius:10px;
+  color:var(--text-primary,#16243b);background:var(--surface,#fff);
+  text-decoration:none;cursor:pointer;font:inherit;font-weight:650;font-size:13px;
+}
+.finance-supplier-purchases-reload:disabled{opacity:.6;cursor:wait}
+.finance-supplier-purchases-actions{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
+.finance-supplier-action.primary{
+  background:var(--primary,#1769c7);color:#fff;border-color:var(--primary,#1769c7);
+}
+.finance-supplier-purchases :is(a,button):focus-visible{
+  outline:2px solid var(--primary,#1769c7);outline-offset:2px;
+}
+.finance-supplier-purchases-info{
+  padding:12px 14px;border-radius:11px;
+  background:var(--surface-2,#f7f9fc);
+}
+.finance-supplier-purchases-list{display:grid;gap:11px;min-width:0}
+.finance-supplier-purchase{
+  min-width:0;display:grid;gap:12px;padding:14px;
+  border:1px solid var(--border,#dce4ed);border-radius:12px;
+  background:var(--surface,#fff);
+}
+.finance-supplier-purchase-title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-width:0}
+.finance-supplier-purchase-title>div{display:grid;gap:3px;min-width:0}
+.finance-supplier-purchase-title strong{overflow-wrap:anywhere;font-size:14px;color:var(--text-primary,#16243b)}
+.finance-supplier-purchase-title span{font-size:12px;color:var(--text-secondary,#5b697d)}
+.finance-supplier-purchase-title>a{display:inline-flex;align-items:center;gap:5px;flex-shrink:0;font-size:12px;font-weight:700;color:var(--primary,#1769c7)}
+.finance-supplier-purchase-values{margin:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+.finance-supplier-purchase-values>div{padding:10px;background:var(--surface-2,#f7f9fc);border-radius:9px;min-width:0}
+.finance-supplier-purchase-values dt{font-size:11px;line-height:1.35;color:var(--text-secondary,#5b697d)}
+.finance-supplier-purchase-values dd{margin:5px 0 0;font-size:14px;font-weight:750;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.finance-supplier-purchases-state{margin:0;padding:15px;border:1px dashed var(--border,#dce4ed);border-radius:10px;font-size:13px;color:var(--text-secondary,#5b697d)}
+.finance-supplier-purchases-error{display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px;border:1px solid var(--danger,#dc2626);border-radius:10px;font-size:13px}
+.finance-supplier-purchases-error button{padding:8px 13px;border-radius:8px;border:1px solid var(--border,#dce4ed);background:var(--surface,#fff);font:inherit}
+.finance-supplier-purchases-foot{font-size:12px}
+@media(max-width:1050px){
+  .finance-supplier-purchase-values{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:700px){
+  .finance-supplier-purchases{padding:13px}
+  .finance-supplier-purchases-head{align-items:stretch}
+  .finance-supplier-purchases-head h2{font-size:16px}
+  .finance-supplier-purchases-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .finance-supplier-action{font-size:13px;text-align:center;min-width:0;overflow-wrap:anywhere}
+  .finance-supplier-purchase-title{flex-wrap:wrap}
+  .finance-supplier-purchase-values{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .finance-supplier-purchase-values dd{font-size:13px}
+}
+@media(max-width:390px){
+  .finance-supplier-purchases-actions{grid-template-columns:minmax(0,1fr)}
+  .finance-supplier-purchase-values{grid-template-columns:minmax(0,1fr)}
+}
+@media(prefers-reduced-motion:reduce){
+  .finance-supplier-purchases *{transition:none!important;animation:none!important}
+}

@@ -115,7 +115,7 @@ export const AddVehicle = () => {
 
   const customerOptions = customers.map(c => ({
     value: c.id,
-    label: `${c.name} (${c.phone}) - ID: ${c.id}`
+    label: `${c.name} (${c.phone || 'No phone'})`
   }));
 
   return (

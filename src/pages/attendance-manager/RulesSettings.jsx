@@ -11,7 +11,6 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { AttendanceModeSelector } from '../../components/attendance-manager/AttendanceModeSelector';
-import { WorkshopPlaceSearch } from '../../components/attendance-manager/WorkshopPlaceSearch';
 import { attendanceManagerService } from '../../services/attendanceManager.service';
 
 const defaults = {
@@ -60,9 +59,6 @@ export const RulesSettings = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
-  const [locationStatus, setLocationStatus] = useState('');
-  const [locationStatusType, setLocationStatusType] = useState('');
-  const [locating, setLocating] = useState(false);
   const [holidays, setHolidays] = useState([]);
   const [holidayForm, setHolidayForm] = useState({
     date: '',
@@ -137,54 +133,10 @@ export const RulesSettings = () => {
     change('weekendDays', Array.from(values));
   };
 
-  const selectCurrentLocation = () => {
-    setLocationStatus('');
-    setLocationStatusType('');
-    if (!navigator.geolocation || !window.isSecureContext) {
-      setLocationStatusType('error');
-      setLocationStatus('Device location requires a secure HTTPS connection and browser support.');
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        setRules((current) => ({
-          ...current,
-          workshopLocationName: '',
-          workshopLatitude: Number(coords.latitude.toFixed(7)),
-          workshopLongitude: Number(coords.longitude.toFixed(7)),
-        }));
-        setLocationStatusType('success');
-        setLocationStatus('Workshop GPS location selected. View it on the map, then save the rules.');
-        setLocating(false);
-      },
-      () => {
-        setLocationStatusType('error');
-        setLocationStatus('Location unavailable. Allow browser permission, search for a place, or enter coordinates manually.');
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
-  };
-
   const save = async () => {
     if (!dirty || saving) return;
     setMessage('');
     setMessageType('');
-    if (rules.punchLocationMode === 'workshop') {
-      const lat = Number(rules.workshopLatitude);
-      const lon = Number(rules.workshopLongitude);
-      const radius = Number(rules.punchRadiusMeters);
-      if (rules.workshopLatitude === null || rules.workshopLatitude === '' ||
-          rules.workshopLongitude === null || rules.workshopLongitude === '' ||
-          !Number.isFinite(lat) || lat < -90 || lat > 90 ||
-          !Number.isFinite(lon) || lon < -180 || lon > 180 ||
-          !Number.isInteger(radius) || radius < 50 || radius > 5000) {
-        setMessageType('error');
-        setMessage('Select a workshop place or enter valid coordinates and a radius of 50–5000 metres.');
-        return;
-      }
-    }
     setSaving(true);
 
     try {
@@ -418,132 +370,33 @@ export const RulesSettings = () => {
         <section className="attendance-rule-section">
           <div className="attendance-rule-title">
             <MapPin size={16} />
-            <div>
-              <h3>Punch Location</h3>
-            </div>
+            <div><h3>Punch Location</h3></div>
           </div>
-
-          <label className="attendance-rule-field">
-            <span>Punch Location Setting</span>
-            
-            <select
-              aria-label="Punch location setting"
-              value={rules.punchLocationMode || 'anywhere'}
-              onChange={(event) => {
-                const mode = event.target.value;
-                setRules((current) => ({
-                  ...current,
-                  punchLocationMode: mode,
-                  locationRequired: mode === 'workshop',
-                  locationTrackingEnabled: mode === 'workshop',
-                }));
-                setLocationStatus('');
-                setLocationStatusType('');
-              }}
-            >
-              <option value="anywhere">Allow Punch Anywhere</option>
-              <option value="workshop">Only Within Workshop Radius</option>
-            </select>
-          </label>
-
-          {rules.punchLocationMode === 'workshop' && (
-            <div className="attendance-punch-location-settings">
-              <WorkshopPlaceSearch
-                selectedName={rules.workshopLocationName}
-                latitude={rules.workshopLatitude}
-                longitude={rules.workshopLongitude}
-                disabled={saving}
-                onSelect={({ name, latitude, longitude }) => {
-                  setRules((current) => ({
-                    ...current,
-                    workshopLocationName: name,
-                    workshopLatitude: latitude,
-                    workshopLongitude: longitude,
-                  }));
-                  setLocationStatusType('success');
-                  setLocationStatus('Workshop location selected. Review it on the map and Save Rules.');
-                }}
-              />
-              <details className="attendance-location-advanced">
-                <summary>Advanced coordinates</summary>
-                <div className="attendance-rule-form-grid">
-                  <label className="attendance-rule-field">
-                    <span>Workshop Latitude</span>
-                  <input
-                    type="number" step="any" min="-90" max="90"
-                    value={rules.workshopLatitude ?? ''}
-                    onChange={(event) => setRules((current) => ({ ...current, workshopLocationName: '', workshopLatitude: event.target.value === '' ? null : Number(event.target.value) }))}
-                    placeholder="e.g. 11.250000"
-                  />
-                </label>
-                <label className="attendance-rule-field">
-                  <span>Workshop Longitude</span>
-                  <input
-                    type="number" step="any" min="-180" max="180"
-                    value={rules.workshopLongitude ?? ''}
-                    onChange={(event) => setRules((current) => ({ ...current, workshopLocationName: '', workshopLongitude: event.target.value === '' ? null : Number(event.target.value) }))}
-                    placeholder="e.g. 75.800000"
-                  />
-                </label>
+          <div className="attendance-punch-location-settings attendance-location-from-onboarding">
+            <p className="attendance-location-owner-note">
+              Punch location is taken from your saved workshop location in
+              <strong> Onboarding → Main branch &amp; location</strong>.
+              Latitude, longitude and radius are not entered again here.
+            </p>
+            {rules.punchLocationMode === 'workshop' &&
+              rules.workshopLatitude != null && rules.workshopLongitude != null ? (
+                <div className="attendance-location-readonly" role="status">
+                  <strong>Workshop radius active</strong>
+                  <span>Latitude: {rules.workshopLatitude}</span>
+                  <span>Longitude: {rules.workshopLongitude}</span>
+                  <span>Allowed radius: {rules.punchRadiusMeters} metres</span>
+                  <small>Staff need precise device GPS within the configured radius to punch in or out.</small>
                 </div>
-              </details>
-              <div className="attendance-rule-form-grid">
-                <label className="attendance-rule-field attendance-rule-field-wide">
-                  <span>Allowed Radius (metres)</span>
-                  <small>50–5000 m</small>
-                  <input
-                    type="number" min="50" max="5000" step="1"
-                    value={rules.punchRadiusMeters}
-                    onChange={(event) => change('punchRadiusMeters', event.target.value === '' ? '' : Number(event.target.value))}
-                  />
-                </label>
-              </div>
-              <button
-                type="button"
-                className="attendance-rules-save attendance-location-pick"
-                onClick={selectCurrentLocation}
-                disabled={locating || saving}
-              >
-                <MapPin size={15} aria-hidden="true" />
-                {locating ? 'Finding location…' : 'Use Current Location'}
-              </button>
-              <small>Verify the pin before saving. GPS permission is requested only when selecting Use Current Location.</small>
-              {locationStatus && <p className={`attendance-location-feedback is-${locationStatusType || 'error'}`} role={locationStatusType === 'success' ? 'status' : 'alert'}>{locationStatus}</p>}
-            </div>
-          )}
-
-          <label className="attendance-rule-toggle">
-            <span>
-              <strong>Store Punch Location</strong>
-              
-            </span>
-            <input
-              type="checkbox"
-              checked={Boolean(rules.locationTrackingEnabled)}
-              disabled={rules.punchLocationMode === 'workshop'}
-              onChange={(e) => {
-                if (rules.punchLocationMode === 'workshop') return;
-                setRules((current) => ({
-                  ...current,
-                  locationTrackingEnabled: e.target.checked,
-                  locationRequired: e.target.checked ? current.locationRequired : false,
-                }));
-              }}
-            />
-          </label>
-
-          <label className="attendance-rule-toggle">
-            <span>
-              <strong>Require Device Location</strong>
-              <small>Required to validate punch location.</small>
-            </span>
-            <input
-              type="checkbox"
-              disabled={!rules.locationTrackingEnabled || rules.punchLocationMode === 'workshop'}
-              checked={Boolean(rules.locationRequired)}
-              onChange={(e) => change('locationRequired', e.target.checked)}
-            />
-          </label>
+              ) : (
+                <div className="attendance-location-readonly" role="status">
+                  <strong>Workshop GPS not configured</strong>
+                  <small>Ask the workshop owner to capture and save the workshop location in Onboarding. Existing legacy attendance rules remain unchanged until it is saved.</small>
+                </div>
+              )}
+            <a href="/onboarding" className="attendance-location-setup-link">
+              Open Workshop Setup (owner)
+            </a>
+          </div>
         </section>
 
         <section className="attendance-rule-section">

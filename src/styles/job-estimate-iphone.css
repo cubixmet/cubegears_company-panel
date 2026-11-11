@@ -145,3 +145,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Part 20 — customer decline feedback inside the actual workshop Job Card. */
+.job-estimate-customer-feedback{border:1px solid #dbb994;border-radius:12px;padding:14px 16px;margin:12px 0 18px;background:rgba(249,221,178,.12);overflow-wrap:anywhere}
+.job-estimate-customer-feedback h3{margin:0 0 8px;font-size:16px;font-weight:700}
+.job-estimate-customer-feedback p{font-size:13px;line-height:1.6;margin:6px 0}
+.job-estimate-customer-feedback small{font-size:11px;opacity:.8;display:block;overflow-wrap:anywhere}
+.job-estimate-customer-message{padding:10px;border-radius:8px;border:1px solid #e7d2b5;white-space:pre-wrap;overflow-wrap:anywhere;background:rgba(255,255,255,.45)}
+.job-estimate-history-feedback{display:grid;gap:5px;min-width:0;grid-column:1/-1;padding:10px 0;border-top:1px solid #dddedc;overflow-wrap:anywhere}
+.job-estimate-history-feedback strong{font-size:12px}
+.job-estimate-history-feedback p{font-size:12px;line-height:1.55;margin:0;white-space:pre-wrap}
+.job-estimate-history-feedback small{font-size:11px;opacity:.8}
+@media(max-width:600px){.job-estimate-customer-feedback{padding:12px}.job-estimate-customer-feedback h3{font-size:15px}}

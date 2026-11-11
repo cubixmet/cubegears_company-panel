@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Download, Edit3, Plus, Printer, ReceiptText, Trash2, Truck, XCircle } from "lucide-react";
+import { CheckCircle2, Download, Edit3, Plus, Printer, ReceiptText, Trash2, Truck, Wallet, FileCheck2, Settings2, XCircle } from "lucide-react";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { billingService, blankBillingDocument, calculateDocumentTotals } from '../../services/billing.service';
 import { normalizeBackendInvoiceTotals } from '../../utils/invoiceBackendTotals';
+import { isPostedInvoice, gstrLinkForInvoice, financePaymentHistoryLink, invoiceOutstandingAmount } from '../../utils/invoiceFinanceLinks';
+import '../../styles/invoice-finance-links.css';
 import { validateInvoiceDraft, extractInvoiceFieldErrors, formatInvoiceValidationError, invoicePreviewFailureMessage, isInvoiceBranchStateMismatch, normalizeHsnSacCode } from '../../utils/invoicePayload';
 import { invoiceFieldLabel, invoiceFieldNextStep } from '../../utils/invoiceFieldHelp';
 import { applyWorkshopTaxProfile, workshopInvoiceType } from '../../utils/invoiceTaxProfile';
@@ -16,6 +18,8 @@ import '../../styles/invoice-template-sync.css';
 import { customerService } from '../../services/customer.service';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { InvoicePdfShareSheet } from '../../components/invoices/InvoicePdfShareSheet';
+import '../../styles/invoice-unified-ui.css';
+import '../../styles/invoice-directory-refined.css';
 import { WhatsAppManualShareButton } from '../../components/common/WhatsAppManualShareButton';
 import {
   InvoiceFilterToolbar,
@@ -64,6 +68,8 @@ export function InvoiceRoutePage() {
   const [activeTab, setActiveTab] = useState(kindFromUrl);
   const [listQuery, setListQuery] = useState('');
   const [listStatus, setListStatus] = useState('All');
+  const hasListFilters = Boolean(listQuery.trim() || listStatus !== 'All');
+  const resetListFilters = () => { setListQuery(''); setListStatus('All'); };
   const [form, setForm] = useState(() => blankBillingDocument(kindFromUrl, {
     emptyInputs: mode === 'create',
     jobId: new URLSearchParams(location.search).get('jobId'),
@@ -144,6 +150,7 @@ export function InvoiceRoutePage() {
 
   const loadList = async ({ withReferences = false } = {}) => {
     setLoading(true);
+    setError('');
     try {
       // Listing invoices is a standalone invoices.view operation.
       const docs = await billingService.list();
@@ -154,7 +161,8 @@ export function InvoiceRoutePage() {
         setCustomers([]);
       }
     } catch (e) {
-      setError(e?.message || 'Unable to load billing data.');
+      setDocuments([]);
+      setError(e?.message || 'Could not load your invoices. Check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -665,22 +673,14 @@ export function InvoiceRoutePage() {
     />
   ) : null;
 
-  const deleteDocument = async () => {
-    setSaving(true);
-    try {
-      await billingService.remove(id);
-      navigate('/invoices', { replace: true });
-    } catch (e) {
-      setError(e?.message || 'Unable to delete document.');
-      setSaving(false);
-    }
-  };
-
   if (mode === 'list') return (
-    <div className="billing-page billing-list-dashboard invoice-dashboard">
+    <div className="billing-page billing-ui-unified billing-list-dashboard invoice-dashboard cg-invoice-refined">
       <InvoiceListHeader
         activeTab={activeTab}
         onCreate={() => navigate(`/invoices/new?kind=${activeTab}`)}
+        onGSTR={() => navigate('/gstr?tab=overview')}
+        onFinance={() => navigate('/finance')}
+        onSupplierPurchases={() => navigate('/suppliers/purchases')}
       />
 
       <InvoiceTabs
@@ -706,9 +706,8 @@ export function InvoiceRoutePage() {
         onStatusChange={setListStatus}
         statuses={listStatuses}
         resultCount={filteredDocs.length}
+        onReset={resetListFilters}
       />
-
-      {error && <div className="billing-error">{error}</div>}
 
       <InvoiceRecordsPanel
         documents={filteredDocs}
@@ -719,22 +718,26 @@ export function InvoiceRoutePage() {
         onView={(document) => navigate(`/invoices/${document.id}`)}
         onPdf={(document) => downloadPdf(document)}
         onEdit={(document) => navigate(`/invoices/${document.id}/edit`)}
-        onDelete={(document) => navigate(`/invoices/${document.id}/delete`)}
+        onCreate={() => navigate(`/invoices/new?kind=${activeTab}`)}
+        onRetry={() => void loadList()}
+        loadError={error}
+        hasFilters={hasListFilters}
+        onReset={resetListFilters}
       />
       {shareSheet}
     </div>
   );
 
   if (mode === 'delete') return (
-    <div className="billing-page">
-      <header className="billing-page-head"><div><span className="billing-kicker">DELETE DOCUMENT</span><h1>{form.number || id}</h1><p>Document ID: {id}</p></div></header>
+    <div className="billing-page billing-ui-unified">
+      <header className="billing-page-head"><div><span className="billing-kicker">DOCUMENT HISTORY</span><h1>{form.number || id}</h1><p>Document ID: {id}</p></div></header>
       {error && <div className="billing-error">{error}</div>}
-      {loading ? <div className="billing-empty">Loading…</div> : <section className="billing-card"><h3>Delete this document?</h3><p>Only Draft or Cancelled documents can be permanently deleted. Finalized invoices must be cancelled first.</p><div className="billing-head-actions"><button className="bill-btn danger" disabled={saving} onClick={deleteDocument}><Trash2 size={16}/>{saving ? 'Deleting…' : 'Delete'}</button></div></section>}
+      {loading ? <div className="billing-empty">Loading…</div> : <section className="billing-card"><h3>Keep invoice audit history</h3><p>Invoice numbers, payment references and issued PDFs must remain available. Draft documents can be cancelled, but never permanently deleted.</p><div className="billing-head-actions"><button type="button" className="bill-btn secondary" onClick={() => navigate(`/invoices/${id}`)}>Back to document</button></div></section>}
     </div>
   );
 
   if (mode === 'view') return (
-    <div className="billing-page invoice-view-page">
+    <div className="billing-page billing-ui-unified invoice-view-page">
       <div className="billing-editor-head no-print">
         <div>
           <span className="billing-kicker">{form.kind === 'estimate' ? 'ESTIMATE / QUOTATION' : 'INVOICE'}</span>
@@ -743,8 +746,12 @@ export function InvoiceRoutePage() {
         </div>
 
         <div className="billing-head-actions">
+          <button type="button" className="bill-btn secondary no-print"
+            onClick={() => navigate(`/invoices?kind=${form.kind === 'estimate' ? 'estimate' : 'invoice'}`)}>
+            Back to List
+          </button>
           {form.kind === "invoice" && (form.finalizedAt || ["Finalized", "Paid", "Issued"].includes(form.status)) && form.status !== "Cancelled" && <WhatsAppManualShareButton targetType="invoice" targetId={form.id || id} />}
-          {form.status !== 'Converted' && (
+          {form.status === 'Draft' && (
             <button className="bill-btn secondary" onClick={() => navigate(`/invoices/${id}/edit`)}>
               <Edit3 size={16}/>Edit
             </button>
@@ -762,6 +769,18 @@ export function InvoiceRoutePage() {
             </button>
           )}
 
+          {form.kind === 'invoice' && can('gstr.view') && gstrLinkForInvoice(form) && (
+            <button type="button" className="bill-btn secondary"
+              onClick={() => navigate(gstrLinkForInvoice(form))}>
+              <FileCheck2 size={16}/>View GSTR-1
+            </button>
+          )}
+          {form.kind === 'invoice' && can('payments.view') && (
+            <button type="button" className="bill-btn secondary"
+              onClick={() => navigate(financePaymentHistoryLink(form))}>
+              <Wallet size={16}/>Payment History
+            </button>
+          )}
           {form.kind === 'invoice' && (
             <button className="bill-btn secondary" onClick={() => navigate(`/invoices/e-way-bills/new?invoiceId=${encodeURIComponent(id)}`)}>
               <Truck size={16}/>E-Way Bill
@@ -776,15 +795,17 @@ export function InvoiceRoutePage() {
             <Download size={16}/>{pdfLoading ? 'Generating PDF…' : 'Download Invoice PDF'}
           </button>
 
-          {form.status !== 'Cancelled' && form.status !== 'Converted' && (
+          {form.status === 'Draft' && (
             <button className="bill-btn secondary" disabled={saving} onClick={cancelDocument}>
               <XCircle size={16}/>Cancel
             </button>
           )}
 
-          <button className="bill-btn danger" onClick={() => navigate(`/invoices/${id}/delete`)}>
-            <Trash2 size={16}/>Delete
-          </button>
+          {can('payments.create') && isPostedInvoice(form) && invoiceOutstandingAmount(form, totals) > 0 && (
+            <button type="button" className="bill-btn" onClick={() => navigate(`/finance/payments/new?invoiceId=${encodeURIComponent(form.id || id)}`)}>
+              <ReceiptText size={16}/>Record Payment
+            </button>
+          )}
         </div>
       </div>
 
@@ -801,13 +822,30 @@ export function InvoiceRoutePage() {
       )}
 
       {error && <div className="billing-error no-print">{error}</div>}
+      {!loading && form.kind === 'invoice' && (
+        <section className="invoice-connected-workflows no-print" aria-label="GST and Finance connections">
+          <div>
+            <strong>GST & Finance</strong>
+            <span>{form.invoiceType === 'gst'
+              ? 'GST recorded on the invoice. Collection must not calculate GST again.'
+              : 'Non-GST invoice. Finance records payments without adding GST.'}</span>
+          </div>
+          <div className="invoice-connected-metrics">
+            <span>Invoice GST: <strong>{money.format(n(totals.cgst) + n(totals.sgst) + n(totals.igst))}</strong></span>
+            <span>Collected: <strong>{money.format(n(totals.paid))}</strong></span>
+            <span>Outstanding: <strong>{money.format(invoiceOutstandingAmount(form, totals))}</strong></span>
+          </div>
+          {can('company.manage') && <button type="button" className="bill-btn secondary"
+            onClick={() => navigate('/account/company')}><Settings2 size={15}/>GST Settings</button>}
+        </section>
+      )}
       {loading ? <div className="billing-empty">Loading…</div> : <InvoicePrint doc={form} totals={totals} appearance={resolveDocumentAppearance(form.kind, documentAppearance, form.templateSnapshot, Boolean(form.finalizedAt || ['Finalized', 'Paid', 'Issued', 'Converted'].includes(form.status)))}/>}
       {shareSheet}
     </div>
   );
 
   return (
-    <div className="billing-page" ref={invoiceEditorRef}>
+    <div className="billing-page billing-ui-unified" ref={invoiceEditorRef}>
       <div className="billing-editor-head no-print">
         <div>
           <span className="billing-kicker">{form.kind === 'estimate' ? 'ESTIMATE' : 'TAX / SALES INVOICE'}</span>
@@ -816,6 +854,8 @@ export function InvoiceRoutePage() {
         </div>
         <div className="billing-head-actions">
           <button type="button" className="bill-btn secondary" onClick={() => navigate(`/invoices?kind=${form.kind === 'estimate' ? 'estimate' : 'invoice'}`)}>Back to List</button>
+          {can('company.manage') && <button type="button" className="bill-btn secondary"
+            onClick={() => navigate('/account/company')}><Settings2 size={15}/>GST Settings</button>}
           <button className="bill-btn secondary" disabled={saving || jobDraftLoading || !newInvoiceTaxReady} onClick={save}>Save Draft</button>
           <button className="bill-btn secondary" type="button" disabled={!form.id || saving || pdfLoading}
             title={form.id ? 'Download saved invoice (unsaved edits are not included)' : 'Save Draft first to download PDF'}
@@ -1055,7 +1095,7 @@ export function InvoiceRoutePage() {
                   {fieldErrors[`items.${index}.unit`] && <small className="invoice-input-error" role="alert">{fieldErrors[`items.${index}.unit`]}</small>}
                 </div>
                 <div className="invoice-field-wrap invoice-price-field">
-                  <span className="invoice-mobile-label">Price / Unit (₹)</span>
+                  <span className="invoice-mobile-label">Selling Price / Unit (₹)</span>
                   <input data-invoice-field={`items.${index}.rate`} className="plain-number-input" aria-label="Price per unit" aria-invalid={Boolean(fieldErrors[`items.${index}.rate`])} inputMode="decimal" value={inputNumber(row.rate)} onChange={(e) => updateItem(row.id, 'rate', parseDecimal(e.target.value))} placeholder="₹ 0.00"/>
                   {fieldErrors[`items.${index}.rate`] && <small className="invoice-input-error" role="alert">{fieldErrors[`items.${index}.rate`]}</small>}
                 </div>
@@ -1107,7 +1147,7 @@ export function InvoiceRoutePage() {
         <div className="invoice-bottom-grid no-print">
           <section className="billing-card">
             <span className="billing-kicker">PAYMENT & TERMS</span>
-            <h3>Invoice Terms</h3>
+            <h3>Payment &amp; Invoice Terms</h3>
             <div className="invoice-two-col">
               <label>GST Type (automatic)
                 <input readOnly aria-readonly="true" value={appliedTaxMode === 'none' ? 'None — Normal Invoice' : appliedTaxMode === 'cgst_sgst' ? 'CGST + SGST (same-state supply)' : appliedTaxMode === 'igst' ? 'IGST (inter-state supply)' : 'GST rate ready — verify supply state before saving'} />
@@ -1124,12 +1164,14 @@ export function InvoiceRoutePage() {
               <label>Payment Mode
                 <select value={form.paymentMode || ''} onChange={(e) => update('paymentMode', e.target.value)}>
                   <option value="">Select payment mode</option>
-                  <option>Cash</option><option>UPI</option><option>Card</option><option>Bank Transfer</option><option>Cheque</option>
+                  <option>Cash</option><option>Bank</option>
+                  {form.paymentMode && !['Cash', 'Bank'].includes(form.paymentMode) &&
+                    <option value={form.paymentMode}>{form.paymentMode} (historical)</option>}
                 </select>
               </label>
-              <label>Received ₹
-                <input data-invoice-field="paid" className="plain-number-input" inputMode="decimal" aria-invalid={Boolean(fieldErrors['paid'])} value={inputNumber(form.paid)} onChange={(e) => update('paid', parseDecimal(e.target.value))} placeholder="0.00"/>
-                {fieldErrors['paid'] && <small className="invoice-input-error" role="alert">{fieldErrors['paid']}</small>}
+              <label>Received ₹ (posted payments only)
+                <input data-invoice-field="paid" className="plain-number-input" value={inputNumber(form.paid) || '0'} readOnly aria-label="Recorded payments" title="Record receipts in Customer Payments after finalizing the invoice."/>
+                <small>Payment mode is only a term on the invoice. After finalization, use Finance &gt; Payments to select the real Cash or Bank account. GST is not charged again on receipt.</small>
               </label>
               <label>Adjustment ₹
                 <input data-invoice-field="adjustment" className="plain-number-input" inputMode="decimal" aria-invalid={Boolean(fieldErrors['adjustment'])} value={form.adjustment ?? ''} onChange={(e) => update('adjustment', e.target.value === '' ? '' : parseDecimal(e.target.value))} placeholder="Auto"/>

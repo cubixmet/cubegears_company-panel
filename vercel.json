@@ -54,5 +54,6 @@
         }
       ]
     }
-  ]
+  ],
+  "buildCommand": "npm run build:production"
 }

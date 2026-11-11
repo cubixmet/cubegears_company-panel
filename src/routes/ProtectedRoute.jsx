@@ -26,7 +26,7 @@ export const ProtectedRoute = () => {
           fontSize: '14px'
         }}
       >
-        Loading CubixGear…
+        Loading cubixgear…
       </div>
     );
   }
@@ -55,6 +55,21 @@ export const ProtectedRoute = () => {
     return <Navigate to={`/login?next=${next}`} replace />;
   }
 
+  // New workshop owners cannot visit any other page until Django confirms
+  // that all mandatory setup fields were saved. Render only the setup page:
+  // no workspace shell, sidebar, header or bottom navigation.
+  if (user?.onboardingRequired === true && user?.isCompanyOwner === true) {
+    return location.pathname === '/onboarding'
+      ? <Outlet />
+      : <Navigate to="/onboarding" replace />;
+  }
+
+  // Even on completed accounts the wizard is a focused full-screen page.
+  // Preserve owner-only access and avoid mounting the DashboardLayout.
+  if (location.pathname === '/onboarding' && user?.isCompanyOwner === true) {
+    return <Outlet />;
+  }
+
   if (featureAccess.loading) {
     return <div role="status" aria-live="polite" style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center' }}>Checking feature access…</div>;
   }
@@ -69,6 +84,14 @@ export const ProtectedRoute = () => {
     return <Navigate to="/access-denied" replace />;
   }
   const requiredPermission = getPermissionForPath(location.pathname);
+  // Expenses-only staff may enter the Finance root, then the workspace
+  // redirects them to the expenses route they are actually entitled to.
+  const financeExpenseEntry = location.pathname === '/finance' && featureAccess.can('expenses.view');
+  // Only the verified owner may finish initial setup without buying features;
+  // Django independently enforces owner identity on every wizard API request.
+  const isOwnerOnboarding = location.pathname === '/onboarding'
+    && featureAccess.isCompanyOwner === true
+    && featureAccess.permissions.includes('company.manage');
   // Supplier accounting requires both Inventory and Payments permission.
   const missingSupplierAccess = ['/suppliers/credits', '/suppliers/payments', '/stock/suppliers'].includes(location.pathname)
     && (!featureAccess.can('stock.view') || !featureAccess.can('payments.view'));
@@ -84,8 +107,9 @@ export const ProtectedRoute = () => {
   if (
     location.pathname !== '/access-denied' &&
     requiredPermission &&
-    (missingJobAccess || missingSupplierAccess || !moduleIsVisible(featureAccess, requiredPermission) ||
-      ((!isOwnStaffProfile || featureAccess.labelOnly) && !featureAccess.can(requiredPermission)))
+    (!isOwnerOnboarding && !financeExpenseEntry &&
+      (missingJobAccess || missingSupplierAccess || !moduleIsVisible(featureAccess, requiredPermission) ||
+        ((!isOwnStaffProfile || featureAccess.labelOnly) && !featureAccess.can(requiredPermission))))
   ) {
     return (
       <Navigate

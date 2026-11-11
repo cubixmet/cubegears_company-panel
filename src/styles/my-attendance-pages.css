@@ -281,3 +281,63 @@
   .my-attendance-summary-page .cg-summary-panel{padding:13px}
   .my-attendance-summary-page .cg-summary-list-row{font-size:13px}
 }
+
+/* Staff-only, read-only salary history inside the always-free My Attendance. */
+.my-salary-panel { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.my-salary-panel header { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; align-items: center; }
+.my-salary-panel h2 { font-size: 20px; font-weight: 750; margin: 0; }
+.my-salary-panel p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+.my-salary-panel .my-salary-refetch { min-height: 42px; padding: 8px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text-primary); cursor: pointer; }
+.my-salary-panel .my-salary-records { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.my-salary-panel .my-salary-record { padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); display: flex; flex-direction: column; gap: 8px; overflow-wrap: anywhere; }
+.my-salary-record .my-salary-amount { font-size: 22px; font-weight: 760; color: var(--text-primary); }
+.my-salary-record small { font-size: 13px; color: var(--text-secondary); }
+.my-salary-panel .my-salary-message { padding: 18px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+
+/* Personal salary sits inside the Attendance calendar as a compact card. */
+.my-attendance-pages .my-salary-summary-card {
+  width: 100%; min-width: 0; padding: 18px;
+  border: 1px solid var(--border); border-radius: 14px;
+  background: var(--surface); box-shadow: var(--shadow-sm);
+}
+.my-salary-card-heading,
+.my-salary-card-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.my-salary-card-heading { justify-content: space-between; flex-wrap: wrap; }
+.my-salary-card-icon {
+  display: grid; place-items: center; width: 42px; height: 42px;
+  flex: 0 0 42px; border-radius: 12px;
+  background: var(--primary-soft); color: var(--primary);
+}
+.my-salary-card-title h2 { font-size: 17px; line-height: 1.4; margin: 0; }
+.my-salary-card-title p { font-size: 13px; }
+.my-salary-card-heading .my-salary-refetch {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: 7px; min-height: 42px; font-size: 13px;
+}
+.my-salary-card-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.my-salary-card-stats > div {
+  display: flex; flex-direction: column; min-width: 0; gap: 5px;
+  border-radius: 11px; padding: 13px; background: var(--surface-2);
+}
+.my-salary-card-stats span { font-size: 13px; color: var(--text-secondary); }
+.my-salary-card-stats strong {
+  font-size: 22px; font-weight: 750; color: var(--text-primary);
+  font-variant-numeric: tabular-nums; overflow-wrap: anywhere;
+}
+.my-salary-card-stats small { font-size: 12px; color: var(--text-secondary); }
+.my-salary-card-status { padding: 12px; border-radius: 10px; background: var(--surface-2); }
+.my-salary-expand {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; min-height: 44px; padding: 10px 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface-2); color: var(--text-primary);
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.my-salary-expand:hover { border-color: var(--primary); }
+.my-salary-expand:focus-visible,
+.my-salary-refetch:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+@media(max-width: 540px) {
+  .my-attendance-pages .my-salary-summary-card { padding: 14px; }
+  .my-salary-card-heading .my-salary-refetch { width: 100%; }
+  .my-salary-card-stats { grid-template-columns: 1fr; }
+}

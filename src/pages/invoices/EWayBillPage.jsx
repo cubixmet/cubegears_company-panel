@@ -16,6 +16,7 @@ import { EWayBillPdfShareSheet } from '../../components/invoices/EWayBillPdfShar
 import { validateEWayForPreparation, parseEWayApiErrors } from '../../utils/eWayFormValidation';
 import '../../styles/e-way-input-validation.css';
 import { InvoiceTabs, InvoiceFilterToolbar } from '../../components/invoices';
+import '../../styles/invoice-unified-ui.css';
 
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 const n = (value) => Number(value || 0);
@@ -113,11 +114,13 @@ export function EWayBillPage() {
 
   const loadList = async () => {
     setLoading(true);
+    setError('');
     try {
       const result = await eWayBillService.list();
       setRows(Array.isArray(result) ? result : Array.isArray(result?.results) ? result.results : []);
     } catch (e) {
-      setError(e?.message || 'Unable to load E-Way Bills.');
+      setRows([]);
+      setError(e?.message || 'Unable to load E-Way Bills. Check the server and try again.');
     } finally {
       setLoading(false);
     }
@@ -362,7 +365,7 @@ export function EWayBillPage() {
 
   if (mode === 'list') {
     return (
-      <div className="billing-page billing-list-dashboard invoice-dashboard billing-eway-list">
+      <div className="billing-page billing-ui-unified billing-list-dashboard invoice-dashboard billing-eway-list">
         <header className="invoice-dashboard-header">
           <div>
             <h1>E-Way Bills</h1>
@@ -416,7 +419,10 @@ export function EWayBillPage() {
           An official E-Way Bill number must be issued by the authorized NIC/GST system.
         </p>
 
-        {error && <div className="billing-error" role="alert">{error}</div>}
+        {error && <div className="billing-error invoice-list-error" role="alert">
+          <span>{error}</span>
+          <button type="button" className="bill-btn secondary" onClick={() => void loadList()} disabled={loading}>Retry</button>
+        </div>}
 
         <section className="billing-card billing-list-card billing-eway-records" aria-label="E-Way Bill records">
           <header className="invoice-dashboard-section-title">
@@ -429,7 +435,7 @@ export function EWayBillPage() {
 
           {loading ? (
             <div className="billing-empty" role="status">Loading E-Way Bills…</div>
-          ) : filteredRows.length === 0 ? (
+          ) : error ? null : filteredRows.length === 0 ? (
             <div className="billing-empty">
               <Search size={18} aria-hidden="true"/>
               <span>{rows.length ? 'No E-Way Bills match these filters.' : 'No E-Way Bills yet. Create a draft to get started.'}</span>
@@ -454,7 +460,7 @@ export function EWayBillPage() {
                       {row.status === 'Draft' && (
                         <button type="button" aria-label={`Edit ${row.documentNo || row.id}`} title="Edit" onClick={() => navigate(`/invoices/e-way-bills/${row.id}/edit`)}><Edit3 size={16}/></button>
                       )}
-                      <button type="button" aria-label={`Delete ${row.documentNo || row.id}`} title="Delete" className="danger" onClick={() => navigate(`/invoices/e-way-bills/${row.id}/delete`)}><Trash2 size={16}/></button>
+                      {row.status === 'Draft' && <button type="button" aria-label={`Delete ${row.documentNo || row.id}`} title="Delete Draft" className="danger" onClick={() => navigate(`/invoices/e-way-bills/${row.id}/delete`)}><Trash2 size={16}/></button>}
                     </div>
                   </article>
                 );
@@ -468,7 +474,7 @@ export function EWayBillPage() {
 
   if (mode === 'delete') {
     return (
-      <div className="billing-page">
+      <div className="billing-page billing-ui-unified">
         <header className="billing-page-head">
           <div><span className="billing-kicker">DELETE E-WAY BILL</span><h1>{form.documentNo || ewbId}</h1></div>
         </header>
@@ -477,7 +483,9 @@ export function EWayBillPage() {
           <h3>Delete this local E-Way Bill draft?</h3>
           <p>This only deletes the CubixGear record. It does not cancel an E-Way Bill already generated on the GST portal.</p>
           <div className="billing-head-actions">
-            <button className="bill-btn danger" disabled={saving} onClick={remove}><Trash2 size={16}/>{saving ? 'Deleting…' : 'Delete Draft'}</button>
+            <button type="button" className="bill-btn secondary"
+              onClick={() => navigate('/invoices/e-way-bills')}>Keep Draft</button>
+            <button className="bill-btn danger" disabled={saving || form.status !== 'Draft'} onClick={remove}><Trash2 size={16}/>{saving ? 'Deleting…' : 'Delete Draft'}</button>
           </div>
         </section>
       </div>
@@ -486,7 +494,7 @@ export function EWayBillPage() {
 
   if (mode === 'view') {
     return (
-      <div className="billing-page invoice-view-page">
+      <div className="billing-page billing-ui-unified invoice-view-page">
         <div className="billing-editor-head eway-editor-head no-print">
           <div className="eway-title-block">
             <div className="eway-title-copy">
@@ -496,7 +504,9 @@ export function EWayBillPage() {
             </div>
           </div>
           <div className="billing-head-actions">
-            <button className="bill-btn secondary" onClick={() => navigate(`/invoices/e-way-bills/${ewbId}/edit`)}><Edit3 size={16}/>Edit</button>
+            <button type="button" className="bill-btn secondary"
+              onClick={() => navigate('/invoices/e-way-bills')}>Back to List</button>
+            {form.status === 'Draft' && <button className="bill-btn secondary" onClick={() => navigate(`/invoices/e-way-bills/${ewbId}/edit`)}><Edit3 size={16}/>Edit</button>}
             <button className="bill-btn secondary" onClick={() => window.print()}><Printer size={16}/>Print</button>
             <button className="bill-btn" onClick={openPdfShare}><Download size={16}/>Download PDF</button>
             {form.status === 'Draft' && <button className="bill-btn" disabled={saving} onClick={submit}><CheckCircle2 size={16}/>Prepare for API</button>}
@@ -511,11 +521,11 @@ export function EWayBillPage() {
   }
 
   return (
-    <div ref={eWayEditorRef} className="billing-page">
+    <div ref={eWayEditorRef} className="billing-page billing-ui-unified">
       <DocumentFormHeader
         eyebrow="E-WAY BILL"
         title={mode === 'edit' ? 'Edit E-Way Bill' : 'Create E-Way Bill'}
-        description="Goods movement document for inward/outward transport."
+        description="Enter the sender, receiver, goods and transport details. Save a local draft before preparing for the official portal."
         actions={
           <>
             <button className="bill-btn secondary" type="button" onClick={() => window.print()}>
@@ -534,7 +544,7 @@ export function EWayBillPage() {
         }
       />
 
-      {error && <div className="billing-error no-print">{error}</div>}
+      {error && <div className="billing-error no-print" role="alert">{error}</div>}
 
       <div className="no-print grid gap-4">
         <section className="billing-card">

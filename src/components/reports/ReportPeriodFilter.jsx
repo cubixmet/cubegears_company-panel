@@ -12,8 +12,8 @@ export const ReportPeriodFilter = ({
 }) => (
   <section className="reports-dashboard-filter no-print" aria-label="Report filters">
     <div className="reports-dashboard-filter__heading">
-      <span><Filter size={16}/> Filter Reports</span>
-      <small>Choose a period and available data scope</small>
+      <span><Filter size={16}/> Choose your report</span>
+      <small>Pick a month, date range, branch or staff member</small>
     </div>
     <div className="reports-dashboard-filter__fields">
       <label>Month
@@ -42,18 +42,18 @@ export const ReportPeriodFilter = ({
           {staff !== 'All' && !staffOptions.includes(staff) && <option value={staff}>{staff} (unavailable)</option>}
         </select>
       </label>
-      <label><span className="report-filter-label-with-icon"><CalendarDays size={13}/> From</span>
+      <label><span className="report-filter-label-with-icon"><CalendarDays size={13}/> Start date</span>
         <input type="date" aria-label="Start date" value={from} max={to || undefined}
           onChange={(event) => onFrom(event.target.value)}/>
       </label>
-      <label>To
+      <label>End date
         <input type="date" aria-label="End date" value={to} min={from || undefined}
           onChange={(event) => onTo(event.target.value)}/>
       </label>
     </div>
     <div className="reports-dashboard-filter__quick">
-      <button type="button" onClick={onThisMonth}>This Month</button>
-      <button type="button" onClick={onAllTime}>All Time</button>
+      <button type="button" onClick={onThisMonth}>Show This Month</button>
+      <button type="button" onClick={onAllTime}>Show All Dates</button>
     </div>
   </section>
 );

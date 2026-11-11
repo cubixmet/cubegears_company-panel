@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Clock, UserCheck, Users, DollarSign, UserPlus, Car, Wrench, Coins,
-  ClipboardList, Boxes, FileText, CreditCard, Receipt, BarChart3, Bell, Settings, Globe2, Truck, FileCheck2
+  ClipboardList, Boxes, FileText, CreditCard, Receipt, BarChart3, Bell, Settings, Globe2, Truck, FileCheck2, TrendingUp
 } from 'lucide-react';
 
 export const ROUTE_SECTIONS = {
@@ -11,14 +11,7 @@ export const ROUTE_SECTIONS = {
   ANALYTICS_SYSTEM: 'Analytics & Settings'
 };
 
-// Suppliers uses the existing single parent route. Children have separate access.
-export const supplierSubmenu = [
-  { id: 'supplier-all', label: 'All Suppliers', path: '/suppliers', permission: 'stock.view' },
-  { id: 'supplier-credits', label: 'Credit Management', path: '/suppliers/credits', permission: 'payments.view' },
-  { id: 'supplier-purchases', label: 'Purchase History', path: '/suppliers/purchases', permission: 'stock.view' },
-  { id: 'supplier-payments', label: 'Supplier Payments', path: '/suppliers/payments', permission: 'payments.view' },
-];
-
+// Supplier purchase, payment and credit are now sections of /suppliers/:id.
 export const routeConfig = [
   { id: 'credits', label: 'SaaS Account', path: '/account', icon: Coins, section: ROUTE_SECTIONS.MAIN, mobilePrimary: false, permission: 'billing.view' },
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, section: ROUTE_SECTIONS.MAIN, mobilePrimary: true, permission: 'dashboard.view' },
@@ -52,8 +45,10 @@ export const routeConfig = [
     permission: 'invoices.view'
   },
   { id: 'gstr', label: 'GSTR', path: '/gstr', icon: FileCheck2, section: ROUTE_SECTIONS.FINANCE, mobilePrimary: false, permission: 'gstr.view' },
-  { id: 'payments', label: 'Payments', path: '/payments', icon: CreditCard, section: ROUTE_SECTIONS.FINANCE, mobilePrimary: false, permission: 'payments.view' },
-  { id: 'expenses', label: 'Expenses', path: '/expenses', icon: Receipt, section: ROUTE_SECTIONS.FINANCE, mobilePrimary: false, permission: 'expenses.view' },
+  // Payments and Expenses live inside Finance. An expense-only accountant still sees this workspace.
+  { id: 'finance', label: 'Finance Management', path: '/finance', icon: TrendingUp,
+    section: ROUTE_SECTIONS.FINANCE, mobilePrimary: false,
+    permission: 'payments.view', accessAny: ['payments.view', 'expenses.view'] },
   { id: 'reports', label: 'Reports & BI', path: '/reports', icon: BarChart3, section: ROUTE_SECTIONS.ANALYTICS_SYSTEM, mobilePrimary: false, permission: 'reports.view' },
   { id: 'notifications', label: 'Notifications', path: '/notifications', icon: Bell, section: ROUTE_SECTIONS.ANALYTICS_SYSTEM, mobilePrimary: false, permission: 'notifications.view' },
   { id: 'settings', label: 'Settings', path: '/settings', icon: Settings, section: ROUTE_SECTIONS.ANALYTICS_SYSTEM, mobilePrimary: false, permission: 'settings.view' },

@@ -34,8 +34,19 @@ export const supplierFinanceService = {
   getPayments: (supplier) => live('get', '/payments' + (supplier ? `?supplier=${encodeURIComponent(supplier)}` : '')),
   recordPayment: (payload) => live('post', '/payments', payload),
   applyAdvance: (id, payload) => live('post', `/payments/${encodeURIComponent(id)}/allocate`, payload),
+  getSupplierBalances: () => live('get', '/suppliers/balances'),
   getSupplierSummary: (id) => live('get', `/suppliers/${encodeURIComponent(id)}/summary`),
   getSupplierLedger: (id) => live('get', `/suppliers/${encodeURIComponent(id)}/ledger`),
+  getDebitNotes: (supplierId) => live('get', '/debit-notes' +
+    (supplierId ? `?supplier=${encodeURIComponent(supplierId)}` : '')),
+  createDebitNote: (payload) => live('post', '/debit-notes', payload),
+  applyDebitCredit: (id, payload) => live('post',
+    `/debit-notes/${encodeURIComponent(id)}/apply`, payload),
+  getRefunds: (supplierId) => live('get', '/refunds' +
+    (supplierId ? `?supplier=${encodeURIComponent(supplierId)}` : '')),
+  createRefund: (payload) => live('post', '/refunds', payload),
+  getPayables: (supplierId) => live('get', '/payables' +
+    (supplierId ? `?supplier=${encodeURIComponent(supplierId)}` : '')),
   getInventoryItems: async () => {
     requireLiveBackend();
     const response = await apiClient.get('/inventory/items');

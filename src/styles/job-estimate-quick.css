@@ -530,3 +530,20 @@
   }
   .cg-job-detail .job-quick-estimate .job-quick-footer-actions button {font-size:13px}
 }
+
+/* Reopen controls stay visible beside Estimate heading on desktop and mobile. */
+.cg-job-detail .job-quick-header .job-quick-header-actions {
+  display:flex;align-items:center;justify-content:flex-end;
+  flex:0 1 auto;flex-wrap:wrap;gap:8px;min-width:0;
+}
+.cg-job-detail .job-quick-header .job-quick-header-actions button {
+  min-height:44px;white-space:normal;
+}
+@media (max-width:650px) {
+  .cg-job-detail .job-quick-header .job-quick-header-actions {
+    flex:1 1 100%;justify-content:stretch;
+  }
+  .cg-job-detail .job-quick-header .job-quick-header-actions button {
+    flex:1 1 150px;min-width:0;
+  }
+}

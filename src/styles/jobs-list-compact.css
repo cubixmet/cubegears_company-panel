@@ -1,0 +1,114 @@
+/* Compact /jobs directory: workflow guide intentionally not rendered.
+   Screen-only rules; Create Job, job details and print layouts remain untouched. */
+@media screen {
+.jobs-dashboard.jobs-unified-ui.jobs-list-compact{
+  gap:12px!important;
+  padding-top:clamp(9px,1.3vw,17px);
+}
+.jobs-dashboard.jobs-list-compact .jobs-dashboard-header{
+  margin:0;
+  gap:12px;
+  align-items:center;
+}
+.jobs-dashboard.jobs-list-compact .jobs-dashboard-header h1{
+  font-size:clamp(23px,2.35vw,30px)!important;
+  margin:3px 0 4px!important;
+}
+.jobs-dashboard.jobs-list-compact .jobs-dashboard-header p{
+  max-width:560px;
+  font-size:13px!important;
+  line-height:1.5!important;
+}
+.jobs-dashboard.jobs-list-compact .jobs-dashboard-actions{
+  align-items:center;
+  gap:8px;
+}
+.jobs-dashboard.jobs-list-compact .jobs-dashboard-actions button{
+  min-height:44px!important;
+  border-radius:10px!important;
+}
+.jobs-dashboard.jobs-list-compact .jobs-kpi-grid{
+  gap:10px;
+}
+.jobs-dashboard.jobs-list-compact .jobs-kpi-card{
+  padding:13px!important;
+  min-height:112px;
+}
+.jobs-dashboard.jobs-list-compact .jobs-kpi-card strong{
+  margin-top:9px;
+}
+.jobs-dashboard.jobs-list-compact .jobs-toolbar.jobs-toolbar-combined{
+  padding:11px!important;
+  gap:10px;
+}
+.jobs-dashboard.jobs-list-compact .jobs-directory-controls{
+  padding:10px 12px;
+  gap:9px;
+}
+.jobs-dashboard.jobs-list-compact .jobs-directory-controls-row{
+  gap:9px;
+}
+.jobs-dashboard.jobs-list-compact .jobs-records-head{
+  padding:13px 15px!important;
+}
+.jobs-dashboard.jobs-list-compact .jobs-records-head h2{
+  font-size:18px!important;
+}
+.jobs-dashboard.jobs-list-compact .jobs-gst-finance-nav{
+  margin-top:1px;
+  gap:8px;
+  padding:10px 12px;
+}
+.jobs-dashboard.jobs-list-compact .jobs-gst-finance-nav button{
+  min-height:43px;
+  padding:9px 12px;
+  font-size:13px;
+}
+@media(max-width:767px){
+  .jobs-dashboard.jobs-unified-ui.jobs-list-compact{
+    gap:10px!important;
+    padding:8px 9px 26px;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-dashboard-header{
+    gap:10px;
+    align-items:stretch;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-dashboard-header h1{
+    font-size:23px!important;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-dashboard-header p{
+    font-size:13px!important;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-kpi-grid{
+    gap:8px;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-kpi-card{
+    min-height:108px;padding:11px!important;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-toolbar.jobs-toolbar-combined{
+    padding:10px!important;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-directory-controls{
+    padding:10px;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-records-head{
+    padding:12px!important;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-gst-finance-nav{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-gst-finance-nav>span{
+    grid-column:1 / -1;
+  }
+  .jobs-dashboard.jobs-list-compact .jobs-gst-finance-nav button{
+    width:100%;min-width:0;
+    justify-content:center;
+  }
+}
+@media(max-width:390px){
+  .jobs-dashboard.jobs-list-compact .jobs-gst-finance-nav{
+    grid-template-columns:minmax(0,1fr);
+  }
+}
+}

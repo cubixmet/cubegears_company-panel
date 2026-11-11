@@ -77,3 +77,22 @@
 @media(max-width:900px){.notifications-dashboard-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.notifications-layout{grid-template-columns:minmax(0,1fr)}.notification-detail{position:static}.notifications-dashboard-toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}.notifications-dashboard-search{grid-column:1/-1}.notifications-dashboard-count{grid-column:1/-1}}
 @media(max-width:600px){.notifications-page{gap:11px}.notifications-dashboard-header-title{flex-basis:100%}.notifications-dashboard-header h1{font-size:19px}.notifications-dashboard-header-actions{width:100%;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.notifications-dashboard-header-badge{grid-column:1/-1;justify-content:center}.notification-refresh,.notification-mark-all{width:100%;min-height:44px;padding:8px}.notifications-dashboard-stats{gap:8px}.notifications-dashboard-stats article{padding:12px}.notifications-dashboard-stats strong{font-size:20px}.notifications-dashboard-toolbar{grid-template-columns:minmax(0,1fr);gap:9px;padding:10px}.notifications-dashboard-search,.notifications-dashboard-count{grid-column:auto}.notifications-dashboard-search,.notifications-dashboard-filter{height:44px}.notifications-dashboard-search input,.notifications-dashboard-filter select{font-size:16px}.notifications-list{padding:8px}.notification-row{grid-template-columns:minmax(0,1fr);gap:10px;padding:10px}.notification-side{flex-direction:row;align-items:center;justify-content:space-between}.notification-row-open{grid-template-columns:36px minmax(0,1fr);gap:10px}.notification-avatar{width:36px;height:36px}.notification-detail-grid{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:360px){.notifications-dashboard-header-actions{grid-template-columns:1fr}.notifications-dashboard-header-badge{grid-column:auto}.notifications-dashboard-stats article{padding:9px}.notification-meta span{font-size:9px}}
+
+/* Part 19 — actionable customer estimate responses in the existing inbox. */
+.notification-customer-response-strip{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:12px;margin:0 0 17px;padding:12px 0;border-bottom:1px solid var(--border-color,#d7e5e7)
+}
+.notification-customer-response-strip>span{display:grid;gap:4px;min-width:0}
+.notification-customer-response-strip strong{font-size:14px;font-weight:700}
+.notification-customer-response-strip small{font-size:12px;line-height:1.5;opacity:.78}
+.notification-customer-response-strip button{
+  appearance:none;cursor:pointer;min-height:44px;border:1px solid currentColor;
+  border-radius:10px;padding:9px 15px;font-size:13px;font-weight:650;
+  background:transparent;color:inherit
+}
+.notification-customer-response-strip button:focus-visible{outline:2px solid currentColor;outline-offset:3px}
+@media(max-width:600px){
+  .notification-customer-response-strip{align-items:stretch}
+  .notification-customer-response-strip button{width:100%}
+}
