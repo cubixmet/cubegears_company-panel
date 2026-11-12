@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../../api/apiClient';
+import { CompanyContext } from '../../context/CompanyContext';
 import { BranchRegistrationEditor } from './BranchRegistrationEditor';
 import {
   OWNER_COMPANY_FIELDS, validateOwnerCompanyDraft, extractOwnerCompanyApiErrors,
@@ -8,6 +9,7 @@ import {
 import '../../styles/owner-company-profile.css';
 
 export function OwnerCompanyProfile() {
+  const { setCompany } = useContext(CompanyContext);
   const [values, setValues] = useState(null);
   const [saving, setSaving] = useState(false);
   const [loadingError, setLoadingError] = useState('');
@@ -74,6 +76,8 @@ export function OwnerCompanyProfile() {
     try {
       const data = await apiClient.patch('/company/me', draft);
       setValues(data);
+      // Keep the mobile header's workshop name synchronized with saved settings.
+      if (typeof data?.name === 'string') setCompany({ name: data.name });
       setFieldErrors({});
       setSaved(true);
     } catch (err) {

@@ -84,7 +84,7 @@
 }
 
 .login-title{
-  margin:0;
+  margin:0 0 24px;
   color:#fff;
   font-size:27px;
   line-height:1.16;
@@ -106,7 +106,8 @@
   gap:18px;
 }
 
-.login-form>label{
+.login-form>label,
+.login-form>.login-identifier-field{
   display:block;
   width:100%;
   margin:0;
@@ -162,6 +163,28 @@
   border-color:#438dff;
   background:#0b182b;
   box-shadow:0 0 0 3px rgba(22,119,255,.12);
+}
+
+.login-country-select{
+  flex:0 0 112px;
+  min-width:0;
+  height:34px;
+  padding:0 6px 0 0;
+  border:0;
+  border-right:1px solid #40516b;
+  border-radius:0;
+  outline:0;
+  background:transparent;
+  color:inherit;
+  font:inherit;
+  font-size:12px;
+  font-weight:650;
+  cursor:pointer;
+}
+
+.login-country-select option{
+  color:#0f172a;
+  background:#fff;
 }
 
 .login-input-icon{
@@ -310,6 +333,24 @@
   box-shadow:0 0 0 3px rgba(52,211,153,.07);
 }
 
+.login-register{
+  margin:10px 0 0;
+  color:#8d9bb0;
+  font-size:12px;
+  line-height:1.5;
+}
+
+.login-register a{
+  color:#7eb2ff;
+  font-weight:700;
+  text-decoration:none;
+}
+
+.login-register a:hover{
+  color:#b8d4ff;
+  text-decoration:underline;
+}
+
 .login-mock{
   margin-top:7px;
   color:#526176;
@@ -341,6 +382,7 @@
   }
 
   .login-title{
+    margin-bottom:22px;
     font-size:24px;
   }
 

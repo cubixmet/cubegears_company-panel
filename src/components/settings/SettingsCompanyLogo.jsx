@@ -76,6 +76,8 @@ export const SettingsCompanyLogo = ({ canManage = false }) => {
       }
       if (mountedRef.current && requestVersionRef.current === request) {
         setMessage('Company logo uploaded successfully.');
+        // Refresh the authenticated workshop logo in the mobile header.
+        window.dispatchEvent(new Event('cubixgear:company-logo-updated'));
       }
     } catch (cause) {
       if (mountedRef.current && requestVersionRef.current === request) {

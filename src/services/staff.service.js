@@ -270,7 +270,7 @@ export const staffService = {
 
   sendLoginInvite: async (id, options = {}) => {
     if (USE_MOCK_API) throw new Error('One-time setup links require the real Django backend.');
-    return apiClient.post(`/employees/${id}/invite`, options);
+    return apiClient.post(`/employees/${id}/invite`, { ...options, manualOnly: true });
   },
 
 };

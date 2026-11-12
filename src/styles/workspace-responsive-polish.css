@@ -320,3 +320,107 @@
     line-height: 1.2;
   }
 }
+
+
+/* Workshop identity is the primary mobile header brand, with the product
+ * mark and name on a compact second line. Both stay visible at 320px. */
+@media (max-width:1023px) {
+  #root .app-shell .mobile-header-row {
+    min-width:0;
+    gap:6px;
+  }
+  #root .app-shell .mobile-workshop-brand {
+    display:flex;
+    flex:1 1 0;
+    min-width:0;
+    max-width:none;
+    gap:7px;
+    overflow:hidden;
+    align-items:center;
+  }
+  #root .app-shell .mobile-workshop-brand > .mobile-company-logo {
+    flex:0 0 30px;
+    width:30px;
+    height:30px;
+    min-width:30px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:8px;
+    overflow:hidden;
+    color:var(--text-primary);
+  }
+  #root .app-shell .mobile-company-logo img {
+    width:100%;
+    height:100%;
+    display:block;
+    object-fit:contain;
+  }
+  #root .app-shell .mobile-workshop-brand .mobile-brand-copy {
+    display:flex;
+    min-width:0;
+    flex:1 1 auto;
+    flex-direction:column;
+    justify-content:center;
+    align-items:flex-start;
+    overflow:hidden;
+  }
+  #root .app-shell .mobile-workshop-brand .mobile-brand-copy strong {
+    display:block;
+    width:100%;
+    max-width:100%;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:clamp(11px,3vw,14px);
+    line-height:1.2;
+    font-weight:750;
+  }
+  #root .app-shell .mobile-workshop-brand .mobile-powered-brand {
+    display:flex;
+    align-items:center;
+    gap:4px;
+    width:100%;
+    max-width:100%;
+    margin-top:2px;
+    overflow:hidden;
+    white-space:nowrap;
+    font-size:10px;
+    line-height:14px;
+    text-transform:none;
+    color:var(--text-muted);
+  }
+  #root .app-shell .mobile-workshop-brand .mobile-powered-logo {
+    flex:0 0 13px;
+    width:13px;
+    height:13px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+  }
+  #root .app-shell .mobile-workshop-brand .mobile-powered-logo img {
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+  }
+  #root .app-shell .mobile-header-actions {
+    flex:0 0 auto;
+    min-width:0;
+  }
+}
+@media (max-width:390px) {
+  #root .app-shell .mobile-workshop-brand {
+    gap:5px;
+  }
+  #root .app-shell .mobile-workshop-brand > .mobile-company-logo {
+    flex-basis:26px;
+    width:26px;
+    min-width:26px;
+    height:26px;
+  }
+  #root .app-shell .mobile-workshop-brand .mobile-powered-brand {
+    font-size:9px;
+  }
+}

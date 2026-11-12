@@ -17,10 +17,6 @@
 .staff-manual-invite-details dd{font-size:14px;color:var(--text-primary);margin:0;text-align:right;overflow-wrap:anywhere}
 .staff-manual-invite-actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .staff-manual-invite-actions>*{min-height:44px}
-.staff-consent-line{display:flex;gap:10px;align-items:center;min-height:44px;font-size:14px}
-.staff-consent-line input{width:18px;height:18px;flex:0 0 18px}
-.staff-consent-source{display:grid;gap:6px;font-size:14px}
-.staff-consent-source select{min-height:48px}
 @media(max-width:620px){.staff-manual-invite-actions>button{width:100%}.staff-manual-invite-details>div{align-items:start}}
 
 /* Manual consent is a real saved profile field, not an automatic message toggle. */

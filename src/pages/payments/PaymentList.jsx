@@ -11,6 +11,7 @@ import apiClient from '../../api/apiClient';
 import { financeService } from '../../services/finance.service';
 import { FINANCE_CHANNELS, financeAccountsForChannel, assertFinanceAccount } from '../../utils/financeCashBank';
 import PaymentFinanceOverview from '../../components/payments/PaymentFinanceOverview';
+import { WhatsAppManualShareButton } from '../../components/common/WhatsAppManualShareButton';
 import {
   PaymentFilterToolbar, PaymentOverviewStats, PaymentRecordsPanel, PaymentsHeader
 } from '../../components/payments';
@@ -373,6 +374,12 @@ export function PaymentList() {
                 <span>Outstanding Balance</span>
                 <input value={selectedInvoice ? money.format(outstanding) : '—'} readOnly />
               </label>
+              {form.direction === 'IN' && form.receiptKind === 'invoice' && selectedInvoice && outstanding > 0 && (
+                <div className="payment-wide">
+                  <WhatsAppManualShareButton targetType="payment_reminder" targetId={selectedInvoice.id}
+                    label="Share Payment Reminder via WhatsApp" />
+                </div>
+              )}
               <label>
                 <span>Payment Date *</span>
                 <input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} disabled={saving} />

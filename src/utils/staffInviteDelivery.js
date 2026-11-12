@@ -9,11 +9,11 @@ export const staffLoginStatusLabel = (status) => ({
 export const staffInviteStatusLabel = (status) => ({
   queued: 'Invitation Queued',
   sending: 'Invitation Sending',
-  sent: 'Invitation Sent (Meta Accepted)',
+  sent: 'Legacy Invite Status (Unverified)',
   delivered: 'Invitation Delivered',
   read: 'Invitation Read',
   failed: 'Invitation Failed',
-  manual: 'Pending Invitation / Manual Share',
+  manual: 'Ready for Manual Share',
   pending: 'Invitation Pending',
   consumed: 'Password Setup Completed',
   superseded: 'Invitation Replaced',
@@ -23,28 +23,24 @@ export const staffInviteStatusLabel = (status) => ({
 /** Status describes the Django/provider handoff, never inbox receipt. */
 export const staffInviteDeliveryMessage = (status) => {
   switch (status) {
-    case 'queued':
-      return 'Official WhatsApp invitation queued. Sending is not yet confirmed.';
-    case 'sending':
-      return 'Official WhatsApp Business API is processing this invitation.';
-    case 'sent':
-      return 'Meta accepted the WhatsApp message. Delivery to the phone is not yet confirmed.';
-    case 'delivered':
-      return 'WhatsApp confirmed the invitation was delivered.';
-    case 'read':
-      return 'WhatsApp confirmed the invitation was read.';
     case 'manual':
-      return 'Manual invitation ready. No message was sent automatically; an authorized admin must open WhatsApp and press Send.';
+      return 'Secure link is available for an authorized administrator to share manually. Opening WhatsApp never confirms delivery.';
+    case 'queued':
+    case 'sending':
+    case 'sent':
+    case 'delivered':
+    case 'read':
+      return 'Legacy automatic-delivery status only. No new messages are sent automatically.';
     case 'failed':
-      return 'Invitation delivery failed or could not be confirmed. Do not create the staff again; use Resend Setup Link.';
+      return 'No setup link was delivered. Generate a fresh manual setup link instead of recreating the staff record.';
     case 'pending':
-      return 'Staff account created. Invitation delivery is pending.';
+      return 'Staff login setup is pending. Prepare a manual invitation.';
     case 'consumed':
-      return 'Password was set successfully. Mobile login is active.';
+      return 'Password setup completed. Mobile login is active.';
     case 'not_requested':
-      return 'No WhatsApp setup invitation has been requested.';
+      return 'No invitation has been prepared.';
     case 'superseded':
-      return 'This invitation was replaced by a newer link.';
+      return 'The invitation was replaced with a new link.';
     default:
       return '';
   }

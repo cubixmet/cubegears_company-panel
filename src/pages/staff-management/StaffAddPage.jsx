@@ -21,18 +21,9 @@ const staffCountryCodes = [
   { code: '+973', country: 'Bahrain', flag: '🇧🇭', digits: 8 },
 ];
 const statuses = ['Active', 'Probation', 'Notice Period', 'Inactive', 'Suspended', 'Resigned', 'Terminated'];
-const DEFAULT_WHATSAPP_CONSENT_SOURCE = 'Staff consented in person during onboarding';
-const consentSources = [
-  { value: '', label: 'Choose consent source' },
-  { value: DEFAULT_WHATSAPP_CONSENT_SOURCE, label: 'In person' },
-  { value: 'Signed staff WhatsApp consent form', label: 'Signed consent form' },
-  { value: 'Staff consented through approved digital form', label: 'Approved digital form' },
-];
-
 const emptyStaff = (loginEnabled) => ({
   name: '', phone: '', branchId: '', roleId: '', role: '',
   employmentStatus: 'Active', loginAccessEnabled: loginEnabled,
-  whatsappConsent: false, whatsappConsentSource: '',
 });
 
 export const StaffAddPage = () => {
@@ -50,6 +41,7 @@ export const StaffAddPage = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [createdStaff, setCreatedStaff] = useState(null);
+  const [invitationReady, setInvitationReady] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [shareMessage, setShareMessage] = useState('');
   const [shareError, setShareError] = useState('');
@@ -90,10 +82,6 @@ export const StaffAddPage = () => {
       showFormFieldError(formRef.current, 'role', 'Choose an active company role.');
       return;
     }
-    if (form.whatsappConsent && !form.whatsappConsentSource) {
-      showFormFieldError(formRef.current, 'whatsappConsentSource', 'Select how consent was recorded.');
-      return;
-    }
 
     setSaving(true);
     setError('');
@@ -107,11 +95,12 @@ export const StaffAddPage = () => {
       const { setupLink: unusedBearerLink, ...safeRecord } = created || {};
       void unusedBearerLink;
       setCreatedStaff(safeRecord);
+      setInvitationReady(Boolean(created?.setupLink) && created?.whatsappInviteStatus === 'manual');
+      setShareError(created?.invitationError || '');
     } catch (cause) {
       showServerFormErrors(formRef.current, cause, {
         roleId: 'role', role: 'role', phone: 'phone', name: 'name',
         branchId: 'branchId', employmentStatus: 'employmentStatus',
-        whatsappConsentSource: 'whatsappConsentSource',
       });
       setError(cause?.message || 'Unable to create staff. Check the highlighted fields.');
     } finally {
@@ -121,10 +110,6 @@ export const StaffAddPage = () => {
 
   const share = async () => {
     if (sharing || !createdStaff?.id) return;
-    if (!createdStaff.whatsappConsent) {
-      setShareError('WhatsApp consent is required before manual sharing.');
-      return;
-    }
     setShareError('');
     setShareMessage('');
     setSharing(true);
@@ -144,7 +129,7 @@ export const StaffAddPage = () => {
   };
 
   const copyInvite = async () => {
-    if (sharing || !createdStaff?.id || !createdStaff.whatsappConsent) return;
+    if (sharing || !createdStaff?.id) return;
     setSharing(true);
     setShareError('');
     setShareMessage('');
@@ -161,6 +146,25 @@ export const StaffAddPage = () => {
     }
   };
 
+  const regenerateInvite = async () => {
+    if (sharing || !createdStaff?.id) return;
+    setSharing(true);
+    setShareError('');
+    setShareMessage('');
+    try {
+      const invitation = await staffService.sendLoginInvite(createdStaff.id, { replace: true });
+      const ready = Boolean(invitation?.setupLink) && invitation?.whatsappInviteStatus === 'manual';
+      setInvitationReady(ready);
+      setShareMessage(ready ? 'Secure setup link is ready. Use Share on WhatsApp or Copy Setup Message.' : '');
+      if (!ready) setShareError('Setup link could not be generated. Check workshop settings and retry.');
+    } catch (cause) {
+      setInvitationReady(false);
+      setShareError(cause?.message || 'Could not regenerate the secure setup link.');
+    } finally {
+      setSharing(false);
+    }
+  };
+
   if (createdStaff) {
     return (
       <section className="staff-add-page staff-manual-invite-result" aria-label="Staff creation complete">
@@ -172,13 +176,12 @@ export const StaffAddPage = () => {
             <div><dt>Name</dt><dd>{createdStaff.name}</dd></div>
             <div><dt>Mobile</dt><dd>{createdStaff.phone}</dd></div>
             <div><dt>Login Status</dt><dd>{createdStaff.loginStatus}</dd></div>
-            <div><dt>Invitation</dt><dd>{createdStaff.whatsappInviteStatus === 'manual'
-              ? 'Pending Invitation / Manual Share' : 'Not Available'}</dd></div>
+            <div><dt>Invitation</dt><dd>{invitationReady ? 'Ready to Share' : 'Setup Link Not Ready'}</dd></div>
           </dl>
           {shareError && <div className="staff-directory-message is-error" role="alert">{shareError}</div>}
           {shareMessage && <div className="staff-directory-message" role="status">{shareMessage}</div>}
           <div className="staff-manual-invite-actions">
-            {canManageLogins && createdStaff.whatsappConsent && createdStaff.loginStatus === 'Pending Password Setup' && (
+            {canManageLogins && createdStaff.loginStatus === 'Pending Password Setup' && invitationReady && (
               <>
               <button type="button" className="staff-save-button" disabled={sharing} onClick={share}>
                 <MessageCircle size={17}/>{sharing ? 'Preparing…' : 'Share on WhatsApp'}
@@ -188,8 +191,11 @@ export const StaffAddPage = () => {
               </button>
               </>
             )}
-            {!createdStaff.whatsappConsent &&
-              <p className="staff-login-invite-hint">No WhatsApp consent recorded. Update consent in Staff Details before sharing.</p>}
+            {canManageLogins && createdStaff.loginStatus === 'Pending Password Setup' && (
+              <button type="button" className="staff360-secondary-button" disabled={sharing} onClick={regenerateInvite}>
+                Regenerate Setup Link
+              </button>
+            )}
             <button type="button" className="staff360-secondary-button"
               onClick={() => navigate('/staff-management/staff/' + createdStaff.id)}>
               View Staff Profile
@@ -198,6 +204,7 @@ export const StaffAddPage = () => {
               setForm(emptyStaff(canManageLogins));
               setCountryCode('+91');
               setCreatedStaff(null);
+              setInvitationReady(false);
               setShareError('');
               setShareMessage('');
             }}>Add Another Staff</button>
@@ -278,24 +285,6 @@ export const StaffAddPage = () => {
               </p>}
           </section>
 
-          <section className="staff-form-panel">
-            <div className="staff-form-panel__title">Manual WhatsApp Consent</div>
-            <label className="staff-login-invite-hint staff-consent-line">
-              <input type="checkbox" checked={form.whatsappConsent} onChange={event => setForm(current => ({
-                ...current,
-                whatsappConsent: event.target.checked,
-                whatsappConsentSource: event.target.checked
-                  ? (current.whatsappConsentSource || DEFAULT_WHATSAPP_CONSENT_SOURCE) : '',
-              }))}/>
-              Staff agreed to receive manual WhatsApp setup links
-            </label>
-            {form.whatsappConsent && <label className="staff-consent-source">Consent Source *
-              <select name="whatsappConsentSource" value={form.whatsappConsentSource} required
-                onChange={event => set('whatsappConsentSource', event.target.value)}>
-                {consentSources.map(source => <option key={source.value} value={source.value}>{source.label}</option>)}
-              </select>
-            </label>}
-          </section>
         </div>
       </div>
     </form>

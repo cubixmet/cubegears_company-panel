@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CheckCircle2, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
 import { API_BASE_URL } from '../../api/apiConfig';
+import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
 import { getStaffLandingPath } from '../../utils/staffLanding';
 import '../../styles/login-system.css';
 import '../../styles/auth-recovery.css';
@@ -111,7 +112,7 @@ export default function StaffSetPasswordPage() {
     <main className="login-page auth-recovery-page" data-staff-password-setup>
       <div className="login-shell">
         <section className="login-card auth-recovery-card">
-          <div className="login-brand-row"><div className="login-brand-mark">CG</div>
+          <div className="login-brand-row"><div className="login-brand-mark" aria-hidden="true"><CubixgearLogo /></div>
             <div><strong className="login-brand-name">cubixgear</strong>
               <span className="login-brand-subtitle">Secure Workshop Staff Access</span></div>
           </div>
