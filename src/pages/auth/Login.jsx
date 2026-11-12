@@ -1,12 +1,25 @@
 import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
 import { useState } from "react";
-import { Eye, EyeOff, Lock, Phone } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, Phone } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { getCredentialError, getAuthFieldErrors } from '../../utils/authErrors';
 import { getStaffLandingPath } from '../../utils/staffLanding';
 import { isValidEmail, normalizeEmail } from '../../utils/validation';
 import '../../styles/login-system.css';
+
+const LOGIN_COUNTRY_CODES = [
+  { code: '+91', label: 'India' },
+  { code: '+971', label: 'UAE' },
+  { code: '+966', label: 'Saudi Arabia' },
+  { code: '+974', label: 'Qatar' },
+  { code: '+968', label: 'Oman' },
+  { code: '+965', label: 'Kuwait' },
+  { code: '+973', label: 'Bahrain' },
+  { code: '+1', label: 'USA / Canada' },
+  { code: '+44', label: 'UK' },
+  { code: '+61', label: 'Australia' },
+];
 
 export const Login = () => {
   const { login, loading, isMockMode } = useAuth();
@@ -17,6 +30,9 @@ export const Login = () => {
   const resetComplete = params.get('reset') === 'success';
 
   const [identifier, setIdentifier] = useState(isMockMode ? 'admin@cubixgear.com' : suggestedEmail);
+  const [countryCode, setCountryCode] = useState('+91');
+  const isEmailIdentifier = identifier.includes('@');
+  const showCountryCode = !isEmailIdentifier && !identifier.trim().startsWith('+');
   const [workshop, setWorkshop] = useState('');
   const [needsWorkshop, setNeedsWorkshop] = useState(false);
   const [password, setPassword] = useState(isMockMode ? 'password123' : '');
@@ -38,13 +54,20 @@ export const Login = () => {
     event.preventDefault();
     if (loading) return;
 
-    const identity = identifier.trim();
+    const enteredIdentifier = identifier.trim();
+    const isEmail = enteredIdentifier.includes('@');
+    // Keep the existing backend contract: normalized emails or E.164 mobile numbers.
+    const identity = isEmail
+      ? normalizeEmail(enteredIdentifier)
+      : enteredIdentifier.startsWith('+')
+        ? enteredIdentifier.replace(/[\s().-]/g, '')
+        : `${countryCode}${enteredIdentifier.replace(/[\s().-]/g, '')}`;
     const nextErrors = {};
-    if (!identity) nextErrors.identifier = 'Email or mobile number is required.';
-    else if (identity.includes('@') && !isValidEmail(normalizeEmail(identity)))
+    if (!enteredIdentifier) nextErrors.identifier = 'Email or mobile number is required.';
+    else if (isEmail && !isValidEmail(identity))
       nextErrors.identifier = 'Enter a valid email address.';
-    else if (!identity.includes('@') && !/^\+[\d\s().-]{8,22}$/.test(identity))
-      nextErrors.identifier = 'Enter mobile with country code, e.g. +919876543210.';
+    else if (!isEmail && !/^\+[1-9]\d{7,14}$/.test(identity))
+      nextErrors.identifier = 'Enter a valid mobile number.';
     if (!password) nextErrors.password = 'Password is required.';
 
     if (Object.keys(nextErrors).length) {
@@ -57,7 +80,7 @@ export const Login = () => {
     setFormError('');
 
     try {
-      const authenticatedUser = await login({ identifier: identity.includes('@') ? normalizeEmail(identity) : identity, password, ...(workshop.trim() ? { workshop: workshop.trim().toLowerCase() } : {}) });
+      const authenticatedUser = await login({ identifier: identity, password, ...(workshop.trim() ? { workshop: workshop.trim().toLowerCase() } : {}) });
       navigate(getStaffLandingPath(authenticatedUser, params.get('next')), { replace: true });
     } catch (error) {
       const backendFields = getAuthFieldErrors(error);
@@ -93,9 +116,6 @@ export const Login = () => {
             </div>
 
             <h1 className="login-title">Welcome back</h1>
-            <p className="login-description">
-              Staff: sign in using your international mobile number and password. Existing email accounts also remain supported. No OTP.
-            </p>
           </div>
 
           {resetComplete && !formError && (
@@ -111,23 +131,51 @@ export const Login = () => {
           )}
 
           <form onSubmit={handleSubmit} className="login-form" noValidate>
-            <label className="block">
-              <span className="login-field-label">Mobile Number with Country Code or Email</span>
+            <div className="login-identifier-field">
+              <label htmlFor="login-identifier" className="login-field-label">Mobile Number or Email</label>
               <div className={'login-input-shell ' + (fieldErrors.identifier ? 'is-error' : '')}>
-                <span className="login-input-icon" aria-hidden="true">
-                  <Phone size={16} strokeWidth={1.8} />
-                </span>
+                {showCountryCode ? (
+                  <select
+                    className="login-country-select"
+                    aria-label="Country code"
+                    value={countryCode}
+                    onChange={(event) => {
+                      setCountryCode(event.target.value);
+                      clearField('identifier');
+                    }}
+                  >
+                    {LOGIN_COUNTRY_CODES.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.code} {country.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="login-input-icon" aria-hidden="true">
+                    {isEmailIdentifier ? <Mail size={16} strokeWidth={1.8} /> : <Phone size={16} strokeWidth={1.8} />}
+                  </span>
+                )}
                 <input
+                  id="login-identifier"
                   className="login-input"
                   type="text"
                   autoComplete="username"
-                  inputMode={identifier.includes('@') ? 'email' : 'tel'}
+                  inputMode={isEmailIdentifier ? 'email' : 'text'}
                   value={identifier}
                   onChange={(event) => {
-                    setIdentifier(event.target.value);
+                    const value = event.target.value;
+                    const matchingCountry = value.startsWith('+')
+                      ? LOGIN_COUNTRY_CODES.find((country) => value.startsWith(country.code))
+                      : null;
+                    if (matchingCountry) {
+                      setCountryCode(matchingCountry.code);
+                      setIdentifier(value.slice(matchingCountry.code.length).replace(/[\s().-]/g, ''));
+                    } else {
+                      setIdentifier(value);
+                    }
                     clearField('identifier');
                   }}
-                  placeholder="+919876543210"
+                  placeholder="90000000000"
                   aria-invalid={Boolean(fieldErrors.identifier)}
                   aria-describedby={fieldErrors.identifier ? 'login-identifier-error' : undefined}
                 />
@@ -137,7 +185,7 @@ export const Login = () => {
                   {fieldErrors.identifier}
                 </span>
               )}
-            </label>
+            </div>
 
             {needsWorkshop && <label className="block">
               <span className="login-field-label">Workshop code</span>
@@ -205,7 +253,7 @@ export const Login = () => {
             </div>
 
             {isMockMode && <div className="login-mock">Development mock mode</div>}
-            <p className="login-description">New workshop? <Link to="/signup">Register using mobile number</Link></p>
+            <p className="login-register">New workshop? <a href="https://cubixgear.tech/signup">Register</a></p>
           </div>
         </section>
       </div>

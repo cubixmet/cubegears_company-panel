@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from './apiConfig';
+import { safeApiErrorMessage, isHtmlResponse } from '../utils/safeApiErrorMessage';
 
 export const apiClient = axios.create(API_CONFIG);
 
@@ -121,7 +122,10 @@ apiClient.interceptors.response.use(
       redirectToLogin();
     }
 
-    const payload = error?.response?.data;
+    const rawPayload = error?.response?.data;
+    const responseType = error?.response?.headers?.get?.('content-type')
+      || error?.response?.headers?.['content-type'] || '';
+    const payload = isHtmlResponse(rawPayload, responseType) ? null : rawPayload;
     if (payload instanceof Error) return Promise.reject(payload);
 
     const fieldErrors = {};
@@ -140,18 +144,10 @@ apiClient.interceptors.response.use(
 
     const firstFieldError = Object.values(fieldErrors)[0] || null;
 
-    const message =
-      payload?.message ||
-      payload?.error ||
-      payload?.detail ||
-      fieldErrors.non_field_errors ||
-      firstFieldError ||
-      (error?.code === 'ECONNABORTED'
-        ? 'The API request timed out. Check the Django server and retry.'
-        : error?.code === 'ERR_NETWORK'
-          ? 'Could not connect to CubeGears backend. Check that Django is running and the API URL is correct.'
-          : error?.message) ||
-      'Something went wrong. Please try again.';
+    const message = safeApiErrorMessage({
+      status, payload, responseType, firstFieldError,
+      code: error?.code, fallback: error?.message,
+    });
 
     const normalized = new Error(message);
     normalized.requestId = error?.response?.headers?.['x-request-id'] || null;

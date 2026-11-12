@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { lazyPage } from './lazyPage';
 const OwnerCompanyProfile = lazyPage(() => import('../pages/saas/OwnerCompanyProfile'), 'OwnerCompanyProfile');
 const OwnerOnboarding = lazyPage(() => import('../pages/saas/OwnerOnboarding'), 'OwnerOnboarding');
@@ -19,7 +20,6 @@ function LegacySupplierRouteRedirect() {
 
 const Login = lazyPage(() => import('../pages/auth/Login'), 'Login');
 const StaffSetPasswordPage = lazyPage(() => import('../pages/auth/StaffSetPasswordPage'), 'default');
-const WorkshopMobileSignup = lazyPage(() => import('../pages/auth/WorkshopMobileSignup'), 'default');
 const ForgotPassword = lazyPage(() => import('../pages/auth/ForgotPassword'), 'ForgotPassword');
 const ResetPassword = lazyPage(() => import('../pages/auth/ResetPassword'), 'ResetPassword');
 const SetupPassword = lazyPage(() => import('../pages/auth/SetupPassword'), 'SetupPassword');
@@ -76,6 +76,22 @@ const StorageHistory = lazyPage(() => import('../pages/saas/StorageHistory'), 'S
 const StorageDayDetails = lazyPage(() => import('../pages/saas/StorageDayDetails'), 'StorageDayDetails');
 const AccountSecurity = lazyPage(() => import('../pages/account/AccountSecurity'), 'AccountSecurity');
 
+// Workshop registration lives on the public website, not in the company panel.
+function PublicSignupRedirect() {
+  useEffect(() => {
+    window.location.replace('https://cubixgear.tech/signup');
+  }, []);
+
+  return (
+    <main className="min-h-screen grid place-items-center p-6 text-center">
+      <p>
+        Opening workshop registration…{' '}
+        <a href="https://cubixgear.tech/signup">Continue to registration</a>
+      </p>
+    </main>
+  );
+}
+
 function RootRedirect() {
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
@@ -98,7 +114,7 @@ export const AppRoutes = () => (
     <Route path="/" element={<RootRedirect />} />
     <Route path="/login" element={<Login />} />
     <Route path="/plans" element={<Navigate to="/account/credits/buy" replace />} />
-    <Route path="/signup" element={<WorkshopMobileSignup />} />
+    <Route path="/signup" element={<PublicSignupRedirect />} />
     <Route path="/set-password/:token" element={<StaffSetPasswordPage />} />
     <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password" element={<ResetPassword />} />

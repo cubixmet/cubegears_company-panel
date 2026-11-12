@@ -750,7 +750,15 @@ export function InvoiceRoutePage() {
             onClick={() => navigate(`/invoices?kind=${form.kind === 'estimate' ? 'estimate' : 'invoice'}`)}>
             Back to List
           </button>
-          {form.kind === "invoice" && (form.finalizedAt || ["Finalized", "Paid", "Issued"].includes(form.status)) && form.status !== "Cancelled" && <WhatsAppManualShareButton targetType="invoice" targetId={form.id || id} />}
+          {form.kind === "invoice" && (form.finalizedAt || ["Finalized", "Paid", "Issued"].includes(form.status)) && form.status !== "Cancelled" && (
+            <>
+              <WhatsAppManualShareButton targetType="invoice" targetId={form.id || id} />
+              {Number(totals.balance) > 0 && (
+                <WhatsAppManualShareButton targetType="payment_reminder" targetId={form.id || id}
+                  label="Share Payment Reminder" />
+              )}
+            </>
+          )}
           {form.status === 'Draft' && (
             <button className="bill-btn secondary" onClick={() => navigate(`/invoices/${id}/edit`)}>
               <Edit3 size={16}/>Edit

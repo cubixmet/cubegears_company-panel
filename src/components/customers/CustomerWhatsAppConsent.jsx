@@ -39,8 +39,8 @@ export function CustomerWhatsAppConsent({ customerId, canManage }) {
       });
       setOptIn(value);
       setMessage(value
-        ? 'Explicit consent saved. Notifications still require connected WhatsApp and approved templates.'
-        : 'WhatsApp opt-out saved. New automated messages are blocked.');
+        ? 'Customer sharing preference saved. Messages are only prepared when a staff member explicitly shares.'
+        : 'WhatsApp opt-out saved. No automatic messages are sent.');
     } catch (cause) {
       setError(cause?.message || 'Could not save WhatsApp consent.');
     } finally {
@@ -52,8 +52,8 @@ export function CustomerWhatsAppConsent({ customerId, canManage }) {
   return (
     <section className="customer-tracking-panel" aria-label="Customer WhatsApp notification consent">
       <div className="customer-tracking-heading">
-        <h2>WhatsApp Notification Consent</h2>
-        <p>Automated messages are OFF unless the customer explicitly opts in. Record how consent was obtained.</p>
+        <h2>WhatsApp Contact Preference</h2>
+        <p>Messages are never sent automatically. Record customer permission before sharing manually.</p>
       </div>
       {loading ? <p role="status">Loading customer notification consent…</p> : <>
         <label>Consent Source / Reference

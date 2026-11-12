@@ -11,11 +11,15 @@ export function CustomerTrackingLinkPanel({ customerId, canManage = false }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [needsRegeneration, setNeedsRegeneration] = useState(false);
   const [notice, setNotice] = useState('');
 
   const load = async () => {
     if (!customerId) return;
     setError('');
+    setLink('');
+    setEnabled(false);
+    setNeedsRegeneration(false);
     setLoading(true);
     try {
       if (USE_MOCK_API) throw new Error('Customer tracking links require the live Django backend.');
@@ -23,6 +27,7 @@ export function CustomerTrackingLinkPanel({ customerId, canManage = false }) {
       setLink(result.url || '');
       setEnabled(Boolean(result.enabled));
     } catch (cause) {
+      setNeedsRegeneration(cause?.status === 409);
       setError(cause?.message || 'Unable to load customer link.');
     } finally {
       setLoading(false);
@@ -44,6 +49,7 @@ export function CustomerTrackingLinkPanel({ customerId, canManage = false }) {
       const result = await apiClient.post(`/customer-portal/links/${customerId}`, { action });
       setLink(result.url || '');
       setEnabled(Boolean(result.enabled));
+      setNeedsRegeneration(false);
       setNotice(action === 'revoke' ? 'Tracking URL revoked.' : 'New secure tracking URL generated.');
     } catch (cause) {
       setError(cause?.message || 'Unable to update customer tracking link.');
@@ -76,13 +82,13 @@ export function CustomerTrackingLinkPanel({ customerId, canManage = false }) {
             <button type="button" onClick={copy}><Copy size={16}/> Copy Link</button>
             <WhatsAppManualShareButton targetType="customer" targetId={customerId} label="Send via WhatsApp" />
           </div>
-        </> : <p role="status">Tracking access is currently disabled.</p>}
+        </> : !needsRegeneration && <p role="status">Tracking access is currently disabled.</p>}
         {canManage && <div className="customer-tracking-actions">
           {enabled && <button type="button" disabled={busy} onClick={() => change('revoke')}>
             <ShieldOff size={16}/> Revoke Link
           </button>}
-          <button type="button" disabled={busy} onClick={() => change(enabled ? 'rotate' : 'enable')}>
-            <RefreshCw size={16}/> {enabled ? 'Regenerate Link' : 'Enable Tracking Link'}
+          <button type="button" disabled={busy} onClick={() => change(needsRegeneration || enabled ? 'rotate' : 'enable')}>
+            <RefreshCw size={16}/> {needsRegeneration ? 'Regenerate Secure Link' : enabled ? 'Regenerate Link' : 'Enable Tracking Link'}
           </button>
         </div>}
       </>}

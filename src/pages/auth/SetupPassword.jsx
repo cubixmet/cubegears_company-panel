@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { CheckCircle2, Eye, EyeOff, Lock } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { authRecoveryService } from '../../services/authRecovery.service';
+import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
 import { getAuthErrorMessage, getAuthFieldErrors } from '../../utils/authErrors';
 import { getStaffLandingPath } from '../../utils/staffLanding';
 import '../../styles/login-system.css';
@@ -99,7 +100,7 @@ export const SetupPassword = () => {
       <div className="login-shell">
         <section className="login-card auth-recovery-card">
           <div className="login-brand-row">
-            <div className="login-brand-mark">CG</div>
+            <div className="login-brand-mark" aria-hidden="true"><CubixgearLogo /></div>
             <div>
               <div className="login-brand-name">cubixgear</div>
               <div className="login-brand-subtitle">Workshop Account Setup</div>

@@ -930,6 +930,10 @@ export function JobCardWorkspace() {
         <div className="flex flex-wrap items-center gap-2">
           <span className="job-overview-status-badge">{normalizeJobStatus(job.status)}</span>
           <WhatsAppManualShareButton targetType="job" targetId={job.id} />
+          {job.status === 'Ready for Delivery' && (
+            <WhatsAppManualShareButton targetType="ready_delivery" targetId={job.id}
+              label="Share Vehicle Ready Message" />
+          )}
           {hasInvoiceAccess && !isSectionLocked('invoice') && activeTab !== 'invoice' &&
             (linkedInvoice || canCreateInvoice) && (
               <button type="button" onClick={() => openTab('invoice')} className="inline-flex h-10 items-center gap-2 rounded-xl border-0 bg-primary px-4 text-xs font-bold text-white">

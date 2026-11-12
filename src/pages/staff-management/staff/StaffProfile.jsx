@@ -176,6 +176,9 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
   const [toastMsg, setToastMsg] = useState('');
   const [inviteNotice, setInviteNotice] = useState(() => staffInviteDeliveryMessage(location.state?.whatsappInviteStatus));
   const [error, setError] = useState('');
+  const [errorStatus, setErrorStatus] = useState(null);
+  const [errorRequestId, setErrorRequestId] = useState(null);
+  const [supportWarning, setSupportWarning] = useState('');
   const [inviteError, setInviteError] = useState('');
   const [inviteBusy, setInviteBusy] = useState(false);
 
@@ -240,8 +243,9 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
   };
 
   const loadSupportData = async (profile) => {
+    // Role editing is loaded separately after a permission check.
+    // Keep these indices aligned: teams, shifts, skills, documents, activities.
     const tasks = [
-      roleService.getAssignableRoles(),
       staffManagementService.getTeams(),
       staffManagementService.getShifts(),
       staffManagementService.getSkills(),
@@ -254,6 +258,9 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
       results[index]?.status === 'fulfilled'
         ? results[index].value
         : fallback;
+    setSupportWarning(results.some(result => result.status === 'rejected')
+      ? 'Some optional profile information could not load. The staff record is still available.'
+      : '');
 
     setTeams(Array.isArray(value(0)) ? value(0) : []);
     setShifts(Array.isArray(value(1)) ? value(1) : []);
@@ -277,17 +284,23 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
   const refreshAll = async () => {
     setLoading(true);
     setError('');
+    setErrorStatus(null);
+    setErrorRequestId(null);
     try {
       const profile = await loadStaff();
       await loadSupportData(profile);
     } catch (requestError) {
       setError(requestError?.message || 'Unable to load staff profile.');
+      setErrorStatus(requestError?.status || null);
+      setErrorRequestId(requestError?.requestId || null);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Do not show a previous employee's details while a new route loads.
+    setStaff(null);
     refreshAll();
   }, [staffId]);
 
@@ -296,21 +309,6 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
       setActiveTab('Overview');
     }
   }, [activeTab, canViewJobs]);
-
-  // Refresh provider delivery state while the official WhatsApp worker is pending.
-  // Poll only this authorized staff profile, never another tenant or public URL.
-  useEffect(() => {
-    if (!canManageLogin || !staff?.id || !['queued', 'sending'].includes(staff.whatsappInviteStatus)) {
-      return undefined;
-    }
-    let mounted = true;
-    const timer = window.setInterval(() => {
-      staffService.getStaffById(staff.id)
-        .then(next => { if (mounted) setStaff(next); })
-        .catch(() => {});
-    }, 10000);
-    return () => { mounted = false; window.clearInterval(timer); };
-  }, [staff?.id, staff?.whatsappInviteStatus, canManageLogin]);
 
   // Roles are administrator-only; ordinary staff must not make forbidden
   // /roles/ requests on profile load.
@@ -423,10 +421,6 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
 
   const handleSendInvite = async () => {
     if (inviteBusy || !canResetStaffPassword || !staff?.id) return;
-    if (!staff.whatsappConsent) {
-      setInviteError('Record staff WhatsApp consent before sharing a setup link.');
-      return;
-    }
     setInviteBusy(true);
     setInviteError('');
     setInviteNotice('');
@@ -438,11 +432,9 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
         }),
         { phone: staff.phone, staffName: staff.name, workshopName: user?.company?.name },
       );
-      setInviteNotice(['queued', 'sending', 'sent'].includes(handoff.status)
-        ? 'Password reset has been handed to the official WhatsApp delivery service. Check its delivery status; no manual message was sent.'
-        : handoff.localOnlyLink
-          ? 'WhatsApp opened, but the setup URL is localhost. Set backend FRONTEND_URL to the public HTTPS company-panel address before the employee opens the link.'
-          : 'Password link is ready in WhatsApp. Review it and press Send to share manually.');
+      setInviteNotice(handoff.localOnlyLink
+        ? 'WhatsApp opened, but the setup URL is localhost. Set backend FRONTEND_URL to the public HTTPS company-panel address before the employee opens the link.'
+        : 'Password link is ready in WhatsApp. Review it and press Send to share manually.');
       await refreshAll();
     } catch (requestError) {
       setInviteError(staffInviteErrorMessage(requestError));
@@ -452,7 +444,7 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
   };
 
   const handleCopyInvite = async () => {
-    if (inviteBusy || !canResetStaffPassword || !staff?.whatsappConsent) return;
+    if (inviteBusy || !canResetStaffPassword || !staff?.id) return;
     setInviteBusy(true);
     setInviteError('');
     setInviteNotice('');
@@ -532,20 +524,42 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
     await refreshAll();
   };
 
-  if (loading) {
-    return <div className="staff-workshop-empty">Loading staff profile…</div>;
+  if (loading && !staff) {
+    return <div className="staff-workshop-empty" role="status">Loading staff profile…</div>;
   }
 
-  if (error || !staff) {
+  if (!staff) {
     return (
-      <div className="staff-workshop-empty">
-        {error || 'Staff profile not found.'}
-      </div>
+      <section className="staff-workshop-empty" role="alert">
+        <p>{error || 'Staff profile not found.'}</p>
+        {errorRequestId && <p>Support reference: {errorRequestId}</p>}
+        {errorStatus !== 401 && errorStatus !== 403 && (
+          <button type="button" className="staff360-secondary-button" onClick={refreshAll}>
+            Retry Loading Profile
+          </button>
+        )}
+      </section>
     );
   }
 
   return (
     <div className="staff-profile staff360">
+      {error && (
+        <div className="staff-directory-message is-error" role="alert">
+          <span>{error}{errorRequestId ? ` · Reference: ${errorRequestId}` : ''}</span>
+          {errorStatus !== 401 && errorStatus !== 403 && (
+            <button type="button" onClick={refreshAll} disabled={loading}>
+              {loading ? 'Retrying…' : 'Retry'}
+            </button>
+          )}
+        </div>
+      )}
+      {supportWarning && (
+        <div className="staff-directory-message" role="status">
+          {supportWarning}
+          <button type="button" onClick={refreshAll} disabled={loading}>Retry</button>
+        </div>
+      )}
       {toastMsg && <div className="staff360-toast" role="status">{toastMsg}</div>}
       {inviteError && (
         <div className="staff-directory-message is-error" role="alert">
@@ -612,8 +626,7 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
               <>
                 <button type="button" onClick={handleSendInvite}
                   disabled={inviteBusy || staff.loginStatus === 'Disabled'}
-                  title={staff.loginStatus === 'Disabled'
-                    ? 'Enable staff login first' : !staff.whatsappConsent ? 'Record WhatsApp consent in Edit Profile before sending' : undefined}
+                  title={staff.loginStatus === 'Disabled' ? 'Enable staff login first' : undefined}
                   className="staff360-secondary-button staff360-manual-reset"
                   aria-label={staff.loginStatus === 'Active'
                     ? 'Send password reset link manually via WhatsApp'
@@ -626,7 +639,7 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
                   <summary>More</summary>
                   <div>
                     <button type="button" className="staff360-secondary-button"
-                      disabled={inviteBusy || staff.loginStatus === 'Disabled' || !staff.whatsappConsent}
+                      disabled={inviteBusy || staff.loginStatus === 'Disabled'}
                       onClick={handleCopyInvite}>
                       <Copy size={14}/> Copy Password Link Message
                     </button>
