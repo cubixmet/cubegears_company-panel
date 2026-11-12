@@ -14,13 +14,57 @@ async function publicPasswordRequest(path, payload) {
     referrerPolicy: 'no-referrer',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify(payload),
+  }).catch(() => {
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    throw new Error(isLocal
+      ? 'Cannot reach the Django backend. Check that it is running and VITE_API_URL is correct.'
+      : 'Unable to connect to the cubixgear service. Please try again.');
   });
-  const data = await response.json().catch(() => ({}));
+  const data = (response.headers.get('content-type') || '').includes('json')
+    ? await response.json().catch(() => ({}))
+    : {};
   if (!response.ok) {
     const problem = data?.password;
-    throw new Error(Array.isArray(problem) ? problem.join(' ') : problem || data.message || 'Invalid or expired setup link.');
+    const message = response.status >= 500
+      ? 'The password service is temporarily unavailable. Please try again.'
+      : response.status === 429
+        ? 'Too many attempts. Please try again shortly.'
+        : response.status === 404 || response.status === 405
+          ? 'Password verification API not found. Check the Django backend version and API URL.'
+          : response.status === 401 || response.status === 403
+            ? 'Password verification is blocked. Check the server authentication and CORS configuration.'
+            : Array.isArray(problem)
+              ? problem.join(' ')
+              : typeof problem === 'string'
+                ? problem
+                : typeof data?.message === 'string'
+                  ? data.message
+                  : 'This link is invalid or expired.';
+    const failure = new Error(message);
+    failure.status = response.status;
+    if (response.status === 429) {
+      const retryAfter = Number(response.headers.get('retry-after'));
+      failure.retryAfter = Number.isFinite(retryAfter) && retryAfter > 0
+        ? Math.min(Math.ceil(retryAfter), 86400) : 60;
+    }
+    throw failure;
   }
   return data;
+}
+
+// React StrictMode remounts effects during development. Share only the
+// in-flight validation promise; do not store bearer links persistently.
+const pendingValidations = new Map();
+function validateInvitation(token) {
+  const existing = pendingValidations.get(token);
+  if (existing) return existing;
+  const request = publicPasswordRequest('validate', { token });
+  pendingValidations.set(token, request);
+  request.then(
+    () => pendingValidations.delete(token),
+    () => pendingValidations.delete(token),
+  );
+  return request;
 }
 
 export default function StaffSetPasswordPage() {
@@ -28,6 +72,10 @@ export default function StaffSetPasswordPage() {
   const navigate = useNavigate();
   const [state, setState] = useState('checking');
   const [purpose, setPurpose] = useState('setup');
+  const [accountType, setAccountType] = useState('unknown');
+  const [connectionError, setConnectionError] = useState('');
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const [retrySeconds, setRetrySeconds] = useState(0);
   const [expiry, setExpiry] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -41,16 +89,36 @@ export default function StaffSetPasswordPage() {
     if (!token) { setState('invalid'); return; }
     let active = true;
     setState('checking');
-    publicPasswordRequest('validate', { token })
+    setConnectionError('');
+    validateInvitation(token)
       .then((result) => {
         if (!active) return;
         setPurpose(result.purpose || 'setup');
+        setAccountType(result.accountType === 'owner' ? 'owner' : 'staff');
         setExpiry(result.expiresAt || '');
         setState('ready');
       })
-      .catch(() => { if (active) setState('invalid'); });
+      .catch((cause) => {
+        if (!active) return;
+        setConnectionError(cause?.message || 'Unable to verify the link. Please try again.');
+        if (cause?.status === 429) {
+          setRetrySeconds(cause.retryAfter || 60);
+          setState('rate-limited');
+        } else {
+          setRetrySeconds(0);
+          setState(cause?.status === 400 ? 'invalid' : 'unavailable');
+        }
+      });
     return () => { active = false; };
-  }, [token]);
+  }, [token, retryAttempt]);
+
+  useEffect(() => {
+    if (!retrySeconds) return undefined;
+    const timer = window.setTimeout(
+      () => setRetrySeconds((seconds) => Math.max(0, seconds - 1)), 1000,
+    );
+    return () => window.clearTimeout(timer);
+  }, [retrySeconds]);
 
   useEffect(() => {
     if (state !== 'success') return undefined;
@@ -114,12 +182,34 @@ export default function StaffSetPasswordPage() {
         <section className="login-card auth-recovery-card">
           <div className="login-brand-row"><div className="login-brand-mark" aria-hidden="true"><CubixgearLogo /></div>
             <div><strong className="login-brand-name">cubixgear</strong>
-              <span className="login-brand-subtitle">Secure Workshop Staff Access</span></div>
+              <span className="login-brand-subtitle">
+                {accountType === 'owner' ? 'Secure Workshop Owner Access'
+                  : accountType === 'staff' ? 'Secure Workshop Staff Access'
+                    : 'Secure Workshop Account Access'}
+              </span></div>
           </div>
           {state === 'checking' && <p role="status">Checking your one-time password setup link…</p>}
+          {state === 'unavailable' && <>
+            <h1 className="login-title">Unable to verify link</h1>
+            <p role="alert" className="login-description">{connectionError || 'Unable to verify the link. Please try again.'}</p>
+            <button className="login-submit" type="button" onClick={() => setRetryAttempt((count) => count + 1)}>Retry Connection</button>
+          </>}
+          {state === 'rate-limited' && <>
+            <h1 className="login-title">Too many verification attempts</h1>
+            <p role="alert" className="login-description">
+              Password setup is temporarily rate-limited for security. Do not refresh repeatedly.
+            </p>
+            <button className="login-submit" type="button"
+              disabled={retrySeconds > 0}
+              onClick={() => setRetryAttempt((count) => count + 1)}>
+              {retrySeconds > 0
+                ? `Retry in ${Math.floor(retrySeconds / 60)}:${String(retrySeconds % 60).padStart(2, '0')}`
+                : 'Retry Verification'}
+            </button>
+          </>}
           {state === 'invalid' && <>
             <h1 className="login-title">Link unavailable</h1>
-            <p role="alert" className="login-description">This secure link has expired, was already used, or was replaced. Ask your workshop administrator to resend it.</p>
+            <p role="alert" className="login-description">This secure link has expired, was already used, or was replaced. Request a new password setup link.</p>
             <Link className="login-submit" to="/login">Go to Login</Link>
           </>}
           {(state === 'success' || state === 'signed-in') && <div className="auth-success-state">
@@ -135,7 +225,7 @@ export default function StaffSetPasswordPage() {
               : <Link className="login-submit" to="/login">Continue to Login</Link>}
           </div>}
           {state === 'ready' && <>
-            <h1 className="login-title">{purpose === 'reset' ? 'Reset your password' : 'Set your account password'}</h1>
+            <h1 className="login-title">{purpose === 'reset' ? 'Reset your password' : accountType === 'owner' ? 'Create your workshop owner password' : 'Set your account password'}</h1>
             <p className="login-description">Enter your own password. Your workshop never receives it. This link works only once.</p>
             {expiry && <p className="login-description">Link valid until {new Date(expiry).toLocaleString()}.</p>}
             {error && <div className="login-error" role="alert">{error}</div>}

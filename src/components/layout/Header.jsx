@@ -1,6 +1,6 @@
-import { CubixgearLogo } from '../branding/CubixgearLogo';
+import { WorkshopIdentity } from '../branding/WorkshopIdentity';
 import { useContext, useEffect, useRef, useState } from "react";
-import { Bell, BellRing, CalendarDays, ChevronDown, LogOut, Settings, Store, User } from 'lucide-react';
+import { Bell, BellRing, CalendarDays, ChevronDown, LogOut, Settings, User } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { GlobalSearch } from '../common/GlobalSearch';
@@ -10,7 +10,6 @@ import { getStaffLandingPath } from '../../utils/staffLanding';
 import { getUserRoleLabel } from '../../utils/authDisplay';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { staffService } from '../../services/staff.service';
-import { settingsService } from '../../services/settings.service';
 import { CompanyContext } from '../../context/CompanyContext';
 import { CreditBalanceChip } from './CreditBalanceChip';
 import '../../styles/credit-wallet.css';
@@ -30,11 +29,8 @@ const resolveStaticPageTitle = (pathname) => {
 export const Header = () => {
   const { user, logout } = useAuth();
   const { company } = useContext(CompanyContext);
-  const companyId = company?.id || null;
   const companyName = typeof company?.name === 'string' && company.name.trim()
     ? company.name.trim() : 'Workshop';
-  const [companyLogo, setCompanyLogo] = useState('');
-  const [companyLogoVersion, setCompanyLogoVersion] = useState(0);
   const { can, isCompanyOwner, permissions } = useFeatureAccess();
   const homePath = getStaffLandingPath({ isCompanyOwner, effectivePermissions: permissions });
   const navigate = useNavigate();
@@ -57,32 +53,6 @@ export const Header = () => {
   const canViewSettings = can('settings.view');
   const desktopProfileRef = useRef(null);
 
-  // The private logo endpoint is tenant-scoped and requires an auth token.
-  // Always revoke prior object URLs when an account changes or this view unmounts.
-  useEffect(() => {
-    let active = true;
-    let objectUrl = '';
-    setCompanyLogo('');
-    if (companyId) {
-      settingsService.getCompanyLogo()
-        .then((blob) => {
-          if (!active || !blob || !blob.type?.startsWith('image/')) return;
-          objectUrl = URL.createObjectURL(blob);
-          setCompanyLogo(objectUrl);
-        })
-        .catch(() => { /* Use the workshop icon if there is no uploaded logo. */ });
-    }
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [companyId, companyLogoVersion]);
-
-  useEffect(() => {
-    const refresh = () => setCompanyLogoVersion((version) => version + 1);
-    window.addEventListener('cubixgear:company-logo-updated', refresh);
-    return () => window.removeEventListener('cubixgear:company-logo-updated', refresh);
-  }, []);
   const mobileProfileRef = useRef(null);
 
   useEffect(() => {
@@ -227,22 +197,14 @@ export const Header = () => {
 
       <div className="mobile-header">
         <div className="mobile-header-row">
-          <button type="button" className="mobile-brand mobile-workshop-brand" onClick={() => navigate(homePath)} aria-label={`Go to ${companyName} workspace`}>
-            <span className="mobile-brand-icon mobile-company-logo" aria-hidden="true">
-              {companyLogo
-                ? <img src={companyLogo} alt="" />
-                : <Store size={19} strokeWidth={1.9} />}
-            </span>
-            <span className="mobile-brand-copy">
-              <strong title={companyName}>{companyName}</strong>
-              <small className="mobile-powered-brand">
-                <span className="mobile-powered-logo" aria-hidden="true"><CubixgearLogo /></span>
-                <span>cubixgear</span>
-              </small>
-            </span>
-          </button>
+          <div className="mobile-dual-identity">
+            <button type="button" className="mobile-brand mobile-workshop-brand" onClick={() => navigate(homePath)} aria-label={`Go to ${companyName} workspace`}>
+              <WorkshopIdentity mode="mobile" shortName />
+            </button>
+          </div>
 
           <div className="mobile-header-actions">
+            <span className="mobile-header-page" aria-hidden="true">{pageTitle}</span>
             <CreditBalanceChip compact />
             {canViewNotifications && (
               <button type="button" className={`mobile-notification-button ${location.pathname === '/notifications' ? 'is-notifications-active' : ''}`} onClick={() => navigate('/notifications')} aria-label={`Notifications, ${notificationCount} unread`} aria-current={location.pathname === '/notifications' ? 'page' : undefined}>

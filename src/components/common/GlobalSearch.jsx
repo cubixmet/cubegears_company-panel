@@ -70,6 +70,9 @@ export const GlobalSearch = () => {
   }, [permitted]);
   const options = useMemo(() => groups.flatMap((group) => group.items), [groups]);
   const trimmed = query.trim();
+  // A focused but empty search should not cover dashboard content with an
+  // empty popover. Open results after two characters or when feedback exists.
+  const showResults = expanded && (trimmed.length >= 2 || loading || Boolean(error));
 
   const clearSearch = () => {
     setQuery('');
@@ -191,9 +194,9 @@ export const GlobalSearch = () => {
           role="combobox"
           aria-label="Search pages, features and workshop records including suppliers, staff, jobs and finance"
           aria-autocomplete="list"
-          aria-expanded={expanded}
-          aria-controls={resultsId}
-          aria-activedescendant={expanded && activeIndex >= 0 ? instanceId + '-option-' + activeIndex : undefined}
+          aria-expanded={showResults}
+          aria-controls={showResults ? resultsId : undefined}
+          aria-activedescendant={showResults && activeIndex >= 0 ? instanceId + '-option-' + activeIndex : undefined}
           placeholder="Search pages, suppliers, customers, jobs…"
           autoComplete="off"
           maxLength={100}
@@ -214,7 +217,7 @@ export const GlobalSearch = () => {
           <kbd aria-hidden="true" className="global-search-shortcut">⌘ K</kbd>
         )}
       </div>
-      {expanded && (
+      {showResults && (
         <div ref={resultsRef} className="global-search-results" id={resultsId} role="listbox" aria-label="Workspace search results">
           {loading && <div className="global-search-feedback" role="status">
             <Loader2 className="global-search-spin" size={18} aria-hidden="true" />
@@ -225,9 +228,6 @@ export const GlobalSearch = () => {
             <span>{error}</span>
             <button type="button" onClick={() => setRetryCount((value) => value + 1)}>Retry</button>
           </div>}
-          {!loading && !error && trimmed.length < 2 && (
-            <div className="global-search-feedback">Search pages, features and workshop records (2+ characters).</div>
-          )}
           {!loading && !error && trimmed.length >= 2 && !options.length && (
             <div className="global-search-feedback" role="status">No matching pages or records found.</div>
           )}

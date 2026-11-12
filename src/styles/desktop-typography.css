@@ -485,3 +485,33 @@
     border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-soft);
   }
 }
+
+
+/* A modest semibold workshop wordmark is the sole workspace masthead.
+   Keep the global regular-weight contract for all other UI text. */
+@media screen and (max-width:1023px) {
+  #root .app-shell .mobile-dual-identity .workshop-company-name {
+    font-weight:600 !important;
+    font-size:15px !important;
+    line-height:1.25;
+    letter-spacing:-.01em;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  #root .app-shell .mobile-drawer-company-line .workshop-company-name {
+    font-weight:600 !important;
+    font-size:14px !important;
+  }
+}
+@media screen and (max-width:390px) {
+  #root .app-shell .mobile-dual-identity .workshop-company-name {
+    font-size:13px !important;
+  }
+}
+@media screen and (min-width:1024px) {
+  #root .app-shell .sidebar-workshop-only .workshop-company-name {
+    font-weight:600 !important;
+    font-size:14px !important;
+  }
+}

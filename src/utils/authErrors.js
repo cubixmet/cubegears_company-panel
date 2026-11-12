@@ -36,6 +36,7 @@ export const getAuthErrorMessage = (
     error?.data?.detail ||
     fields.non_field_errors ||
     fields.nonFieldErrors ||
+    Object.values(fields).find(Boolean) ||
     error?.message ||
     fallback
   );

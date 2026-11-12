@@ -105,3 +105,132 @@
   position: relative;
   z-index: 1;
 }
+
+
+/* Account recovery offers only email reset and magic login. */
+.auth-recovery-methods{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:stretch;
+  gap:5px;
+  padding:4px;
+  margin:0 0 18px;
+  border:1px solid #2d3b50;
+  border-radius:12px;
+  background:rgba(115,135,165,.08);
+}
+.auth-recovery-method{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-width:0;
+  min-height:44px;
+  padding:8px 5px;
+  border:1px solid transparent;
+  border-radius:9px;
+  background:transparent;
+  color:#7f8da3;
+  font-size:12px;
+  line-height:1.25;
+  font-weight:650;
+  cursor:pointer;
+  transition:background-color .14s ease,color .14s ease;
+}
+.auth-recovery-method svg{flex:0 0 16px;}
+.auth-recovery-method.is-active{
+  border-color:rgba(59,130,246,.28);
+  background:rgba(59,130,246,.12);
+  color:#7eb2ff;
+}
+.auth-recovery-method:focus-visible{
+  outline:2px solid #438dff;
+  outline-offset:2px;
+}
+.auth-recovery-method:disabled{opacity:.65;cursor:wait;}
+@media (max-width:360px){
+  .auth-recovery-method{font-size:11px;gap:4px;padding-inline:3px;}
+  .auth-recovery-method svg{width:14px;height:14px;flex-basis:14px;}
+}
+
+
+/* Public recovery acknowledgements are informational, not proof of a user. */
+.auth-recovery-page .auth-message.is-info {
+  border:1px solid #60a5fa;
+  border-radius:10px;
+  background:rgba(37,99,235,.12);
+  color:#bfdbfe;
+  font-size:13px;
+  line-height:1.5;
+}
+.auth-recovery-page .auth-message.is-error {
+  border:1px solid #ef4444;
+  background:rgba(185,28,28,.13);
+  color:#fecaca;
+  font-size:13px;
+  line-height:1.5;
+}
+@media (prefers-color-scheme: light) {
+  .auth-recovery-page .auth-message.is-info {background:#eff6ff;color:#1e40af;}
+  .auth-recovery-page .auth-message.is-error {background:#fff1f2;color:#991b1b;}
+}
+
+
+/* Clear, readable request-result messages. A success response does not
+   confirm whether any particular email account exists or a message arrived. */
+.auth-recovery-page .login-form .auth-field-error {
+  display:block;
+  margin:6px 0 0;
+  color:#f87171;
+  font-size:12px;
+  font-weight:600;
+  line-height:1.45;
+}
+.auth-recovery-feedback {
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  margin-top:0;
+  padding:13px 14px;
+  border:1px solid;
+  border-radius:12px;
+  font-size:13px;
+  line-height:1.5;
+}
+.auth-recovery-feedback svg {
+  flex:0 0 19px;
+  margin-top:1px;
+}
+.auth-recovery-feedback strong {
+  display:block;
+  font-size:13px;
+  font-weight:750;
+}
+.auth-recovery-feedback p {
+  margin:3px 0 0;
+  font-size:12px;
+  line-height:1.55;
+}
+.auth-recovery-feedback.is-info {
+  border-color:rgba(96,165,250,.4);
+  background:rgba(37,99,235,.1);
+  color:#bfdbfe;
+}
+.auth-recovery-feedback.is-error {
+  border-color:rgba(248,113,113,.4);
+  background:rgba(239,68,68,.11);
+  color:#fecaca;
+}
+@media (prefers-color-scheme:light) {
+  .auth-recovery-page .login-form .auth-field-error { color:#b91c1c; }
+  .auth-recovery-feedback.is-info {
+    background:#eff6ff;
+    color:#1e40af;
+    border-color:#93c5fd;
+  }
+  .auth-recovery-feedback.is-error {
+    background:#fff1f2;
+    color:#991b1b;
+    border-color:#fda4af;
+  }
+}

@@ -1,9 +1,9 @@
 import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Eye, EyeOff, Lock, Mail, Phone } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { getCredentialError, getAuthFieldErrors } from '../../utils/authErrors';
+import { getAuthFieldErrors } from '../../utils/authErrors';
 import { getStaffLandingPath } from '../../utils/staffLanding';
 import { isValidEmail, normalizeEmail } from '../../utils/validation';
 import '../../styles/login-system.css';
@@ -29,18 +29,27 @@ export const Login = () => {
   const suggestedEmail = params.get('email') || '';
   const resetComplete = params.get('reset') === 'success';
 
-  const [identifier, setIdentifier] = useState(isMockMode ? 'admin@cubixgear.com' : suggestedEmail);
+  const initialEmail = isMockMode ? 'admin@cubixgear.com' : suggestedEmail;
+  const [loginMethod, setLoginMethod] = useState('email');
+  const [mobileNumber, setMobileNumber] = useState('');
+  const [emailAddress, setEmailAddress] = useState(initialEmail);
   const [countryCode, setCountryCode] = useState('+91');
-  const isEmailIdentifier = identifier.includes('@');
-  const showCountryCode = !isEmailIdentifier && !identifier.trim().startsWith('+');
+  // Keep each identifier separate when the user switches sign-in methods.
+  const identifier = loginMethod === 'email' ? emailAddress : mobileNumber;
+  const isEmailIdentifier = loginMethod === 'email';
+  const showCountryCode = !isEmailIdentifier && !mobileNumber.trim().startsWith('+');
   const [workshop, setWorkshop] = useState('');
   const [needsWorkshop, setNeedsWorkshop] = useState(false);
   const [password, setPassword] = useState(isMockMode ? 'password123' : '');
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState('');
+  const [invalidCredentials, setInvalidCredentials] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const submitting = useRef(false);
 
   const clearField = (field) => {
+    // Typing a correction clears the previous unsuccessful sign-in state.
+    setInvalidCredentials(false);
     setFieldErrors((current) => {
       if (!current[field]) return current;
       const next = { ...current };
@@ -50,12 +59,28 @@ export const Login = () => {
     setFormError('');
   };
 
+  const selectLoginMethod = (method) => {
+    setLoginMethod(method);
+    setWorkshop('');
+    setNeedsWorkshop(false);
+    setFieldErrors({});
+    setInvalidCredentials(false);
+    setFormError('');
+  };
+
+  const clearWorkshop = () => {
+    setNeedsWorkshop(false);
+    setWorkshop('');
+    clearField('workshop');
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (loading) return;
+    // Prevent rapid double submits while React state is updating.
+    if (loading || submitting.current) return;
 
     const enteredIdentifier = identifier.trim();
-    const isEmail = enteredIdentifier.includes('@');
+    const isEmail = loginMethod === 'email';
     // Keep the existing backend contract: normalized emails or E.164 mobile numbers.
     const identity = isEmail
       ? normalizeEmail(enteredIdentifier)
@@ -63,14 +88,16 @@ export const Login = () => {
         ? enteredIdentifier.replace(/[\s().-]/g, '')
         : `${countryCode}${enteredIdentifier.replace(/[\s().-]/g, '')}`;
     const nextErrors = {};
-    if (!enteredIdentifier) nextErrors.identifier = 'Email or mobile number is required.';
+    if (!enteredIdentifier) nextErrors.identifier = isEmail ? 'Email address is required.' : 'Mobile number is required.';
     else if (isEmail && !isValidEmail(identity))
       nextErrors.identifier = 'Enter a valid email address.';
     else if (!isEmail && !/^\+[1-9]\d{7,14}$/.test(identity))
       nextErrors.identifier = 'Enter a valid mobile number.';
     if (!password) nextErrors.password = 'Password is required.';
+    if (needsWorkshop && !workshop.trim()) nextErrors.workshop = 'Enter your workshop code.';
 
     if (Object.keys(nextErrors).length) {
+      setInvalidCredentials(false);
       setFieldErrors(nextErrors);
       setFormError('');
       return;
@@ -78,27 +105,39 @@ export const Login = () => {
 
     setFieldErrors({});
     setFormError('');
+    setInvalidCredentials(false);
 
+    submitting.current = true;
     try {
       const authenticatedUser = await login({ identifier: identity, password, ...(workshop.trim() ? { workshop: workshop.trim().toLowerCase() } : {}) });
       navigate(getStaffLandingPath(authenticatedUser, params.get('next')), { replace: true });
     } catch (error) {
       const backendFields = getAuthFieldErrors(error);
-      const credentialError = getCredentialError(error);
+      const status = Number(error?.status || error?.response?.status || 0);
+      const identifierError = backendFields.identifier || backendFields.email || backendFields.mobile;
+      const workshopError = backendFields.workshop;
+      const hasFieldError = Boolean(identifierError || backendFields.password || workshopError);
+      const credentialsRejected = status === 401 || (status === 400 &&
+        backendFields.non_field_errors === 'Invalid credentials or workshop selection.');
+      const serviceUnavailable = !status && (!error?.message ||
+        ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error?.code));
 
-      const needsSelection = Boolean(backendFields.workshop);
-      setNeedsWorkshop(needsSelection || needsWorkshop);
-      const hasFieldError = Boolean(backendFields.identifier || backendFields.password || backendFields.workshop);
-      // Show explicit field validation inline, but show generic invalid
-      // credentials only once in the form banner (not in three places).
+      if (workshopError) setNeedsWorkshop(true);
+      setInvalidCredentials(credentialsRejected && !hasFieldError);
       setFieldErrors({
-        ...(backendFields.identifier ? { identifier: backendFields.identifier } : {}),
-        ...(backendFields.workshop ? { workshop: backendFields.workshop } : {}),
+        ...(identifierError ? { identifier: isEmail ? 'Enter a valid email address.' : 'Enter a valid mobile number.' } : {}),
+        ...(workshopError ? { workshop: 'Enter your workshop code.' } : {}),
         ...(backendFields.password ? { password: backendFields.password } : {}),
       });
-      setFormError(error?.status === 429
+      setFormError(status === 429
         ? `Too many sign-in attempts. Try again${error?.retryAfterSeconds ? ` in ${error.retryAfterSeconds} seconds` : ' later'}.`
-        : hasFieldError ? '' : credentialError);
+        : hasFieldError ? '' : credentialsRejected
+          ? 'Unable to sign in with these details. Check your account setup or password.'
+          : serviceUnavailable
+            ? 'Unable to connect. Please try again.'
+            : 'Something went wrong. Please try again.');
+    } finally {
+      submitting.current = false;
     }
   };
 
@@ -125,15 +164,49 @@ export const Login = () => {
           )}
 
           {formError && (
-            <div role="alert" className="login-error">
+            <div id="login-form-error" role="alert" className="login-error">
               {formError}
+            </div>
+          )}
+          {invalidCredentials && (
+            <div className="login-help-note" role="note">
+              {isEmailIdentifier
+                ? 'Registered a new workshop? Complete password setup from your email first. If you use this email for more than one workshop, enter its workshop code. For expired links, use Password help.'
+                : 'New staff account? Ask your workshop administrator for a valid password setup link. If your phone is linked to several workshops, enter the correct workshop code.'}
+              <div>
+                <Link to="/forgot-password" className="login-forgot">
+                  Password help
+                </Link>
+              </div>
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="login-form" noValidate>
             <div className="login-identifier-field">
-              <label htmlFor="login-identifier" className="login-field-label">Mobile Number or Email</label>
-              <div className={'login-input-shell ' + (fieldErrors.identifier ? 'is-error' : '')}>
+              <div className="login-method-switch" role="group" aria-label="Sign in using">
+                <button
+                  type="button"
+                  className={'login-method-option' + (isEmailIdentifier ? ' is-active' : '')}
+                  aria-pressed={isEmailIdentifier}
+                  onClick={() => selectLoginMethod('email')}
+                >
+                  <Mail size={15} strokeWidth={1.8} aria-hidden="true" />
+                  Email
+                </button>
+                <button
+                  type="button"
+                  className={'login-method-option' + (!isEmailIdentifier ? ' is-active' : '')}
+                  aria-pressed={!isEmailIdentifier}
+                  onClick={() => selectLoginMethod('mobile')}
+                >
+                  <Phone size={15} strokeWidth={1.8} aria-hidden="true" />
+                  Mobile Number
+                </button>
+              </div>
+              <label htmlFor="login-identifier" className="login-field-label">
+                {isEmailIdentifier ? 'Email Address' : 'Mobile Number'}
+              </label>
+              <div className={'login-input-shell ' + (fieldErrors.identifier || invalidCredentials ? 'is-error' : '')}>
                 {showCountryCode ? (
                   <select
                     className="login-country-select"
@@ -141,6 +214,7 @@ export const Login = () => {
                     value={countryCode}
                     onChange={(event) => {
                       setCountryCode(event.target.value);
+                      clearWorkshop();
                       clearField('identifier');
                     }}
                   >
@@ -158,26 +232,32 @@ export const Login = () => {
                 <input
                   id="login-identifier"
                   className="login-input"
-                  type="text"
+                  type={isEmailIdentifier ? 'email' : 'tel'}
                   autoComplete="username"
-                  inputMode={isEmailIdentifier ? 'email' : 'text'}
+                  inputMode={isEmailIdentifier ? 'email' : 'tel'}
                   value={identifier}
                   onChange={(event) => {
                     const value = event.target.value;
-                    const matchingCountry = value.startsWith('+')
-                      ? LOGIN_COUNTRY_CODES.find((country) => value.startsWith(country.code))
-                      : null;
-                    if (matchingCountry) {
-                      setCountryCode(matchingCountry.code);
-                      setIdentifier(value.slice(matchingCountry.code.length).replace(/[\s().-]/g, ''));
+                    if (isEmailIdentifier) {
+                      setEmailAddress(value);
                     } else {
-                      setIdentifier(value);
+                      const matchingCountry = value.startsWith('+')
+                        ? LOGIN_COUNTRY_CODES.find((country) => value.startsWith(country.code))
+                        : null;
+                      clearWorkshop();
+                      if (matchingCountry) {
+                        setCountryCode(matchingCountry.code);
+                        setMobileNumber(value.slice(matchingCountry.code.length).replace(/[\s().-]/g, ''));
+                      } else {
+                        setMobileNumber(value);
+                      }
                     }
                     clearField('identifier');
                   }}
-                  placeholder="90000000000"
-                  aria-invalid={Boolean(fieldErrors.identifier)}
-                  aria-describedby={fieldErrors.identifier ? 'login-identifier-error' : undefined}
+                  placeholder={isEmailIdentifier ? 'name@example.com' : '9876543210'}
+                  aria-invalid={Boolean(fieldErrors.identifier || invalidCredentials)}
+                  aria-describedby={fieldErrors.identifier ? 'login-identifier-error'
+                    : invalidCredentials ? 'login-form-error' : undefined}
                 />
               </div>
               {fieldErrors.identifier && (
@@ -194,9 +274,10 @@ export const Login = () => {
                   value={workshop} onChange={(event) => {
                     setWorkshop(event.target.value);
                     clearField('workshop');
-                  }} placeholder="e.g. my-auto-workshop" />
+                  }} placeholder="e.g. my-auto-workshop" aria-invalid={Boolean(fieldErrors.workshop)}
+                  aria-describedby={fieldErrors.workshop ? 'login-workshop-error' : undefined} />
               </div>
-              {fieldErrors.workshop && <span className="auth-field-error" role="alert">{fieldErrors.workshop}</span>}
+              {fieldErrors.workshop && <span id="login-workshop-error" className="auth-field-error" role="alert">{fieldErrors.workshop}</span>}
             </label>}
 
             <label className="block">
@@ -207,7 +288,7 @@ export const Login = () => {
                 </Link>
               </div>
 
-              <div className={'login-input-shell ' + (fieldErrors.password ? 'is-error' : '')}>
+              <div className={'login-input-shell ' + (fieldErrors.password || invalidCredentials ? 'is-error' : '')}>
                 <span className="login-input-icon" aria-hidden="true">
                   <Lock size={17} strokeWidth={1.9} />
                 </span>
@@ -221,8 +302,9 @@ export const Login = () => {
                     clearField('password');
                   }}
                   placeholder="Enter your password"
-                  aria-invalid={Boolean(fieldErrors.password)}
-                  aria-describedby={fieldErrors.password ? 'login-password-error' : undefined}
+                  aria-invalid={Boolean(fieldErrors.password || invalidCredentials)}
+                  aria-describedby={fieldErrors.password ? 'login-password-error'
+                    : invalidCredentials ? 'login-form-error' : undefined}
                 />
                 <button
                   type="button"

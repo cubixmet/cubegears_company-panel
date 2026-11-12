@@ -1,6 +1,7 @@
 import apiClient from '../api/apiClient';
 import { USE_MOCK_API } from '../api/apiConfig';
 import { STORAGE_PRICE_PER_GB_DAY, storageDayCharge } from './storagePricing';
+import { storageBytes, BYTES_PER_GB } from '../utils/storageUnits';
 
 const HISTORY_KEY = 'cubixgear-storage-usage-history';
 const STORAGE_KEY = 'cubixgear-saas-storage';
@@ -32,6 +33,7 @@ const seedHistory = (storage) => {
     return {
       date: day,
       usedGb,
+      usedBytes: Math.round(usedGb * BYTES_PER_GB),
       rate: STORAGE_PRICE_PER_GB_DAY,
       charge: storageDayCharge(usedGb),
       fileCount: dayFiles.length,
@@ -67,6 +69,7 @@ export const recordTodayStorageSnapshot = (storage) => {
   const snapshot = {
     date,
     usedGb: Number(Number(storage.usedGb || 0).toFixed(3)),
+    usedBytes: storageBytes(storage),
     rate: STORAGE_PRICE_PER_GB_DAY,
     charge: storageDayCharge(storage.usedGb),
     fileCount: (storage.files || []).length,
@@ -101,12 +104,14 @@ export const getStorageDay = async (date) => {
 
 export const summarizeStorageHistory = (rows = []) => {
   const totalCharge = rows.reduce((sum, row) => sum + Number(row.charge || 0), 0);
-  const totalGb = rows.reduce((sum, row) => sum + Number(row.usedGb || 0), 0);
-  const peakGb = rows.reduce((max, row) => Math.max(max, Number(row.usedGb || 0)), 0);
+  const totalBytes = rows.reduce((sum, row) => sum + storageBytes(row), 0);
+  const peakBytes = rows.reduce((max, row) => Math.max(max, storageBytes(row)), 0);
   return {
     days: rows.length,
-    averageGb: rows.length ? totalGb / rows.length : 0,
-    peakGb,
+    averageBytes: rows.length ? totalBytes / rows.length : 0,
+    peakBytes,
+    averageGb: rows.length ? totalBytes / rows.length / BYTES_PER_GB : 0,
+    peakGb: peakBytes / BYTES_PER_GB,
     totalCharge
   };
 };
