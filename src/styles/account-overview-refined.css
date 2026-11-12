@@ -279,3 +279,61 @@
 .account-overview-refined .account-overview-company-form input:focus-visible,.account-overview-refined .account-overview-company-form textarea:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
 .account-overview-refined .account-overview-form-actions button:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:550px){.account-overview-refined .account-overview-form-actions button{flex:1}}
+
+
+/* Account overview — balanced readability at real laptop and mobile widths. */
+.saas-page.account-billing-page .account-dashboard-tabs button {
+  font-size:14px;line-height:1.35;font-weight:650;min-height:44px;
+}
+.saas-page.account-billing-page .account-overview-refined .account-overview-stats {
+  grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;
+}
+.saas-page.account-billing-page .account-overview-refined .account-overview-stats article {
+  min-height:112px;padding:18px;align-items:flex-start;
+  border-radius:14px;
+}
+.saas-page.account-billing-page .account-overview-refined .account-overview-stats span {
+  font-size:13px;line-height:1.4;font-weight:600;
+}
+.saas-page.account-billing-page .account-overview-refined .account-overview-stats strong {
+  margin-top:9px;font-size:clamp(24px,2.4vw,30px);
+  line-height:1.15;font-variant-numeric:tabular-nums;
+  overflow-wrap:anywhere;
+}
+.saas-page.account-billing-page .account-overview-refined .account-overview-stats i {
+  width:35px;height:35px;flex-basis:35px;
+}
+.saas-page.account-billing-page .account-overview-refined .account-overview-panel h2,
+.saas-page.account-billing-page .account-overview-refined .account-overview-shortcuts>header h2 {
+  font-size:17px;line-height:1.4;
+}
+.saas-page.account-billing-page .account-overview-refined .account-overview-rows :is(span,strong) {
+  font-size:13px;line-height:1.5;
+}
+.saas-page.account-billing-page .account-overview-refined .account-overview-shortcut-grid strong {
+  font-size:13px;
+}
+@media (max-width:850px) {
+  .saas-page.account-billing-page .account-overview-refined .account-overview-stats {
+    grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;
+  }
+  .saas-page.account-billing-page .account-overview-refined .account-overview-stats article:last-child:nth-child(odd) {
+    grid-column:1/-1;
+  }
+}
+@media (max-width:550px) {
+  .saas-page.account-billing-page .account-overview-refined .account-overview-stats article {
+    min-height:100px;padding:13px;
+  }
+  .saas-page.account-billing-page .account-overview-refined .account-overview-stats strong {
+    font-size:clamp(19px,5.5vw,25px);
+  }
+}
+@media (max-width:360px) {
+  .saas-page.account-billing-page .account-overview-refined .account-overview-stats {
+    grid-template-columns:1fr;
+  }
+  .saas-page.account-billing-page .account-overview-refined .account-overview-stats article:last-child:nth-child(odd) {
+    grid-column:auto;
+  }
+}

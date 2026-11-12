@@ -37,7 +37,11 @@ const seedBilling = {
 const seedStorage = {
   quotaGb: 25,
   usedGb: 18.4,
+  usedBytes: Math.round(18.4 * 1024 ** 3),
+  fileCount: 4,
+  quotaBytes: 25 * 1024 ** 3,
   settings: {
+    enabled: true,
     autoCompress: true,
     keepOriginals: false,
     allowStaffUpload: true,
@@ -102,7 +106,15 @@ export const getSubscriptionBilling = async () => {
 
 export const getStorageAccount = async () => {
   if (!USE_MOCK_API) return apiClient.get(API_ENDPOINTS.MEDIA_STORAGE);
-  return read(STORAGE_KEY, seedStorage);
+  const saved = read(STORAGE_KEY, seedStorage);
+  const usedBytes = saved.usedBytes == null
+    ? Math.round(Number(saved.usedGb || 0) * 1024 ** 3) : Number(saved.usedBytes);
+  return {
+    ...saved,
+    usedBytes,
+    fileCount: saved.files?.length || 0,
+    settings: { ...seedStorage.settings, ...(saved.settings || {}) },
+  };
 };
 
 export const uploadMediaFiles = async (files, category = 'General') => {
@@ -116,19 +128,23 @@ export const uploadMediaFiles = async (files, category = 'General') => {
     return getStorageAccount();
   }
 
-  const account = read(STORAGE_KEY, seedStorage);
+  const account = await getStorageAccount();
+  if (account.settings.enabled === false) throw new Error('Storage uploads are disabled for this workshop.');
   const additions = Array.from(files).map((file) => ({
     id: makeId('MEDIA'),
     name: file.name,
-    sizeMb: Math.max(0.01, Number((file.size / (1024 * 1024)).toFixed(2))),
+    sizeBytes: file.size,
+    sizeMb: Number((file.size / (1024 * 1024)).toFixed(2)),
     category,
     uploadedBy: 'Current User',
     uploadedAt: new Date().toISOString(),
     type: file.type || 'application/octet-stream'
   }));
   account.files = [...additions, ...account.files];
-  const addedGb = additions.reduce((sum, file) => sum + file.sizeMb, 0) / 1024;
-  account.usedGb = Number((Number(account.usedGb || 0) + addedGb).toFixed(3));
+  const addedBytes = additions.reduce((sum, file) => sum + file.sizeBytes, 0);
+  account.usedBytes += addedBytes;
+  account.usedGb = Number((account.usedBytes / 1024 ** 3).toFixed(3));
+  account.fileCount = account.files.length;
   return write(STORAGE_KEY, account);
 };
 
@@ -138,17 +154,20 @@ export const deleteMediaFiles = async (ids) => {
     return getStorageAccount();
   }
 
-  const account = read(STORAGE_KEY, seedStorage);
+  const account = await getStorageAccount();
   const removed = account.files.filter((file) => ids.includes(file.id));
-  const removedGb = removed.reduce((sum, file) => sum + Number(file.sizeMb || 0), 0) / 1024;
+  const removedBytes = removed.reduce((sum, file) =>
+    sum + (file.sizeBytes ?? Math.round(Number(file.sizeMb || 0) * 1024 ** 2)), 0);
   account.files = account.files.filter((file) => !ids.includes(file.id));
-  account.usedGb = Number(Math.max(0, Number(account.usedGb || 0) - removedGb).toFixed(3));
+  account.usedBytes = Math.max(0, account.usedBytes - removedBytes);
+  account.usedGb = Number((account.usedBytes / 1024 ** 3).toFixed(3));
+  account.fileCount = account.files.length;
   return write(STORAGE_KEY, account);
 };
 
 export const updateStorageSettings = async (settings) => {
   if (!USE_MOCK_API) return apiClient.put(`${API_ENDPOINTS.MEDIA_STORAGE}/settings`, settings);
-  const account = read(STORAGE_KEY, seedStorage);
+  const account = await getStorageAccount();
   account.settings = { ...account.settings, ...settings };
   return write(STORAGE_KEY, account);
 };

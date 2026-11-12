@@ -1,19 +1,18 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { CheckCircle2, Eye, EyeOff, Lock } from 'lucide-react';
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { authRecoveryService } from '../../services/authRecovery.service';
 import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
-import { getAuthErrorMessage, getAuthFieldErrors } from '../../utils/authErrors';
-import { getStaffLandingPath } from '../../utils/staffLanding';
+import { getAuthFieldErrors } from '../../utils/authErrors';
 import '../../styles/login-system.css';
 import '../../styles/auth-recovery.css';
 
 export const SetupPassword = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
   const uid = params.get('uid') || '';
   const token = params.get('token') || '';
-  const email = params.get('email') || '';
 
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -23,8 +22,7 @@ export const SetupPassword = () => {
   const [formError, setFormError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [done, setDone] = useState(false);
-  const [landingPath, setLandingPath] = useState('/access-denied');
-  const [doneMessage, setDoneMessage] = useState('');
+  const submitting = useRef(false);
 
   const clearField = (field) => {
     setFieldErrors((current) => {
@@ -37,9 +35,9 @@ export const SetupPassword = () => {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (submitting.current || done || !uid || !token) return;
     const nextErrors = {};
 
-    if (!uid || !token) nextErrors.link = 'This setup link is invalid or incomplete. Please use the latest email link.';
     if (!password) nextErrors.password = 'Password is required.';
     else if (password.length < 8) nextErrors.password = 'Password must be at least 8 characters.';
     if (!confirm) nextErrors.confirm = 'Please confirm your password.';
@@ -47,50 +45,39 @@ export const SetupPassword = () => {
 
     if (Object.keys(nextErrors).length) {
       setFieldErrors(nextErrors);
-      setFormError(nextErrors.link || '');
+      setFormError('');
       return;
     }
 
+    submitting.current = true;
     setLoading(true);
     setFieldErrors({});
     setFormError('');
 
     try {
-      const result = await authRecoveryService.setupPassword({ uid, token, password });
-      const accessToken = result?.access || result?.token || result?.accessToken || result?.access_token;
-      const refreshToken = result?.refresh || result?.refreshToken || result?.refresh_token;
-      const user = result?.user || result?.profile;
-
-      // A disabled company/role can have a completed password setup without
-      // being allowed to sign in. Never save or use a partial session.
-      if (typeof accessToken !== 'string' || !accessToken ||
-          typeof refreshToken !== 'string' || !refreshToken ||
-          !user?.id || !user?.email) {
-        setDoneMessage(result?.message || 'Password created. Sign in to continue.');
-        setLandingPath('/login');
-        setDone(true);
-        return;
-      }
-
-      localStorage.setItem('auth_token', accessToken);
-      localStorage.setItem('auth_refresh_token', refreshToken);
-      localStorage.setItem('auth_user', JSON.stringify(user));
-
-      const destination = getStaffLandingPath(user);
-      setLandingPath(destination);
-      setDoneMessage('Password created successfully. Signing you in…');
+      await authRecoveryService.setupPassword({ uid, token, password });
+      setPassword('');
+      setConfirm('');
       setDone(true);
-      window.setTimeout(() => window.location.replace(destination), 700);
+      navigate(location.pathname, { replace: true });
     } catch (error) {
       const backend = getAuthFieldErrors(error);
-      setFieldErrors({
-        ...(backend.password ? { password: backend.password } : {}),
-        ...((backend.uid || backend.token || backend.non_field_errors)
-          ? { link: backend.uid || backend.token || backend.non_field_errors }
-          : {}),
-      });
-      setFormError(getAuthErrorMessage(error, 'Unable to set password.'));
+      const status = Number(error?.status || error?.response?.status || 0);
+      const message = error?.data?.message;
+      if (backend.password) {
+        setFieldErrors({ password: backend.password });
+      } else if (backend.uid || backend.token || message === 'Invalid or expired setup link.' ||
+        message === 'Account is already set up. Use password reset.') {
+        setFormError('This setup link is invalid, expired, or already used. Request a new link.');
+      } else if (status === 429) {
+        setFormError('Too many attempts. Please try again later.');
+      } else if (!status) {
+        setFormError('Unable to connect. Please try again.');
+      } else {
+        setFormError('Unable to set your password. Please try again or contact support.');
+      }
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -110,44 +97,40 @@ export const SetupPassword = () => {
           {done ? (
             <div className="auth-success-state">
               <span className="auth-success-icon"><CheckCircle2 size={24} /></span>
-              <h1 className="login-title">Your account is ready</h1>
-              <p className="login-description">{doneMessage}</p>
-              <button type="button" className="login-submit" onClick={() => window.location.replace(landingPath)}>{landingPath === '/login' ? 'Go to Sign In' : 'Continue to Workspace'}</button>
+              <h1 className="login-title" role="status">Password Created Successfully</h1>
+              <Link className="login-submit" to="/login" replace>Go to Sign In</Link>
             </div>
           ) : (
             <>
               <h1 className="login-title">Create your password</h1>
-              <p className="login-description">{email ? 'Set the password for ' + email + '. You can use this email and password to sign in later.' : 'Secure your new cubixgear workshop account before signing in.'}</p>
+              <p className="login-description">Choose a password for your cubixgear workshop account.</p>
 
               {(!uid || !token) && <div className="auth-message is-error" role="alert">This setup link is incomplete. Ask your administrator to resend the invitation.</div>}
               {formError && <div className="auth-message is-error" role="alert">{formError}</div>}
-              {fieldErrors.link && <div className="auth-message is-warning">{fieldErrors.link}</div>}
 
-              <form className="login-form" onSubmit={submit} noValidate>
+              <form className="login-form" onSubmit={submit} noValidate aria-busy={loading}>
                 <label>
                   <span className="login-field-label">New password</span>
                   <div className={'login-input-shell ' + (fieldErrors.password ? 'is-error' : '')}>
                     <span className="login-input-icon"><Lock size={16} /></span>
-                    <input className="login-input" type={show ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); clearField('password'); }} placeholder="Minimum 8 characters" aria-invalid={Boolean(fieldErrors.password)}/>
-                    <button type="button" className="login-password-toggle" onClick={() => setShow((value) => !value)}>{show ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+                    <input className="login-input" type={show ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); clearField('password'); }} placeholder="Minimum 8 characters" aria-invalid={Boolean(fieldErrors.password)} aria-describedby={fieldErrors.password ? 'setup-password-error' : undefined} maxLength={128} />
+                    <button type="button" className="login-password-toggle" aria-label={show ? 'Hide password' : 'Show password'} onClick={() => setShow((value) => !value)}>{show ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                   </div>
-                  {fieldErrors.password && <span className="auth-field-error" role="alert">{fieldErrors.password}</span>}
+                  {fieldErrors.password && <span id="setup-password-error" className="auth-field-error" role="alert">{fieldErrors.password}</span>}
                 </label>
 
                 <label>
                   <span className="login-field-label">Confirm password</span>
                   <div className={'login-input-shell ' + (fieldErrors.confirm ? 'is-error' : '')}>
                     <span className="login-input-icon"><Lock size={16} /></span>
-                    <input className="login-input" type={showConfirm ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); clearField('confirm'); }} placeholder="Repeat new password" aria-invalid={Boolean(fieldErrors.confirm)}/>
-                    <button type="button" className="login-password-toggle" onClick={() => setShowConfirm((value) => !value)}>{showConfirm ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+                    <input className="login-input" type={showConfirm ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); clearField('confirm'); }} placeholder="Repeat new password" aria-invalid={Boolean(fieldErrors.confirm)} aria-describedby={fieldErrors.confirm ? 'setup-confirm-error' : undefined} maxLength={128} />
+                    <button type="button" className="login-password-toggle" aria-label={showConfirm ? 'Hide confirmation' : 'Show confirmation'} onClick={() => setShowConfirm((value) => !value)}>{showConfirm ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                   </div>
-                  {fieldErrors.confirm && <span className="auth-field-error" role="alert">{fieldErrors.confirm}</span>}
+                  {fieldErrors.confirm && <span id="setup-confirm-error" className="auth-field-error" role="alert">{fieldErrors.confirm}</span>}
                 </label>
 
                 <div className="password-rules">
                   <span className={password.length >= 8 ? 'ok' : ''}>8+ characters</span>
-                  <span className={/[A-Z]/.test(password) ? 'ok' : ''}>Uppercase</span>
-                  <span className={/[0-9]/.test(password) ? 'ok' : ''}>Number</span>
                 </div>
 
                 <button className="login-submit" type="submit" disabled={loading || !uid || !token}>

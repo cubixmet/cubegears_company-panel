@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Mail } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { AlertCircle, ArrowLeft, Info, KeyRound, Mail, WandSparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
 import { authRecoveryService } from '../../services/authRecovery.service';
@@ -10,22 +10,23 @@ import '../../styles/auth-recovery.css';
 
 export const ForgotPassword = () => {
   const [email, setEmail] = useState('');
+  const [mode, setMode] = useState('reset');
+  const isMagicLink = mode === 'magic';
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [isError, setIsError] = useState(false);
+  const submitting = useRef(false);
+  const [feedback, setFeedback] = useState(null);
   const [emailError, setEmailError] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
 
   const clearFeedback = () => {
-    setMessage('');
-    setIsError(false);
+    setFeedback(null);
     setEmailError('');
     setPreviewUrl('');
   };
 
   const submit = async (event) => {
     event.preventDefault();
-    if (loading) return;
+    if (loading || submitting.current) return;
 
     clearFeedback();
     const cleanEmail = normalizeEmail(email);
@@ -34,20 +35,39 @@ export const ForgotPassword = () => {
       return;
     }
 
+    submitting.current = true;
     setLoading(true);
     try {
-      // Request an actual password reset email, not a passwordless sign-in link.
-      const result = await authRecoveryService.requestPasswordReset(cleanEmail);
+      // Django intentionally does not reveal whether this account exists.
+      // Do not tell an anonymous user that an email definitely arrived.
+      const result = isMagicLink
+        ? await authRecoveryService.requestMagicLink(cleanEmail)
+        : await authRecoveryService.requestPasswordReset(cleanEmail);
+
       if (result?.previewUrl) setPreviewUrl(result.previewUrl);
-      // Do not reveal whether the email is registered.
-      setMessage('If an account exists for this email, a password reset link will be sent.');
-      setIsError(false);
+      setFeedback({
+        type: 'info',
+        title: 'Check your email if registered',
+        message: isMagicLink
+          ? 'Only registered, eligible accounts receive a magic sign-in link. No email or login link is created for an unknown address. If you have an account, check your inbox and spam folder.'
+          : 'Only registered, eligible accounts receive password reset instructions. No email or reset link is created for an unknown address. If you have an account, check your inbox and spam folder.',
+      });
     } catch (error) {
-      const backend = getAuthFieldErrors(error);
-      if (backend.email) setEmailError(backend.email);
-      else setMessage(getAuthErrorMessage(error, 'Unable to request a password reset link.'));
-      setIsError(true);
+      const fields = getAuthFieldErrors(error);
+      const fieldError = fields.email;
+      if (fieldError) {
+        setEmailError(fieldError);
+      } else {
+        const status = Number(error?.status || error?.response?.status || 0);
+        const message = status === 429
+          ? `Too many requests. Try again${error?.retryAfterSeconds ? ` in ${error.retryAfterSeconds} seconds` : ' later'}.`
+          : getAuthErrorMessage(error, isMagicLink
+            ? 'Unable to request a magic login link. Please try again.'
+            : 'Unable to request a password reset link. Please try again.');
+        setFeedback({ type: 'error', title: 'Request failed', message });
+      }
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   };
@@ -68,21 +88,45 @@ export const ForgotPassword = () => {
             </div>
           </div>
 
-          <h1 className="login-title">Reset your password</h1>
+          <h1 className="login-title">{isMagicLink ? 'Sign in with a magic link' : 'Reset your password'}</h1>
           <p className="login-description">
-            Enter your registered email to receive a password reset link.
+            {isMagicLink
+              ? 'Request a one-time email login link (valid for 15 minutes).'
+              : 'Request a password reset link using your registered email address.'}
           </p>
 
-          {message && (
-            <div className={'auth-message ' + (isError ? 'is-error' : 'is-success')}
-              role={isError ? 'alert' : 'status'}>
-              {message}
-            </div>
-          )}
+          <div className="auth-recovery-methods" role="group" aria-label="Choose account recovery method">
+            <button
+              type="button"
+              className={'auth-recovery-method' + (!isMagicLink ? ' is-active' : '')}
+              aria-pressed={!isMagicLink}
+              disabled={loading}
+              onClick={() => {
+                setMode('reset');
+                clearFeedback();
+              }}
+            >
+              <KeyRound size={16} strokeWidth={1.8} aria-hidden="true" />
+              Reset Password
+            </button>
+            <button
+              type="button"
+              className={'auth-recovery-method' + (isMagicLink ? ' is-active' : '')}
+              aria-pressed={isMagicLink}
+              disabled={loading}
+              onClick={() => {
+                setMode('magic');
+                clearFeedback();
+              }}
+            >
+              <WandSparkles size={16} strokeWidth={1.8} aria-hidden="true" />
+              Magic Login Link
+            </button>
+          </div>
 
           <form className="login-form" onSubmit={submit} noValidate>
             <label htmlFor="forgot-password-email" className="block">
-              <span className="login-field-label">Email</span>
+              <span className="login-field-label">Email address</span>
               <div className={'login-input-shell ' + (emailError ? 'is-error' : '')}>
                 <span className="login-input-icon" aria-hidden="true"><Mail size={16} /></span>
                 <input
@@ -110,15 +154,32 @@ export const ForgotPassword = () => {
                 </span>
               )}
             </label>
+
             <button type="submit" className="login-submit" disabled={loading}>
-              {loading ? 'Sending…' : 'Send Reset Link'}
+              {loading ? 'Submitting…' : isMagicLink ? 'Send Magic Link' : 'Send Reset Link'}
             </button>
+
+            {feedback && (
+              <div
+                className={'auth-recovery-feedback ' + (feedback.type === 'info' ? 'is-info' : 'is-error')}
+                role={feedback.type === 'info' ? 'status' : 'alert'}
+                aria-live={feedback.type === 'info' ? 'polite' : 'assertive'}
+              >
+                {feedback.type === 'info'
+                  ? <Info size={19} aria-hidden="true" />
+                  : <AlertCircle size={19} aria-hidden="true" />}
+                <div>
+                  <strong>{feedback.title}</strong>
+                  <p>{feedback.message}</p>
+                </div>
+              </div>
+            )}
           </form>
 
           {previewUrl && (
             <div className="auth-dev-link">
               <span>Development preview</span>
-              <Link to={previewUrl}>Open reset link</Link>
+              <Link to={previewUrl}>{isMagicLink ? 'Open magic link' : 'Open reset link'}</Link>
             </div>
           )}
         </section>

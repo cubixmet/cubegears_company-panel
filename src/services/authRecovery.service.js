@@ -33,6 +33,13 @@ export const setupPassword = async ({ uid, token, password }) => {
   return apiClient.post('/auth/setup-password', { uid, token, password });
 };
 
+export const validatePasswordResetLink = async ({ uid, email, token }) => {
+  if (!token || (!uid && !email)) throw new Error('This link is invalid or expired.');
+  return apiClient.post('/auth/reset-password/validate', {
+    token, ...(uid ? { uid } : { email: normalizeEmail(email) }),
+  });
+};
+
 export const resetPassword = async ({ uid, token, email, password }) => {
   if (!token || (!uid && !email)) throw new Error('Reset link is invalid or incomplete.');
   if (!password || password.length < 8) throw new Error('Password must be at least 8 characters.');
@@ -57,6 +64,7 @@ export const authRecoveryService = {
   requestMagicLink,
   setupPassword,
   resetPassword,
+  validatePasswordResetLink,
   verifyMagicLink,
   changePassword,
 };

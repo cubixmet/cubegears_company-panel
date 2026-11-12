@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Eye, EyeOff, Lock } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { authRecoveryService } from '../../services/authRecovery.service';
@@ -24,6 +24,22 @@ export const ResetPassword = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [done, setDone] = useState(false);
   const [doneMessage, setDoneMessage] = useState('');
+  const [linkState, setLinkState] = useState('checking');
+
+  useEffect(() => {
+    if (!token || (!uid && !email)) {
+      setLinkState('invalid');
+      return;
+    }
+    let active = true;
+    setLinkState('checking');
+    authRecoveryService.validatePasswordResetLink({ uid, email, token })
+      .then(() => { if (active) setLinkState('ready'); })
+      .catch((error) => {
+        if (active) setLinkState(error?.status === 400 ? 'invalid' : 'unavailable');
+      });
+    return () => { active = false; };
+  }, [uid, email, token]);
 
   const clearField = (field) => {
     setFieldErrors((current) => {
@@ -36,6 +52,12 @@ export const ResetPassword = () => {
 
   const submit = async (event) => {
     event.preventDefault();
+    if (linkState !== 'ready') {
+      setFormError(linkState === 'invalid'
+        ? 'This link has expired. Request a new one.'
+        : 'Unable to connect. Please try again.');
+      return;
+    }
     const nextErrors = {};
 
     if ((!uid && !email) || !token) nextErrors.link = 'This reset link is invalid or incomplete. Request a new reset link.';
@@ -122,7 +144,9 @@ export const ResetPassword = () => {
               <h1 className="login-title">Create a new password</h1>
               <p className="login-description">{email ? 'Resetting access for ' + email + '.' : 'Choose a strong password for your account.'}</p>
 
-              {(!token || (!uid && !email)) && <div className="auth-message is-error" role="alert">This reset link is incomplete. Request a new password reset email.</div>}
+              {linkState === 'checking' && <p className="login-description" role="status">Checking your secure reset link…</p>}
+              {linkState === 'invalid' && <div className="auth-message is-error" role="alert">This link has expired or is invalid. Request a new one.</div>}
+              {linkState === 'unavailable' && <div className="auth-message is-error" role="alert">Unable to connect. Please try again.</div>}
               {formError && <div className="auth-message is-error" role="alert">{formError}</div>}
               {fieldErrors.link && <div className="auth-message is-warning">{fieldErrors.link}</div>}
 
@@ -153,7 +177,7 @@ export const ResetPassword = () => {
                   <span className={/[0-9]/.test(password) ? 'ok' : ''}>Number</span>
                 </div>
 
-                <button className="login-submit" type="submit" disabled={loading || !token || (!uid && !email)}>
+                <button className="login-submit" type="submit" disabled={loading || linkState !== 'ready'}>
                   {loading ? 'Updating…' : 'Reset Password'}
                 </button>
               </form>
