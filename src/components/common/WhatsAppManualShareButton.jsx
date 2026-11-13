@@ -38,7 +38,8 @@ export function WhatsAppManualShareButton({ targetType, targetId, label = 'Send 
       if (tab && !tab.closed) tab.location.replace(data.url);
     } catch (cause) {
       if (tab && !tab.closed) tab.close();
-      setError(cause?.message || 'Unable to prepare WhatsApp sharing.');
+      const reference = cause?.requestId ? ` (Reference: ${cause.requestId})` : '';
+      setError((cause?.message || 'Unable to prepare WhatsApp sharing.') + reference);
     } finally {
       setLoading(false);
     }
@@ -62,7 +63,8 @@ export function WhatsAppManualShareButton({ targetType, targetId, label = 'Send 
         setError('Clipboard access is unavailable. Select and copy the prepared message below.');
       }
     } catch (cause) {
-      setError(cause?.message || 'Unable to prepare a message to copy.');
+      const reference = cause?.requestId ? ` (Reference: ${cause.requestId})` : '';
+      setError((cause?.message || 'Unable to prepare a message to copy.') + reference);
     } finally {
       setLoading(false);
     }
