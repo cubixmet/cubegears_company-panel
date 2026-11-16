@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { AlertCircle, ArrowLeft, Info, KeyRound, Mail, WandSparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { CubixgearLogo } from '../../components/branding/CubixgearLogo';
 import { authRecoveryService } from '../../services/authRecovery.service';
 import { getAuthErrorMessage, getAuthFieldErrors } from '../../utils/authErrors';
@@ -9,7 +9,11 @@ import '../../styles/login-system.css';
 import '../../styles/auth-recovery.css';
 
 export const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
+  const { state } = useLocation();
+  const [email, setEmail] = useState(() => {
+    const suggested = normalizeEmail(state?.email);
+    return isValidEmail(suggested) ? suggested : '';
+  });
   const [mode, setMode] = useState('reset');
   const isMagicLink = mode === 'magic';
   const [loading, setLoading] = useState(false);
@@ -47,10 +51,10 @@ export const ForgotPassword = () => {
       if (result?.previewUrl) setPreviewUrl(result.previewUrl);
       setFeedback({
         type: 'info',
-        title: 'Check your email if registered',
+        title: 'Check your email',
         message: isMagicLink
-          ? 'Only registered, eligible accounts receive a magic sign-in link. No email or login link is created for an unknown address. If you have an account, check your inbox and spam folder.'
-          : 'Only registered, eligible accounts receive password reset instructions. No email or reset link is created for an unknown address. If you have an account, check your inbox and spam folder.',
+          ? 'If this email is eligible, we’ll send a sign-in link. Check your inbox and spam folder.'
+          : 'If this email is eligible, we’ll send a password reset link. Check your inbox and spam folder.',
       });
     } catch (error) {
       const fields = getAuthFieldErrors(error);
@@ -73,26 +77,23 @@ export const ForgotPassword = () => {
   };
 
   return (
-    <main className="login-page auth-recovery-page">
+    <main className="login-page auth-recovery-page forgot-password-page">
       <div className="login-shell">
-        <section className="login-card auth-recovery-card">
+        <section className="login-card auth-recovery-card" aria-labelledby="recovery-title">
           <Link to="/login" className="auth-back">
             <ArrowLeft size={14} aria-hidden="true" /> Back to sign in
           </Link>
 
           <div className="login-brand-row">
             <div className="login-brand-mark" aria-hidden="true"><CubixgearLogo /></div>
-            <div>
-              <div className="login-brand-name">cubixgear</div>
-              <div className="login-brand-subtitle">Secure Account Access</div>
-            </div>
+            <div className="login-brand-name">cubixgear</div>
           </div>
 
-          <h1 className="login-title">{isMagicLink ? 'Sign in with a magic link' : 'Reset your password'}</h1>
+          <h1 className="login-title" id="recovery-title">{isMagicLink ? 'Sign in with a magic link' : 'Reset your password'}</h1>
           <p className="login-description">
             {isMagicLink
-              ? 'Request a one-time email login link (valid for 15 minutes).'
-              : 'Request a password reset link using your registered email address.'}
+              ? 'Get a one-time login link by email. It’s valid for 15 minutes.'
+              : 'Enter your registered email to get a password reset link.'}
           </p>
 
           <div className="auth-recovery-methods" role="group" aria-label="Choose account recovery method">
@@ -107,7 +108,7 @@ export const ForgotPassword = () => {
               }}
             >
               <KeyRound size={16} strokeWidth={1.8} aria-hidden="true" />
-              Reset Password
+              <span>Reset Password</span>
             </button>
             <button
               type="button"
@@ -120,7 +121,7 @@ export const ForgotPassword = () => {
               }}
             >
               <WandSparkles size={16} strokeWidth={1.8} aria-hidden="true" />
-              Magic Login Link
+              <span>Magic Login Link</span>
             </button>
           </div>
 
@@ -156,7 +157,8 @@ export const ForgotPassword = () => {
             </label>
 
             <button type="submit" className="login-submit" disabled={loading}>
-              {loading ? 'Submitting…' : isMagicLink ? 'Send Magic Link' : 'Send Reset Link'}
+              {loading && <span className="login-spinner" aria-hidden="true" />}
+              {loading ? 'Requesting link…' : isMagicLink ? 'Send Magic Link' : 'Send Reset Link'}
             </button>
 
             {feedback && (

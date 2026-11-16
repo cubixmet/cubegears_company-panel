@@ -240,12 +240,13 @@ export const StaffAddPage = () => {
                 <input name="name" required autoComplete="name" value={form.name}
                   onChange={event => set('name', event.target.value)} placeholder="Full name"/>
               </label>
-              <div className="staff-phone-field">
+              <div className="staff-phone-field" data-cg-input-wrapper>
                 <label htmlFor="staff-mobile-number">Mobile Number with Country Code *</label>
                 <div className="staff-phone-field__row">
                   <select aria-label="Mobile country code" value={countryCode}
                     onChange={event => {
                       const nextCode = event.target.value;
+                      clearFieldValidation(formRef.current?.elements.namedItem('phone'));
                       setCountryCode(nextCode);
                       set('phone', localPhone ? nextCode + localPhone : '');
                     }}>

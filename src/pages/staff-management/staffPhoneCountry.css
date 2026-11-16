@@ -1,9 +1,13 @@
-.staff-phone-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.staff-phone-field { display: flex; flex-direction: column; gap: 7px; min-width: 0; container-type: inline-size; }
 .staff-phone-field > label { font-weight: 600; }
-.staff-phone-field__row { display: flex; width: 100%; gap: 8px; min-width: 0; }
-.staff-phone-field__row select { flex: 0 0 156px; width: 156px; min-width: 0; }
-.staff-phone-field__row input { flex: 1 1 0; width: 100%; min-width: 0; }
-@media (max-width: 430px) {
-  .staff-phone-field__row { gap: 6px; }
-  .staff-phone-field__row select { flex-basis: 126px; width: 126px; }
+.staff-phone-field__row {
+  display: grid;
+  grid-template-columns: minmax(0, min(42%, 156px)) minmax(0, 1fr);
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+}
+.staff-phone-field__row :is(select, input) { width: 100%; min-width: 0; }
+@container (max-width: 235px) {
+  .staff-phone-field__row { grid-template-columns: minmax(0, 1fr); }
 }

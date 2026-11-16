@@ -33,6 +33,7 @@ export const Login = () => {
   const [loginMethod, setLoginMethod] = useState('email');
   const [mobileNumber, setMobileNumber] = useState('');
   const [emailAddress, setEmailAddress] = useState(initialEmail);
+  const recoveryState = loginMethod === 'email' ? { email: normalizeEmail(emailAddress) } : undefined;
   const [countryCode, setCountryCode] = useState('+91');
   // Keep each identifier separate when the user switches sign-in methods.
   const identifier = loginMethod === 'email' ? emailAddress : mobileNumber;
@@ -171,13 +172,8 @@ export const Login = () => {
           {invalidCredentials && (
             <div className="login-help-note" role="note">
               {isEmailIdentifier
-                ? 'Registered a new workshop? Complete password setup from your email first. If you use this email for more than one workshop, enter its workshop code. For expired links, use Password help.'
-                : 'New staff account? Ask your workshop administrator for a valid password setup link. If your phone is linked to several workshops, enter the correct workshop code.'}
-              <div>
-                <Link to="/forgot-password" className="login-forgot">
-                  Password help
-                </Link>
-              </div>
+                ? 'New workshop? Open the password setup email. If the link expired or you forgot your password, use Forgot password? below.'
+                : 'New staff account or forgotten password? Ask your workshop administrator for a new setup or reset link.'}
             </div>
           )}
 
@@ -283,7 +279,7 @@ export const Login = () => {
             <label className="block">
               <div className="login-password-label">
                 <span className="login-field-label">Password</span>
-                <Link to="/forgot-password" className="login-forgot">
+                <Link to="/forgot-password" state={recoveryState} className="login-forgot">
                   Forgot password?
                 </Link>
               </div>

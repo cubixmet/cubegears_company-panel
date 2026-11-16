@@ -108,16 +108,54 @@
 
 
 /* Account recovery offers only email reset and magic login. */
+.forgot-password-page {
+  --recovery-blue: #a9cbff;
+  --recovery-blue-bg: #142a49;
+  --recovery-blue-border: #365581;
+  --recovery-red: #fecaca;
+  --recovery-red-bg: #351e2b;
+  --recovery-red-border: #8b4051;
+}
+:root[data-theme='light'] .forgot-password-page {
+  --recovery-blue: #1e40af;
+  --recovery-blue-bg: #eff6ff;
+  --recovery-blue-border: #a8c5f5;
+  --recovery-red: #991b1b;
+  --recovery-red-bg: #fff1f2;
+  --recovery-red-border: #f4a9b5;
+}
+.forgot-password-page .auth-back {
+  align-self:flex-start;
+  min-height:44px;
+  margin:0 0 10px;
+  font-size:14px;
+}
+.forgot-password-page .auth-back:hover {text-decoration:underline}
+.forgot-password-page .login-brand-row {margin-bottom:18px}
+.forgot-password-page .login-title {margin:0}
+.forgot-password-page .login-description {margin:6px 0 18px;max-width:none}
+.forgot-password-page .login-form {gap:14px}
+.forgot-password-page .login-submit {
+  margin:0;
+  background:#145be5;
+  border-color:#145be5;
+  box-shadow:none;
+}
+.forgot-password-page .login-submit:hover:not(:disabled) {
+  background:#124bc2;
+  border-color:#124bc2;
+  box-shadow:none;
+}
 .auth-recovery-methods{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   align-items:stretch;
   gap:5px;
   padding:4px;
-  margin:0 0 18px;
-  border:1px solid #2d3b50;
+  margin:0 0 16px;
+  border:1px solid var(--border);
   border-radius:12px;
-  background:rgba(115,135,165,.08);
+  background:var(--surface-2);
 }
 .auth-recovery-method{
   display:inline-flex;
@@ -126,31 +164,36 @@
   gap:6px;
   min-width:0;
   min-height:44px;
-  padding:8px 5px;
+  padding:8px;
   border:1px solid transparent;
   border-radius:9px;
   background:transparent;
-  color:#7f8da3;
-  font-size:12px;
-  line-height:1.25;
-  font-weight:650;
+  color:var(--text-secondary);
+  font-size:14px;
+  text-align:center;
   cursor:pointer;
   transition:background-color .14s ease,color .14s ease;
 }
-.auth-recovery-method svg{flex:0 0 16px;}
+.auth-recovery-method svg{flex:none}
+.auth-recovery-method span{min-width:0}
+.auth-recovery-method:hover:not(:disabled):not(.is-active){background:var(--surface-3)}
 .auth-recovery-method.is-active{
-  border-color:rgba(59,130,246,.28);
-  background:rgba(59,130,246,.12);
-  color:#7eb2ff;
+  border-color:var(--recovery-blue-border);
+  background:var(--recovery-blue-bg);
+  color:var(--recovery-blue);
 }
 .auth-recovery-method:focus-visible{
-  outline:2px solid #438dff;
+  outline:2px solid var(--recovery-blue);
   outline-offset:2px;
 }
 .auth-recovery-method:disabled{opacity:.65;cursor:wait;}
 @media (max-width:360px){
-  .auth-recovery-method{font-size:11px;gap:4px;padding-inline:3px;}
-  .auth-recovery-method svg{width:14px;height:14px;flex-basis:14px;}
+  .auth-recovery-method{gap:5px;padding-inline:5px;}
+  .auth-recovery-method svg{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  .forgot-password-page :is(.login-submit,.auth-recovery-method){transition:none}
+  .forgot-password-page .login-spinner{animation:none}
 }
 
 
@@ -203,34 +246,22 @@
 }
 .auth-recovery-feedback strong {
   display:block;
-  font-size:13px;
-  font-weight:750;
+  font-size:14px;
 }
 .auth-recovery-feedback p {
   margin:3px 0 0;
-  font-size:12px;
-  line-height:1.55;
+  color:inherit;
 }
 .auth-recovery-feedback.is-info {
-  border-color:rgba(96,165,250,.4);
-  background:rgba(37,99,235,.1);
-  color:#bfdbfe;
+  border-color:var(--recovery-blue-border);
+  background:var(--recovery-blue-bg);
+  color:var(--recovery-blue);
 }
 .auth-recovery-feedback.is-error {
-  border-color:rgba(248,113,113,.4);
-  background:rgba(239,68,68,.11);
-  color:#fecaca;
+  border-color:var(--recovery-red-border);
+  background:var(--recovery-red-bg);
+  color:var(--recovery-red);
 }
-@media (prefers-color-scheme:light) {
-  .auth-recovery-page .login-form .auth-field-error { color:#b91c1c; }
-  .auth-recovery-feedback.is-info {
-    background:#eff6ff;
-    color:#1e40af;
-    border-color:#93c5fd;
-  }
-  .auth-recovery-feedback.is-error {
-    background:#fff1f2;
-    color:#991b1b;
-    border-color:#fda4af;
-  }
+:root[data-theme='light'] .auth-recovery-page .login-form .auth-field-error {
+  color:#b91c1c;
 }

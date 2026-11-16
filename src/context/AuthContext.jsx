@@ -123,6 +123,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const clearSession = useCallback(() => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_refresh_token');
+    localStorage.removeItem('auth_user');
+    setUser(null);
+    setIsAuthenticated(false);
+    setSessionError('');
+  }, []);
+
   const logout = async () => {
     try {
       const refresh = localStorage.getItem('auth_refresh_token');
@@ -130,18 +139,13 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // Local logout must still succeed if the network/backend is unavailable.
     } finally {
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('auth_refresh_token');
-      localStorage.removeItem('auth_user');
-      setUser(null);
-      setIsAuthenticated(false);
-      setSessionError('');
+      clearSession();
     }
   };
 
   const value = useMemo(
-    () => ({ user, isAuthenticated, loading, sessionError, retrySession, login, logout, isMockMode: false }),
-    [user, isAuthenticated, loading, sessionError, retrySession]
+    () => ({ user, isAuthenticated, loading, sessionError, retrySession, login, logout, clearSession, isMockMode: false }),
+    [user, isAuthenticated, loading, sessionError, retrySession, clearSession]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

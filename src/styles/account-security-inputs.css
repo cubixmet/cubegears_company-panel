@@ -141,6 +141,25 @@
   font-size: 14px !important;
   line-height: 1.5;
 }
+.app-content .account-security-page .account-security-input-row:has(input[aria-invalid='true']) {
+  outline: 2px solid var(--danger) !important;
+  outline-offset: -2px;
+}
+.account-security-error {
+  margin: 0;
+  color: #b91c1c;
+  line-height: 1.5;
+}
+:root[data-theme='dark'] .account-security-error { color: #fca5a5; }
+.account-security-recovery-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+:root[data-theme='dark'] .account-security-recovery-link { color: #a9cbff; }
 @media (max-width: 600px) {
   .app-content .account-security-page .account-security-form .account-security-input-row {
     gap: 10px;

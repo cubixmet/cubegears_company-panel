@@ -433,9 +433,9 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
         }),
         { phone: staff.phone, staffName: staff.name, workshopName: user?.company?.name },
       );
-      setInviteNotice(handoff.localOnlyLink
-        ? 'WhatsApp opened, but the setup URL is localhost. Set backend FRONTEND_URL to the public HTTPS company-panel address before the employee opens the link.'
-        : 'Password link is ready in WhatsApp. Review it and press Send to share manually.');
+      if (!handoff.localOnlyLink) {
+        setInviteNotice('Password link is ready in WhatsApp. Review it and press Send to share manually.');
+      }
       await refreshAll();
     } catch (requestError) {
       setInviteError(staffInviteErrorMessage(requestError));
