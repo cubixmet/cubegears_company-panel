@@ -1,0 +1,130 @@
+/* GST configuration in Add New Spare Part / Add New Work modal.
+   The actual estimate calculator remains the existing source of truth. */
+.job-estimate-create-form .job-estimate-create-tax {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 3px 0 0;
+  padding: 13px;
+  border: 1px solid var(--border, #dbe2eb);
+  border-radius: 12px;
+  background: var(--surface-2, #f8fafc);
+}
+.job-estimate-create-form .job-estimate-create-tax legend {
+  padding: 0 6px;
+  font-size: 14px;
+  font-weight: 750;
+  line-height: 1.4;
+  color: var(--text-primary, #172033);
+}
+.job-estimate-create-form .job-estimate-create-tax .job-estimate-create-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+  min-width: 0;
+}
+.job-estimate-create-form .job-estimate-create-tax label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.4;
+}
+.job-estimate-create-form .job-estimate-create-tax :is(select,input:not([type="checkbox"])) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  height: 46px;
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 9px;
+  background: var(--surface, #fff);
+  color: var(--text-primary, #172033);
+  font-size: 16px;
+  line-height: 1.4;
+}
+.job-estimate-create-form .job-estimate-create-tax [aria-invalid="true"] {
+  border-color: var(--danger, #dc2626);
+}
+.job-estimate-create-form .job-estimate-create-tax small[role="alert"] {
+  color: var(--danger, #dc2626);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.job-estimate-create-form .job-estimate-create-tax .job-estimate-create-zero {
+  display: grid;
+  gap: 10px;
+  padding: 11px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 9px;
+  background: var(--surface, #fff);
+}
+.job-estimate-create-form .job-estimate-create-tax .job-estimate-create-confirm {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 550;
+}
+.job-estimate-create-form .job-estimate-create-tax .job-estimate-create-confirm input[type="checkbox"] {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  accent-color: var(--primary, #5047ec);
+}
+.job-estimate-create-form .job-estimate-create-tax .job-estimate-create-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary, #52617a);
+}
+.job-estimate-create-form .job-estimate-create-tax-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+.job-estimate-create-form .job-estimate-create-tax-summary span {
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 9px;
+  min-height: 56px;
+  border: 1px solid var(--border, #dbe2eb);
+  border-radius: 9px;
+  background: var(--surface, #fff);
+  color: var(--text-secondary, #52617a);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.job-estimate-create-form .job-estimate-create-tax-summary strong {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--text-primary, #172033);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 550px) {
+  .job-estimate-create-form .job-estimate-create-tax {
+    padding: 11px;
+    gap: 9px;
+  }
+  .job-estimate-create-form .job-estimate-create-tax .job-estimate-create-two {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+  }
+  .job-estimate-create-form .job-estimate-create-tax-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .job-estimate-create-form .job-estimate-create-tax-summary span:last-child {
+    grid-column: 1 / -1;
+  }
+}

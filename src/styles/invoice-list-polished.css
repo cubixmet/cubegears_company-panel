@@ -1,0 +1,250 @@
+/* /invoices directory only. No editor, PDF, print or accounting styles are changed. */
+@media screen {
+.billing-page.billing-ui-unified.billing-list-dashboard.cg-invoice-refined {
+  width:100%;max-width:100%;min-width:0;
+  display:flex;flex-direction:column;gap:13px;
+  padding:clamp(12px,1.7vw,22px);
+  padding-bottom:76px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-header {
+  margin:0;padding:2px 0 3px;gap:12px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-header h1 {
+  font-size:clamp(24px,2.7vw,29px);font-weight:780;letter-spacing:-.025em;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-header-actions {
+  gap:8px;align-items:center;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-header-actions .bill-btn {
+  min-height:44px;padding:9px 13px;font-size:13px;font-weight:700;
+  border-radius:10px;white-space:normal;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-header-actions .bill-btn:last-child:not(.secondary) {
+  min-height:46px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-tabs {
+  margin:0;gap:6px;padding:5px;border-radius:12px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-tabs button {
+  min-height:46px;border-radius:9px;font-size:14px;
+  padding:9px 11px;line-height:1.4;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-stats {
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:10px;margin:0;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-stat-card {
+  min-height:107px;gap:8px;padding:13px 14px;
+  border-radius:12px;box-shadow:none;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-stat-top strong {
+  font-size:clamp(18px,1.9vw,24px);font-weight:760;
+  font-variant-numeric:tabular-nums;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-stat-card small {
+  font-size:11.5px;line-height:1.5;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-stat-top i {
+  flex:0 0 34px;width:34px;height:34px;border-radius:9px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-toolbar.cg-invoice-toolbar {
+  display:flex;flex-direction:column;align-items:stretch;
+  margin:0;gap:10px;padding:12px;border-radius:12px;box-shadow:none;
+}
+.cg-invoice-refined .cg-invoice-filter-row {
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(165px,220px) auto;
+  gap:9px;align-items:center;width:100%;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-search,
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-status-filter {
+  flex:none;width:100%;min-width:0;
+  min-height:46px;height:46px;border-radius:9px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-search input,
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-status-filter select {
+  font-size:16px!important;height:44px;
+}
+.cg-invoice-refined .invoice-dashboard-result-count {
+  justify-content:center;min-height:46px;border-radius:9px;
+}
+.cg-invoice-refined .cg-invoice-filter-secondary {
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(170px,.8fr) auto;
+  gap:9px;align-items:center;min-width:0;
+}
+.cg-invoice-refined .cg-invoice-date-filter,
+.cg-invoice-refined .cg-invoice-sort-filter {
+  display:flex;align-items:center;gap:7px;
+  min-height:46px;min-width:0;padding:0 10px;
+  border:1px solid var(--cg-inv-line);
+  border-radius:9px;background:var(--cg-inv-paper);
+  color:var(--cg-inv-muted);
+}
+.cg-invoice-refined .cg-invoice-date-filter svg {flex:0 0 auto;color:var(--primary);}
+.cg-invoice-refined :is(.cg-invoice-date-filter label,.cg-invoice-sort-filter span) {
+  font-size:12px;font-weight:700;white-space:nowrap;
+}
+.cg-invoice-refined .cg-invoice-date-filter input,
+.cg-invoice-refined .cg-invoice-sort-filter select {
+  display:block;flex:1;min-width:0;width:100%;
+  min-height:44px;padding:7px 3px;margin:0;
+  border:0;background:transparent;outline:0;box-shadow:none;
+  font-family:inherit;font-size:16px;line-height:1.4;font-weight:400;color:var(--cg-inv-ink);
+}
+.cg-invoice-refined .cg-invoice-date-filter:focus-within,
+.cg-invoice-refined .cg-invoice-sort-filter:focus-within {
+  outline:2px solid var(--primary);outline-offset:2px;
+}
+.cg-invoice-refined .cg-invoice-reset {min-height:46px;border-radius:9px;}
+.cg-invoice-refined .cg-invoice-active-filters {
+  padding-top:10px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-records {
+  border-radius:13px;box-shadow:none;min-width:0;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-section-title {
+  padding:15px 16px;gap:10px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-section-title h2 {
+  font-size:17px;font-weight:740;
+}
+.cg-invoice-refined .invoice-dashboard-table {min-width:1050px;}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-table th {
+  padding:12px;font-size:12px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-table td {
+  padding:12px;font-size:13px;line-height:1.5;
+}
+.cg-invoice-refined .invoice-dashboard-table tbody tr:hover {background:var(--surface-2);}
+.cg-invoice-refined .cg-invoice-money-cell {
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+  text-align:right;
+}
+.cg-invoice-refined .cg-invoice-money-cell strong {font-weight:760;color:var(--cg-inv-ink);}
+.cg-invoice-refined .invoice-dashboard-table td:is(:nth-child(4),:nth-child(5),:nth-child(6)) {
+  font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-actions button {
+  min-width:43px;min-height:43px;border-radius:9px;
+}
+.cg-invoice-refined .invoice-dashboard-status {
+  font-size:11px;min-height:27px;padding:5px 9px;border-radius:7px;
+  white-space:nowrap;
+}
+.cg-invoice-refined .invoice-dashboard-status.is-paid,
+.cg-invoice-refined .invoice-dashboard-status.is-finalized,
+.cg-invoice-refined .invoice-dashboard-status.is-converted,
+.cg-invoice-refined .invoice-dashboard-status.is-issued {
+  color:var(--success,#15803d);
+  background:var(--success-soft,#ecfdf3);
+}
+.cg-invoice-refined .invoice-dashboard-status.is-draft {
+  color:var(--cg-inv-muted);background:var(--surface-2);
+}
+.cg-invoice-refined .invoice-dashboard-status.is-partially-paid {
+  color:var(--warning,#92400e);background:var(--warning-soft,#fffbeb);
+}
+.cg-invoice-refined .invoice-dashboard-status.is-cancelled,
+.cg-invoice-refined .invoice-dashboard-status.is-void {
+  color:var(--danger,#b42318);background:var(--danger-soft,#fff1f2);
+}
+.cg-invoice-refined .invoice-dashboard-mobile-card {
+  padding:13px;border-radius:11px;box-shadow:none;
+}
+.cg-invoice-refined .invoice-dashboard-mobile-head {
+  display:flex;gap:10px;align-items:flex-start;
+}
+.cg-invoice-refined .invoice-dashboard-mobile-meta {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;margin:12px 0;padding:10px 0;
+}
+.cg-invoice-refined .invoice-dashboard-mobile-meta>div {
+  min-width:0;padding:9px;border-radius:8px;background:var(--surface-2);
+}
+.cg-invoice-refined .invoice-dashboard-mobile-meta>div:nth-last-child(3) {
+  grid-column:1/-1;
+}
+.cg-invoice-refined .invoice-dashboard-mobile-meta strong {
+  font-variant-numeric:tabular-nums;overflow-wrap:anywhere;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-mobile-actions {
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:7px;margin-top:11px;
+}
+.billing-ui-unified.cg-invoice-refined .invoice-dashboard-mobile-actions button {
+  min-width:0;min-height:44px;font-size:13px;border-radius:9px;
+  padding:8px 5px;
+}
+.cg-invoice-refined :is(button,input,select):focus-visible {
+  outline:2px solid var(--primary);outline-offset:2px;
+}
+@media(max-width:1100px){
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-stats {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .cg-invoice-refined .cg-invoice-filter-secondary {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:767px){
+  .billing-page.billing-ui-unified.billing-list-dashboard.cg-invoice-refined {
+    gap:11px;padding:12px 10px 84px;
+  }
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-header {gap:12px;}
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-header-actions {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:7px;width:100%;
+  }
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-header-actions .bill-btn {
+    width:100%;min-width:0;min-height:45px;font-size:12px;padding:9px 7px;
+  }
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-header-actions .bill-btn:last-child {
+    grid-column:1/-1;
+  }
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-tabs {
+    margin:0;padding:4px;gap:4px;
+  }
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-tabs button {
+    font-size:12px;min-height:57px;
+    flex-direction:column;gap:4px;padding:8px 4px;
+  }
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-stat-card {
+    min-height:96px;padding:10px;gap:6px;
+  }
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-stat-top strong {font-size:18px;}
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-toolbar.cg-invoice-toolbar {
+    padding:10px;gap:9px;
+  }
+  .cg-invoice-refined .cg-invoice-filter-row {
+    grid-template-columns:minmax(0,1fr);gap:8px;
+  }
+  .cg-invoice-refined .cg-invoice-filter-secondary {
+    grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;
+  }
+  .cg-invoice-refined .cg-invoice-sort-filter,
+  .cg-invoice-refined .cg-invoice-reset {
+    grid-column:1/-1;width:100%;
+  }
+  .cg-invoice-refined .cg-invoice-date-filter {
+    padding:0 8px;gap:4px;
+  }
+  .cg-invoice-refined .cg-invoice-date-filter>svg {display:none;}
+  .cg-invoice-refined .cg-invoice-date-filter label {font-size:11px;}
+  .cg-invoice-refined .cg-invoice-date-filter input {font-size:14px;}
+  .cg-invoice-refined .invoice-dashboard-result-count {
+    justify-content:flex-start;min-height:31px;padding:2px 8px;
+  }
+  .cg-invoice-refined .invoice-dashboard-table-wrap {display:none!important;}
+  .cg-invoice-refined .invoice-dashboard-mobile-list {
+    display:grid;grid-template-columns:minmax(0,1fr);
+    gap:9px;padding:10px;
+  }
+}
+@media(max-width:390px){
+  .cg-invoice-refined .cg-invoice-filter-secondary {grid-template-columns:minmax(0,1fr);}
+  .cg-invoice-refined .cg-invoice-date-filter {flex-wrap:nowrap;padding:0 9px;}
+  .cg-invoice-refined .cg-invoice-date-filter input {font-size:16px;min-height:44px;}
+  .billing-ui-unified.cg-invoice-refined .invoice-dashboard-mobile-actions {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+}

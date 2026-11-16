@@ -452,6 +452,85 @@
 .billing-ui-unified .eway-goods-card .eway-add-goods{
   min-height:44px;gap:8px;font-size:14px;
 }
+.billing-ui-unified .invoice-detail-header{
+  padding:clamp(14px,2vw,24px);
+  border:1px solid var(--billing-ui-border);
+  border-radius:14px;
+  background:var(--billing-ui-bg);
+}
+.invoice-detail-heading{
+  display:grid;
+  gap:12px;
+}
+.invoice-detail-nav,
+.invoice-detail-identity,
+.invoice-detail-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+  min-width:0;
+}
+.billing-ui-unified .invoice-detail-nav .bill-btn{
+  display:inline-flex;
+  background:transparent;
+  border-color:transparent;
+  padding-inline:6px;
+  color:var(--billing-ui-muted);
+}
+.billing-ui-unified .invoice-detail-nav .bill-btn:hover{
+  color:var(--billing-ui-text);
+  background:var(--billing-ui-soft);
+}
+.billing-ui-unified .invoice-detail-identity h1{
+  margin:0;
+  font-size:clamp(23px,2.3vw,31px);
+  overflow-wrap:anywhere;
+}
+.invoice-detail-status{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 9px;
+  border:1px solid var(--billing-ui-border);
+  border-radius:999px;
+  background:var(--billing-ui-soft);
+  color:var(--billing-ui-text);
+  font-size:13px;
+  font-weight:650;
+}
+.invoice-detail-status[data-status="Paid"]{
+  color:var(--success,#157044);
+  background:color-mix(in srgb,var(--success,#157044) 9%,var(--billing-ui-bg));
+  border-color:color-mix(in srgb,var(--success,#157044) 26%,var(--billing-ui-bg));
+}
+.invoice-detail-toolbar{
+  align-items:stretch;
+  margin-top:16px;
+  padding-top:14px;
+  border-top:1px solid var(--billing-ui-border);
+}
+.billing-ui-unified .invoice-detail-toolbar :is(.bill-btn,.wa-manual-share__button){
+  min-height:44px;
+  padding:8px 12px;
+  font-size:14px;
+  line-height:1.35;
+  white-space:normal;
+  text-align:center;
+}
+.invoice-detail-toolbar .wa-manual-share__button{
+  width:100%;
+}
+.invoice-detail-toolbar .wa-manual-share__button svg{flex-shrink:0}
+.invoice-detail-pdf{margin-inline-start:auto}
+@media(max-width:700px){
+  .invoice-detail-toolbar{
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .invoice-detail-toolbar .wa-manual-share{width:100%}
+  .invoice-detail-pdf{grid-column:1/-1;margin-inline-start:0}
+}
 .billing-ui-unified .invoice-view-page .invoice-print-sheet{
   max-width:100%;
 }

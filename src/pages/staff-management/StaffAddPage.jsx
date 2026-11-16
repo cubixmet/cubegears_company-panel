@@ -9,6 +9,7 @@ import { hasPermission } from '../../utils/permissions';
 import { clearFieldValidation, showFormFieldError, showServerFormErrors } from '../../utils/formValidation';
 import { copyManualStaffInvite, shareManualStaffInvite } from '../../utils/staffManualInvite';
 import '../../styles/staff-mobile-onboarding.css';
+import '../../styles/staff-branch-access.css';
 import './staffPhoneCountry.css';
 
 const staffCountryCodes = [
@@ -22,7 +23,7 @@ const staffCountryCodes = [
 ];
 const statuses = ['Active', 'Probation', 'Notice Period', 'Inactive', 'Suspended', 'Resigned', 'Terminated'];
 const emptyStaff = (loginEnabled) => ({
-  name: '', phone: '', branchId: '', roleId: '', role: '',
+  name: '', phone: '', branchId: '', allowedBranchIds: [], roleId: '', role: '',
   employmentStatus: 'Active', loginAccessEnabled: loginEnabled,
 });
 
@@ -83,6 +84,11 @@ export const StaffAddPage = () => {
       return;
     }
 
+      if (canManageLogins && form.loginAccessEnabled && (!form.branchId ||
+        !form.allowedBranchIds.includes(form.branchId))) {
+        showFormFieldError(formRef.current, 'branchId', 'Select a primary branch before assigning staff access.');
+        return;
+      }
     setSaving(true);
     setError('');
     try {
@@ -258,7 +264,16 @@ export const StaffAddPage = () => {
                 </div>
               </div>
               <label>Branch
-                <select name="branchId" value={form.branchId} onChange={event => set('branchId', event.target.value)}>
+                <select name="branchId" value={form.branchId} onChange={event => {
+                  const next = event.target.value;
+                  setForm(current => ({
+                    ...current, branchId: next,
+                    allowedBranchIds: next
+                      ? [next, ...(current.allowedBranchIds || []).filter(
+                          id => id !== current.branchId && id !== next)].slice(0, 3)
+                      : [],
+                  }));
+                }}>
                   <option value="">Unassigned</option>
                   {branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
                 </select>
@@ -279,6 +294,27 @@ export const StaffAddPage = () => {
                 </select>
               </label>
             </div>
+            {canManageLogins && form.loginAccessEnabled && form.branchId && branches.length > 1 &&
+              <fieldset className="staff-branch-access">
+                <legend>Staff Branch Access (up to 3 branches)</legend>
+                <p>Primary branch is always included. Only assigned branches appear in customer records.</p>
+                <div>
+                  {branches.map(branch => {
+                    const selected = form.allowedBranchIds.includes(String(branch.id));
+                    const locked = String(branch.id) === String(form.branchId);
+                    return <label key={branch.id}>
+                      <input type="checkbox" checked={selected} disabled={locked ||
+                        (!selected && form.allowedBranchIds.length >= 3)}
+                        onChange={event => setForm(current => ({
+                          ...current, allowedBranchIds: event.target.checked
+                            ? [...current.allowedBranchIds, String(branch.id)]
+                            : current.allowedBranchIds.filter(id => id !== String(branch.id)),
+                        }))}/>
+                      {branch.name}{locked ? ' (Primary)' : ''}
+                    </label>;
+                  })}
+                </div>
+              </fieldset>}
             {!loadingOptions && !roles.length &&
               <p className="staff-directory-message is-error" role="alert">
                 No roles available. {canManageLogins && <Link to="/staff-management/roles">Create Role</Link>}

@@ -1,5 +1,5 @@
 
-import { BrowserRouter } from 'react-router-dom';
+import { RecordReferenceRouter } from './routes/RecordReferenceRouter';
 import { AuthProvider } from './context/AuthContext';
 import { FeatureAccessProvider } from './context/FeatureAccessContext';
 import { CompanyProvider } from './context/CompanyContext';
@@ -41,7 +41,6 @@ import './styles/job-parts-ui.css';
 import './styles/job-inspection-simple.css';
 import './styles/job-estimate-quick.css';
 import './styles/job-create-customer.css';
-import './styles/job-create-alignment.css';
 import './styles/job-complaint-detail.css';
 import './styles/billing-ui-unified.css';
 import './styles/account-workspace-unified.css';
@@ -64,7 +63,7 @@ import './styles/floating-fields.css';
 export function App() {
   return (
     <AppErrorBoundary>
-      <BrowserRouter>
+      <RecordReferenceRouter>
         <BackendConnectionBanner />
         <GlobalFormValidation />
         <ThemeProvider>
@@ -79,7 +78,7 @@ export function App() {
             </FeatureAccessProvider>
           </AuthProvider>
         </ThemeProvider>
-      </BrowserRouter>
+      </RecordReferenceRouter>
     </AppErrorBoundary>
   );
 }

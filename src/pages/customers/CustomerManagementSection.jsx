@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from 'react-router-dom';
 import { Users, UserPlus, Repeat2, Car, IndianRupee, Phone, MessageSquare, Wrench, FileText, AlertTriangle, CalendarClock, ChevronRight, Building2, Gauge, PackageCheck, TrendingUp, UserX } from "lucide-react";
@@ -242,7 +243,7 @@ export const CustomerManagementSection = ({ section }) => {
             .map((job) => (
               <article key={job.id} className="customer-history-card" onClick={() => navigate(`/jobs/${job.id}/overview`)}>
                 <div className="customer-history-card__head">
-                  <div><strong>{job.jobNumber || job.id}</strong><span>{job.createdDate} · {job.status}</span></div>
+                  <div><strong>{recordLabel(job.jobNumber || job.id)}</strong><span>{job.createdDate} · {job.status}</span></div>
                   <ChevronRight size={15}/>
                 </div>
                 <div className="customer-history-card__vehicle">{job.vehicleReg} · {job.vehicleInfo || 'Vehicle'} · {job.customer.name}</div>

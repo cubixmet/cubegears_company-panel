@@ -2,25 +2,22 @@ import { appConfirm } from '../../components/common/appDialogs';
 import { useState, useEffect, useMemo, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search } from '../../components/common/Search';
-import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
-import { Textarea } from '../../components/common/Textarea';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
 import '../../styles/customer-workshop-form.css';
 import '../../styles/customer-workspace-compact.css';
 import '../../styles/customer-directory-refined.css';
 import { customerService } from '../../services/customer.service';
+import { CustomerFormFields } from '../../components/customers/CustomerFormFields';
+import {
+  normalizeCustomerType, normalizeCustomerPhone, toCustomerFormPayload,
+  validateCustomerContact,
+} from '../../utils/customerFormModel';
 import { customerInvoiceMoney, customerStatusLabel, formatCustomerMoney } from './customerDirectoryMoney';
 import { USE_MOCK_API } from '../../api/apiConfig';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { CustomerContactActions } from '../../components/customers/CustomerContactActions';
-import { Users, Plus, Filter, Edit, Phone, MessageSquare, Mail, AlertTriangle } from "lucide-react";
-
-const normalizeCustomerType = (value) =>
-  /business|company/i.test(String(value || '')) ? 'Business / Company' : 'Individual';
-
-const backendCustomerType = (value) =>
-  normalizeCustomerType(value) === 'Business / Company' ? 'business' : 'individual';
+import { Users, Plus, Filter, Edit, AlertTriangle } from "lucide-react";
 
 export const CustomerList = () => {
   const navigate = useNavigate();
@@ -72,11 +69,10 @@ export const CustomerList = () => {
   // Form Fields
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
-  const [city, setCity] = useState('Kochi');
-  const [state, setState] = useState('Kerala');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
   const [pincode, setPincode] = useState('');
   const [customerType, setCustomerType] = useState('Individual');
   const [companyName, setCompanyName] = useState('');
@@ -278,12 +274,11 @@ export const CustomerList = () => {
     setFormFieldErrors({});
     setEditingCustomerId(c.id);
     setName(c.name || '');
-    setPhone(c.phone || '');
-    setWhatsapp(c.whatsapp || '');
+    setPhone(normalizeCustomerPhone(c.phone));
     setEmail(c.email || '');
     setAddress(c.address || '');
-    setCity(c.city || 'Kochi');
-    setState(c.state || 'Kerala');
+    setCity(c.city || '');
+    setState(c.state || '');
     setPincode(c.pincode || '');
     setCustomerType(normalizeCustomerType(c.customerType));
     setCompanyName(c.companyName || '');
@@ -296,11 +291,10 @@ export const CustomerList = () => {
   const resetForm = () => {
     setName('');
     setPhone('');
-    setWhatsapp('');
     setEmail('');
     setAddress('');
-    setCity('Kochi');
-    setState('Kerala');
+    setCity('');
+    setState('');
     setPincode('');
     setCustomerType('Individual');
     setCompanyName('');
@@ -309,26 +303,40 @@ export const CustomerList = () => {
     setNotes('');
   };
 
+  const customerFormValues = {
+    name, phone, email, address, city, state, pincode, customerType,
+    companyName, gstNo, branch, notes,
+  };
+  const updateCustomerFormField = (field, value) => {
+    const setters = {
+      name: setName, phone: setPhone, email: setEmail, address: setAddress,
+      city: setCity, state: setState, pincode: setPincode,
+      customerType: setCustomerType, companyName: setCompanyName, gstNo: setGstNo,
+      branch: setBranch, notes: setNotes,
+    };
+    setters[field]?.(value);
+    setFormFieldErrors(previous => {
+      if (!previous[field]) return previous;
+      const next = { ...previous };
+      delete next[field];
+      return next;
+    });
+  };
+
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     if (formBusy || duplicateChecking) return;
     setFormError('');
 
-    const payload = {
-      name,
-      phone,
-      whatsapp: whatsapp || phone,
-      email,
-      address,
-      city,
-      state,
-      pincode,
-      customerType: backendCustomerType(customerType),
-      companyName,
-      gstNo,
-      ...(branch ? { branch } : {}),
-      notes
-    };
+    const errors = validateCustomerContact(customerFormValues);
+    if (Object.keys(errors).length) {
+      setFormFieldErrors(errors);
+      setFormError('Enter the customer name and a valid Phone Number.');
+      requestAnimationFrame(() => customerFormRef.current
+        ?.querySelector('[data-customer-field="' + Object.keys(errors)[0] + '"]')?.focus());
+      return;
+    }
+    const payload = toCustomerFormPayload(customerFormValues);
 
     // If creating a new customer, perform duplicate check first
     if (!editingCustomerId) {
@@ -372,9 +380,9 @@ export const CustomerList = () => {
       const data = error?.response?.data || error?.data;
       const next = {};
       if (data && typeof data === 'object' && !Array.isArray(data)) {
-        const fields = ['name', 'phone', 'whatsapp', 'email', 'customerType',
+        const fields = ['name', 'phone', 'email', 'customerType',
           'branch', 'companyName', 'gstNo', 'address', 'city', 'state', 'pincode'];
-        const aliases = { customer_type: 'customerType', company_name: 'companyName', gstin: 'gstNo' };
+        const aliases = { customer_type: 'customerType', company_name: 'companyName', gstin: 'gstNo', whatsapp: 'phone' };
         for (const [key, value] of Object.entries(data)) {
           const field = aliases[key] || key;
           if (fields.includes(field)) next[field] = Array.isArray(value) ? String(value[0]) : String(value);
@@ -434,7 +442,7 @@ export const CustomerList = () => {
             <Search aria-label="Search customers"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, phone, WhatsApp, email or vehicle..."
+              placeholder="Search customer, phone, email or vehicle..."
             />
           </div>
           
@@ -520,7 +528,7 @@ export const CustomerList = () => {
               <thead>
                 <tr style={{ backgroundColor: 'var(--surface-2)', borderBottom: '1px solid var(--border)', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: '600' }}>
                   <th style={{ padding: '12px 14px' }}>Customer</th>
-                  <th style={{ padding: '12px 14px' }}>Phone / WhatsApp</th>
+                  <th style={{ padding: '12px 14px' }}>Phone Number</th>
                   <th style={{ padding: '12px 14px' }}>Customer Type</th>
                   <th style={{ padding: '12px 14px' }}>Vehicles</th>
                   <th style={{ padding: '12px 14px' }}>Job Cards</th>
@@ -633,147 +641,42 @@ export const CustomerList = () => {
         isOpen={isAddCustomerOpen}
         onClose={() => setIsAddCustomerOpen(false)}
         title={editingCustomerId ? "Edit Customer Details" : "Add Workshop Customer"}
-        maxWidth="540px"
-      >
-        <form ref={customerFormRef} className="customer-directory-form" onSubmit={handleFormSubmit}
-          onInvalid={(event) => {
-            event.target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            event.target?.focus();
-          }}>
-          {formError && <p className="customer-directory-error" role="alert">{formError}</p>}
-          
-          <Input
-            label="Customer Name"
-            data-customer-field="name"
-            error={formFieldErrors.name}
-            required
-            icon={Users}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Rahul Kumar"
-          />
-
-          <div className="customer-directory-form-grid">
-            <Input
-              label="Phone Number"
-              data-customer-field="phone"
-              error={formFieldErrors.phone}
-              type="tel"
-              inputMode="tel"
-              required
-              icon={Phone}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="98765 43210"
-            />
-            <Input
-              label="WhatsApp Number"
-              data-customer-field="whatsapp"
-              error={formFieldErrors.whatsapp}
-              type="tel"
-              inputMode="tel"
-              icon={MessageSquare}
-              value={whatsapp}
-              onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="98765 43210"
-            />
-          </div>
-
-          <Input
-            label="Email Address"
-            data-customer-field="email"
-            error={formFieldErrors.email}
-            type="email"
-            icon={Mail}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="rahul.k@example.com"
-          />
-
-          {branchLoadError && <p role="alert" className="customer-directory-error">{branchLoadError}</p>}
-          <div className="customer-directory-form-grid">
-            <Select
-              label="Customer Type"
-              data-customer-field="customerType"
-              error={formFieldErrors.customerType}
-              value={customerType}
-              onChange={(e) => setCustomerType(e.target.value)}
-            >
-              <option value="Individual">Individual</option>
-              <option value="Business / Company">Business / Company</option>
-            </Select>
-
-            <Select
-              label="Assigned Branch"
-              data-customer-field="branch"
-              error={formFieldErrors.branch}
-              value={branch}
-              onChange={(e) => setBranch(e.target.value)}
-            >
-              <option value="">Automatic branch assignment</option>
-              {branchChoices.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-            </Select>
-          </div>
-
-          {customerType === 'Business / Company' && (
-            <div className="customer-directory-form-grid">
-              <Input
-                label="Company Name"
-                data-customer-field="companyName"
-                error={formFieldErrors.companyName}
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="e.g. Apex Logistics Ltd"
-              />
-              <Input
-                label="GST Number"
-                data-customer-field="gstNo"
-                error={formFieldErrors.gstNo}
-                value={gstNo}
-                onChange={(e) => setGstNo(e.target.value)}
-                placeholder="32AAAAA0000A1Z5"
-              />
-            </div>
-          )}
-
-          <Textarea
-            label="Address"
-            rows={2}
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            placeholder="Street address, building details..."
-          />
-
-          <div className="customer-directory-location-grid">
-            <Input label="City" data-customer-field="city" error={formFieldErrors.city} value={city} onChange={(e) => setCity(e.target.value)} />
-            <Input label="State" data-customer-field="state" error={formFieldErrors.state} value={state} onChange={(e) => setState(e.target.value)} />
-            <Input label="PIN Code" data-customer-field="pincode" error={formFieldErrors.pincode} value={pincode} onChange={(e) => setPincode(e.target.value)} placeholder="682031" />
-          </div>
-
-          <Textarea
-            label="Customer Notes & Preferences"
-            rows={2}
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="e.g. Call before replacing additional parts..."
-          />
-
+        className="cg-workshop-customer-modal"
+        maxWidth="620px"
+        footer={
           <div className="customer-directory-form-actions">
             <button
               type="button"
               onClick={() => setIsAddCustomerOpen(false)}
+              disabled={formBusy || duplicateChecking}
               className="customer-directory-form-cancel"
             >
               Cancel
             </button>
             <button
               type="submit"
+              form="cg-workshop-customer-editor"
               className="customer-directory-form-submit"
               disabled={formBusy || duplicateChecking}
             >
               {formBusy ? "Saving…" : duplicateChecking ? "Checking…" : editingCustomerId ? "Save Changes" : "Create Customer"}
             </button>
           </div>
+        }
+      >
+        <form id="cg-workshop-customer-editor" ref={customerFormRef}
+          className="customer-directory-form cg-customer-standard-form"
+          onSubmit={handleFormSubmit}
+          onInvalid={(event) => {
+            event.target?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            event.target?.focus();
+          }}>
+          {formError && <p className="customer-directory-error" role="alert">{formError}</p>}
+          <CustomerFormFields values={customerFormValues} labelLayout="above"
+            onChange={updateCustomerFormField} errors={formFieldErrors}
+            branches={branchChoices} branchError={branchLoadError}
+            disabled={formBusy || duplicateChecking}
+          />
         </form>
       </ResponsiveModalSheet>
 
@@ -816,7 +719,7 @@ export const CustomerList = () => {
               type="button"
               disabled={formBusy}
               onClick={() => {
-                const payload = { name, phone, whatsapp: whatsapp || phone, email, address, city, state, pincode, customerType: backendCustomerType(customerType), companyName, gstNo, ...(branch ? { branch } : {}), notes };
+                const payload = toCustomerFormPayload(customerFormValues);
                 saveCustomer(payload);
               }}
               style={{ flex: 1, height: '44px', borderRadius: '11px', border: 'none', backgroundColor: 'var(--primary)', color: '#ffffff', fontWeight: '700' }}

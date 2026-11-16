@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 
 import { Link } from 'react-router-dom';
 import {
@@ -95,7 +96,7 @@ export const VehicleDirectoryPanel = ({
                         }}
                       >
                         <Wrench size={12} />
-                        <span>{vehicle.openJob.jobNumber || vehicle.openJob.id}</span>
+                        <span>{recordLabel(vehicle.openJob.jobNumber || vehicle.openJob.id)}</span>
                       </button>
                     ) : (
                       <span className="vehicle-table-empty">No active job</span>
@@ -171,7 +172,7 @@ export const VehicleDirectoryPanel = ({
                   onClick={() => onNavigate(`/jobs/${vehicle.openJob.id}/overview`)}
                 >
                   <ClipboardList size={13} />
-                  <span>{vehicle.openJob.jobNumber || vehicle.openJob.id}</span>
+                  <span>{recordLabel(vehicle.openJob.jobNumber || vehicle.openJob.id)}</span>
                   <b>{vehicle.openJob.status}</b>
                   <ChevronRight size={13} />
                 </button>

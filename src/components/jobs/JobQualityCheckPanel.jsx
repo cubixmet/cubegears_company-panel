@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, ClipboardCheck, Save, ShieldCheck, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ClipboardCheck, Save, ShieldCheck, SkipForward, XCircle } from 'lucide-react';
 import { jobService } from '../../services/job.service';
 import { USE_MOCK_API } from '../../api/apiConfig';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,6 +18,8 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
   const [serverError, setServerError] = useState('');
   const [success, setSuccess] = useState('');
   const [dirty, setDirty] = useState(false);
+  const [showSkip, setShowSkip] = useState(false);
+  const [skipReason, setSkipReason] = useState('');
   const formRef = useRef(null);
   const lockRef = useRef(false);
 
@@ -41,6 +43,7 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
   const inspectorName = qcInspectorForMode(draft.inspector, loggedInName, canEdit);
   const submissionDraft = { ...draft, inspector: inspectorName };
   const summary = qcSummary(draft);
+  const canSkip = summary.fail === 0 && !['Fail', 'Failed', 'Rework Required'].includes(original.status);
   const change = (update) => {
     setDraft((current) => ({ ...current, ...update }));
     setDirty(true);
@@ -78,10 +81,9 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
       await jobService.updateJob(job.id, USE_MOCK_API
         ? { qualityCheck: qc } : { qc });
 
-      // Only a successful, saved Pass may advance the protected workflow.
       if (mode === 'Pass') {
-        await jobService.completeJobStage(job.id, 'qc');
-        await onCompleted?.();
+        const result = await jobService.completeJobStage(job.id, 'qc');
+        await onCompleted?.(result);
       } else {
         await onSaved?.();
         setDirty(false);
@@ -95,6 +97,27 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
         response?.status || response?.detail || err?.message;
       setServerError(typeof detail === 'string' ? detail :
         'Unable to save Quality Check. Please try again.');
+    } finally {
+      lockRef.current = false;
+      setBusy(false);
+    }
+  };
+
+  const skip = async (event) => {
+    event.preventDefault();
+    const reason = skipReason.trim();
+    if (!canEdit || !canSkip || dirty || lockRef.current || reason.length < 3 || reason.length > 160) return;
+    lockRef.current = true;
+    setBusy(true);
+    setErrors(null);
+    setServerError('');
+    setSuccess('');
+    try {
+      const result = await jobService.completeJobStage(job.id, 'qc', { skipQC: true, reason });
+      setShowSkip(false);
+      await onCompleted?.(result);
+    } catch (err) {
+      setServerError(err?.message || 'Unable to skip Quality Check.');
     } finally {
       lockRef.current = false;
       setBusy(false);
@@ -211,7 +234,25 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
                   <XCircle size={16} aria-hidden="true"/>{busy ? 'Saving…' : 'QC Failed'}
                 </button>
               </div>
-              <p className="job-qc-hint">All checks must pass to continue to billing. Failed QC stays in this stage for rework.</p>
+              {canSkip && !showSkip && <button type="button" className="job-qc-save" disabled={busy}
+                onClick={() => { setErrors(null); setServerError(''); setShowSkip(true); }}>
+                <SkipForward size={16} aria-hidden="true" /> Skip QC
+              </button>}
+              {canSkip && showSkip && <form className="job-qc-submit-actions" onSubmit={skip} aria-label="Confirm Skip QC">
+                <label className="job-qc-field" htmlFor="job-qc-skip-reason">
+                  Reason for skipping
+                  <textarea id="job-qc-skip-reason" rows={2} required minLength={3} maxLength={160}
+                    value={skipReason} disabled={busy} onChange={(event) => setSkipReason(event.target.value)} />
+                </label>
+                {dirty && <p className="job-qc-hint">Save QC Draft first to keep any checklist edits.</p>}
+                <div className="job-qc-decision-actions">
+                  <button type="button" className="job-qc-save" disabled={busy} onClick={() => setShowSkip(false)}>Cancel</button>
+                  <button type="submit" className="job-qc-save" disabled={busy || dirty || skipReason.trim().length < 3}>
+                    {busy ? 'Saving…' : 'Confirm Skip & Continue'}
+                  </button>
+                </div>
+              </form>}
+              <p className="job-qc-hint">Resolve any failed checks before proceeding to billing.</p>
             </>
           ) : <p className="job-qc-hint">Quality Check is read-only outside the QC stage.</p>}
         </div>
@@ -219,6 +260,7 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
           <span>Last saved status</span>
           <strong>{original.status || 'Pending'}</strong>
         </div>
+        {original.status === 'Skipped' && original.skipReason && <p className="job-qc-hint">{original.skipReason}</p>}
       </section>
     </div>
   );

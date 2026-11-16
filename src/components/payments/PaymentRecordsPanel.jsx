@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 
 import { Eye, ReceiptText } from 'lucide-react';
 import { formatPaymentDate, paymentStatusClass } from './payments.utils';
@@ -12,7 +13,6 @@ export const PaymentRecordsPanel = ({
     <header className="payments-dashboard-section-title">
       <div>
         <h2>Payment Records</h2>
-        <p>Customer receipts, spare parts supplier payments, expense and payroll payouts.</p>
       </div>
       <span>{payments.length} record{payments.length === 1 ? '' : 's'}</span>
     </header>
@@ -30,11 +30,11 @@ export const PaymentRecordsPanel = ({
           <table className="payments-dashboard-table">
             <thead>
               <tr>
-                <th>Payment ID</th>
+                <th>Receipt / reference</th>
                 <th>Party / Related Record</th>
                 <th>Date</th>
                 <th>Method / Type</th>
-                <th>Reference</th>
+                <th>Bank / UPI reference</th>
                 <th>Amount</th>
                 <th>Status</th>
                 <th>Action</th>
@@ -45,7 +45,7 @@ export const PaymentRecordsPanel = ({
                 <tr key={row.id}>
                   <td>
                     <button type="button" onClick={() => onView(row)}>
-                      <strong title={String(row.receiptNo || row.id)}>{row.receiptNo || row.id}</strong>
+                      <strong title={recordLabel(row.receiptNo || row.id)}>{recordLabel(row.receiptNo || row.id)}</strong>
                     </button>
                   </td>
                   <td>
@@ -57,7 +57,7 @@ export const PaymentRecordsPanel = ({
                   </td>
                   <td>{formatPaymentDate(row.date)}</td>
                   <td>{row.method || '—'}<span>{row.category || ''}</span></td>
-                  <td>{row.reference || '—'}</td>
+                  <td>{recordLabel(row.reference)}</td>
                   <td><strong>{row.direction === 'OUT' ? '−' : '+'}{formatMoney(row.amount || 0)}</strong></td>
                   <td>
                     <span className={'payments-dashboard-status ' + paymentStatusClass(row.status)}>
@@ -65,7 +65,7 @@ export const PaymentRecordsPanel = ({
                     </span>
                   </td>
                   <td>
-                    <button type="button" className="payments-dashboard-view-btn" onClick={() => onView(row)} aria-label={'View payment ' + (row.receiptNo || row.id)}>
+                    <button type="button" className="payments-dashboard-view-btn" onClick={() => onView(row)} aria-label={'View payment ' + recordLabel(row.receiptNo || row.id)}>
                       <Eye size={14} aria-hidden="true" /> View
                     </button>
                   </td>
@@ -80,7 +80,7 @@ export const PaymentRecordsPanel = ({
             <article key={row.id} className="payments-dashboard-mobile-card">
               <div className="payments-dashboard-mobile-head">
                 <div>
-                  <strong title={String(row.receiptNo || row.id)}>{row.receiptNo || row.id}</strong>
+                  <strong title={recordLabel(row.receiptNo || row.id)}>{recordLabel(row.receiptNo || row.id)}</strong>
                   <span>{row.customer || 'Payment party'}</span>
                 </div>
                 <span className={'payments-dashboard-status ' + paymentStatusClass(row.status)}>
@@ -99,7 +99,7 @@ export const PaymentRecordsPanel = ({
               {row.reference && (
                 <div className="payments-dashboard-reference">
                   <span>Reference</span>
-                  <strong>{row.reference}</strong>
+                  <strong>{recordLabel(row.reference)}</strong>
                 </div>
               )}
 

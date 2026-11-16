@@ -11,12 +11,17 @@ export function WhatsAppSettingsPage() {
           <Link to="/settings">Settings</Link><span> / WhatsApp Sharing</span>
           <h1>Manual WhatsApp Sharing</h1>
           <p>Prepare a message in CubixGear. A team member reviews it and presses Send in WhatsApp.</p>
+          <div className="wa-manual-status" role="status" aria-label="Manual WhatsApp Sharing enabled">
+            <span className="wa-manual-status__dot" aria-hidden="true" />
+            <strong>Enabled</strong>
+            <span>Manual sharing only</span>
+          </div>
         </div>
       </div>
       <section className="wa-card">
         <h2><MessageCircle size={20}/> How sharing works</h2>
         <p>Open a customer, job, estimate, invoice, payment reminder, or staff profile and select <strong>Share on WhatsApp</strong>.</p>
-        <p>CubixGear prepares a secure message and opens WhatsApp on your phone or computer. Nothing is sent automatically.</p>
+        <p>CubixGear prepares a secure message and opens WhatsApp on your phone or computer. A staff member presses <strong>Send</strong>; nothing is sent automatically.</p>
         <p>No Meta Cloud API, access token, approved template, connection, or WhatsApp Business account is required.</p>
       </section>
       <section className="wa-card">

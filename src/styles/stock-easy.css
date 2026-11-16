@@ -75,6 +75,10 @@
 .cg-easy-form .cg-easy-picker-search{display:flex;align-items:center;gap:9px;width:100%;min-height:44px;border:1px solid var(--border,#dce3ea);border-radius:10px;padding:0 12px;background:var(--surface,#fff);color:var(--text-muted,#64748b)}
 .cg-easy-form .cg-easy-picker-search input{flex:1;min-width:0;min-height:42px;border:0;outline:0;padding:8px 0;background:transparent;font-weight:400}
 .cg-easy-form .cg-easy-picker-search:focus-within{outline:2px solid var(--primary,#2563eb);outline-offset:1px}
+/* Visible focus tint, including dark mode, without adding nested input borders. */
+.cg-easy-form .cg-easy-picker-search:focus-within{
+  background:color-mix(in srgb,var(--primary,#2563eb) 10%,var(--surface,#fff));
+}
 .cg-easy-pick-list{display:flex;flex-direction:column;gap:5px;max-height:245px;overflow-y:auto;padding-right:2px}
 .cg-easy-pick-list>button{width:100%;min-height:56px;display:flex;align-items:center;justify-content:space-between;text-align:left;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid var(--border,#dce3ea);color:var(--text-primary,#142037);background:var(--surface,#fff);cursor:pointer}
 .cg-easy-pick-list>button:hover{background:var(--surface-2,#f8fafc);border-color:var(--primary,#2563eb)}

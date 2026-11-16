@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences';
 import { useState } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Building2, Wallet, TrendingUp, RefreshCw, Plus, SlidersHorizontal, Download } from 'lucide-react';
 import { appConfirm } from '../common/appDialogs';
@@ -17,9 +18,8 @@ const emptyAccount = () => ({
 const emptyAdjustment = () => ({ accountId: '', amount: '', direction: 'credit', reason: '' });
 
 export default function PaymentFinanceOverview({
-  summary, ledger = [], loading = false, error = '', period, onPeriodChange,
-  canManage = false, onRefresh = () => {}, onExpense = () => {},
-  onRecord = () => {},
+  summary, ledger = [], loading = false, error = '', period,
+  canManage = false, onRefresh = () => {},
   ledgerPage = 1, ledgerCount = 0, ledgerTotalPages = 1, ledgerAccount = '', ledgerQuery = '',
   onLedgerPageChange = () => {}, onLedgerAccountChange = () => {},
   onLedgerQueryChange = () => {},
@@ -108,37 +108,25 @@ export default function PaymentFinanceOverview({
   // Keep daily cash flow next to the current bank balance. The date-scoped
   // figures come from the finance API; never infer them from paginated rows.
   const cards = [
+    { label: 'Cash Balance', value: summary?.cashBalance, icon: Wallet, description: 'Recorded physical cash balance' },
     { label: 'Bank Balance', value: summary?.bankBalance, icon: Building2, description: 'Recorded bank account balances' },
+    { label: "Today's Money In", value: summary?.todayReceived, icon: ArrowDownLeft, description: 'Account receipts posted today' },
     { label: "Today's Money Out", value: summary?.todayPaid, icon: ArrowUpRight, description: 'Account debits posted today' },
     { label: "Today's Expenses", value: summary?.todayExpensesRecorded, icon: ArrowUpRight, description: 'Expenses entered today, including unpaid' },
-    { label: 'Cash Balance', value: summary?.cashBalance, icon: Wallet, description: 'Recorded physical cash balance' },
-    { label: "Today's Money In", value: summary?.todayReceived, icon: ArrowDownLeft, description: 'Account receipts posted today' },
     { label: "Today's Supplier Payments", value: summary?.todaySupplierPaid, icon: Wallet, description: 'Supplier settlements posted today' },
   ];
   const additionalCards = [
     { label: 'Net Sales Revenue', value: summary?.netSalesRevenue, icon: TrendingUp, description: 'Finalized invoices excluding GST' },
     { label: 'Recorded Expenses', value: summary?.recordedExpenses, icon: ArrowUpRight, description: 'Expense liabilities, paid or unpaid' },
     { label: 'Known Parts Cost', value: summary?.knownCostOfSales, icon: Wallet, description: 'Historical cost of invoiced products' },
-    { label: 'Estimated Profit', value: summary?.estimatedProfit, icon: TrendingUp, description: 'Revenue minus expenses and known parts cost' },
+    { label: 'Estimated operating result', value: summary?.estimatedProfit, icon: TrendingUp, description: 'Revenue minus expenses and known parts cost' },
   ];
 
   return (
     <section className="cg-pay-finance" aria-label="Payments financial overview">
       <div className="cg-pay-finance-head">
-        <div>
-          <h2>Payments & Business Finance</h2>
-          <p>Cash flow, bank balances, revenue, expenses and payment ledger on this page.</p>
-        </div>
+        <h3>Cash flow summary</h3>
         <div className="cg-pay-finance-actions">
-          <label>
-            <span>Report period</span>
-            <select value={period} onChange={event => onPeriodChange(event.target.value)}
-              aria-label="Finance reporting period">
-              <option value="today">Today</option>
-              <option value="month">This Month</option>
-              <option value="all">All Time</option>
-            </select>
-          </label>
           <button type="button" disabled={loading} onClick={onRefresh}>
             <RefreshCw size={15} aria-hidden="true" /> Refresh
           </button>
@@ -146,7 +134,7 @@ export default function PaymentFinanceOverview({
       </div>
 
       {error && <p className="cg-pay-finance-error" role="alert">{error}</p>}
-      {loading && <p role="status">Loading actual finance totals…</p>}
+      {loading && <p role="status">Loading finance totals…</p>}
       {summary && <>
         <div className="cg-pay-finance-cards">
           {cards.map(({ label, value, icon: Icon, description }) => (
@@ -168,19 +156,12 @@ export default function PaymentFinanceOverview({
               </article>
             ))}
           </div>
+          {summary.profitNote && <p className="cg-pay-finance-period">{summary.profitNote}</p>}
         </details>
-        <div className="cg-pay-finance-footnotes">
-          <p>Reporting: <strong>{summary.periodLabel || 'All Time'}</strong> · As of {summary.asOfDate || 'current date'}.
-            Today's Money In/Out always reflects today's posted account activity.</p>
-          <p><strong>Profit is estimated, not certified:</strong> {summary.profitNote}</p>
-          <p>Bank/Cash balances are internal bookkeeping amounts, not live bank statements.
-            Customer receipts settle invoices; supplier credit is not a cash expense until paid.</p>
-        </div>
+        <p className="cg-pay-finance-period">Reporting period {summary.periodLabel || 'All Time'}{summary.asOfDate && ` · As of ${summary.asOfDate}`}. Daily cards show today's figures.</p>
         <div className="cg-pay-finance-subhead">
           <h3>Bank & Cash Accounts</h3>
           <div className="cg-pay-finance-buttons">
-            <button type="button" onClick={onRecord}>Record Payment</button>
-            <button type="button" onClick={onExpense}>Add Expense</button>
             {canManage && <button type="button" onClick={() => open('create')}><Plus size={15} /> Set Up Account</button>}
             {canManage && <button type="button" onClick={() => open('adjust')}><SlidersHorizontal size={15} /> Correct Balance</button>}
           </div>
@@ -190,7 +171,7 @@ export default function PaymentFinanceOverview({
             <article key={account.id}>
               <div><strong>{account.name}</strong><span>{account.kind}{account.bankName ? ' · ' + account.bankName : ''}{account.isActive === false ? ' · Inactive' : ''}</span></div>
               <strong>{fmt(account.currentBalance)}</strong>
-              <small>Opening {fmt(account.openingBalance)} · {account.accountNumber || 'No bank number stored'}</small>
+              <small>Opening {fmt(account.openingBalance)}{account.accountNumber ? ` · ${account.accountNumber}` : ''}</small>
             </article>
           ))}
           {!accounts.length && <p>No bank or cash accounts set up. Create an account to start accurate money tracking.</p>}
@@ -253,8 +234,7 @@ export default function PaymentFinanceOverview({
       {success && <p className="cg-pay-finance-success" role="status">{success}</p>}
 
       <div className="cg-pay-finance-subhead">
-        <h3>Account Debit / Credit Log</h3>
-        <small>Search and review real account movements. Transfers appear in history but never count as income or expenses.</small>
+        <h3>Account ledger</h3>
       </div>
       <div className="cg-pay-finance-ledger-controls" aria-label="Transaction log filters and exports">
         <label>Account
@@ -281,17 +261,17 @@ export default function PaymentFinanceOverview({
         </div>
       </div>
       <div className="cg-pay-finance-log" role="region" aria-label="Recent account transactions" tabIndex={0}>
-        <table>
-          <thead><tr><th>Posted</th><th>Account</th><th>Type / Reference</th><th>Credit</th><th>Debit</th></tr></thead>
+        <table className="finance-responsive-table" role="table" aria-label="Account ledger">
+          <thead><tr><th>Posted</th><th>Account</th><th>Type / Reference</th><th className="is-num">Credit</th><th className="is-num">Debit</th></tr></thead>
           <tbody>
             {ledger.map(entry => (
               <tr key={entry.id}>
-                <td>{entry.date || String(entry.createdAt || '').slice(0,10)}</td>
-                <td>{entry.account}</td>
-                <td>{String(entry.type || '').replaceAll('_', ' ')}
-                  {entry.reference && <small>{entry.reference}</small>}</td>
-                <td className="is-credit">{Number(entry.credit) ? fmt(entry.credit) : '—'}</td>
-                <td className="is-debit">{Number(entry.debit) ? fmt(entry.debit) : '—'}</td>
+                <td data-label="Posted"><span>{entry.date || String(entry.createdAt || '').slice(0,10)}</span></td>
+                <td data-label="Account"><span>{entry.account}</span></td>
+                <td data-label="Type / Reference"><span>{String(entry.type || '').replaceAll('_', ' ')}
+                  {(entry.reference || entry.id) && <small>{recordLabel(entry.reference || entry.id)}</small>}</span></td>
+                <td data-label="Credit" className="is-credit"><span>{Number(entry.credit) ? fmt(entry.credit) : '—'}</span></td>
+                <td data-label="Debit" className="is-debit"><span>{Number(entry.debit) ? fmt(entry.debit) : '—'}</span></td>
               </tr>
             ))}
             {!ledger.length && <tr><td colSpan={5}>No posted account transactions available.</td></tr>}

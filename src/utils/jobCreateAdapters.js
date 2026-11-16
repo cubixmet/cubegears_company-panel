@@ -19,6 +19,61 @@ export const JOB_PHONE_COUNTRIES = JOB_COUNTRY_CODES.map(([code, label]) => ({
   flag: JOB_COUNTRY_FLAGS[code] || '🌐',
 }));
 
+// Local mobile-number lengths (without calling code). India must be exactly
+// 10 digits; Gulf and other supported country codes use their national lengths.
+// Keep these rules scoped to Job Card creation/customer quick-add.
+export const JOB_PHONE_LENGTHS = Object.freeze({
+  '+91': 10,  // India
+  '+971': 9,  // UAE
+  '+966': 9,  // Saudi Arabia
+  '+974': 8,  // Qatar
+  '+965': 8,  // Kuwait
+  '+968': 8,  // Oman
+  '+973': 8,  // Bahrain
+  '+1': 10,   // USA / Canada
+  '+44': 10,  // UK (without domestic 0)
+  '+61': 9,   // Australia (without domestic 0)
+});
+
+export const jobPhoneLength = (country) => JOB_PHONE_LENGTHS[country] || 15;
+
+export const jobPhoneHint = (country, national = '') =>
+  `${String(national || '').replace(/\D/g, '').length}/${jobPhoneLength(country)} digits · ${country || '+91'}`;
+
+const TRUNK_ZERO_COUNTRIES = new Set(['+971', '+966', '+44', '+61']);
+
+// Keep the national number numeric, and enforce the length even on paste.
+// Accept full international numbers pasted into the national-number box.
+export const sanitizeJobNationalPhone = (country, raw) => {
+  const code = JOB_PHONE_LENGTHS[country] ? country : '+91';
+  const maxDigits = jobPhoneLength(code);
+  let digits = String(raw || '').replace(/\D/g, '');
+  const prefix = code.slice(1);
+
+  if (digits.startsWith(`00${prefix}`) && digits.length > maxDigits) {
+    digits = digits.slice(prefix.length + 2);
+  } else if (digits.startsWith(prefix) && digits.length > maxDigits) {
+    digits = digits.slice(prefix.length);
+  }
+  // +971 5xxxxxxxx / UAE 05xxxxxxxx, +44 7xxxxxxxxx / UK 07xxxxxxxxx,
+  // etc: remove the domestic trunk zero only when the length fits exactly.
+  if (TRUNK_ZERO_COUNTRIES.has(code) && digits.length === maxDigits + 1
+      && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+  return digits.slice(0, maxDigits);
+};
+
+// Paste is handled before the browser's maxLength truncates a complete
+// +country-number string. Respect cursor selection for partial pastes.
+export const pasteJobNationalPhone = (country, current, pasted, start, end) => {
+  const existing = String(current || '');
+  const from = Math.max(0, Math.min(existing.length, Number.isInteger(start) ? start : existing.length));
+  const to = Math.max(from, Math.min(existing.length, Number.isInteger(end) ? end : from));
+  const combined = existing.slice(0, from) + String(pasted || '') + existing.slice(to);
+  return sanitizeJobNationalPhone(country, combined);
+};
+
 export const splitInternationalPhone = (raw, fallback = '+91') => {
   const value = String(raw || '').trim().replace(/[\s().-]/g, '');
   if (!value) return { country: fallback, national: '' };
@@ -41,7 +96,16 @@ export const joinInternationalPhone = (country, national) => {
   return normalized ? code + normalized : '';
 };
 
-export const validInternationalPhone = (value) => /^\+[1-9]\d{7,14}$/.test(String(value || ''));
+export const validInternationalPhone = (value) => {
+  const phone = String(value || '').trim();
+  if (!/^\+[1-9]\d{7,14}$/.test(phone)) return false;
+  const country = JOB_COUNTRY_CODES.map(([code]) => code)
+    .sort((a, b) => b.length - a.length)
+    .find(code => phone.startsWith(code));
+  if (!country) return false;
+  const national = phone.slice(country.length);
+  return /^\d+$/.test(national) && national.length === jobPhoneLength(country);
+};
 
 const knownMakes = ['Maruti Suzuki', 'Land Rover', 'Mercedes-Benz', 'Tata', 'Toyota', 'Hyundai',
   'Honda', 'Mahindra', 'Kia', 'Ford', 'Renault', 'Volkswagen', 'BMW', 'Audi', 'Nissan', 'Suzuki'];

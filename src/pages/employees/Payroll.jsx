@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useState, useEffect } from "react";
 import { Table } from '../../components/common/Table';
 import { MobileCard } from '../../components/common/MobileCard';
@@ -44,7 +45,7 @@ export const Payroll = () => {
           data={slips}
           renderRow={(item) => (
             <>
-              <td style={{ padding: '12px 16px', fontWeight: '600', color: '#6366f1' }}>{item.id}</td>
+              <td style={{ padding: '12px 16px', fontWeight: '600', color: '#6366f1' }}>{recordLabel(item.id)}</td>
               <td style={{ padding: '12px 16px', color: '#f8fafc' }}>{item.employeeName}</td>
               <td style={{ padding: '12px 16px', color: '#cbd5e1' }}>{item.month}</td>
               <td style={{ padding: '12px 16px', color: '#cbd5e1' }}>${item.basicSalary?.toFixed(2)}</td>

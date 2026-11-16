@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Save, SlidersHorizontal } from 'lucide-react';
 import { RolePermissionMatrix } from './RolePermissionMatrix';
 import { clearFieldValidation } from '../../utils/formValidation';
+import { buildRoleAccessPreset } from '../../config/rolePermissions';
 
 export const RoleEditorForm = ({
   editingRole,
@@ -35,20 +36,13 @@ export const RoleEditorForm = ({
       setAdvanced(true);
       return;
     }
-    // Only actions the authenticated owner may assign are changed.
-    // Read-only never gives payroll payment, approval or mutation access.
+    // Grant only explicitly permitted actions in visible modules.
+    // Presets never grant Finance, Payroll, Delete or approval permissions.
     setFormData(current => ({
       ...current,
       permissions: {
         ...current.permissions,
-        ...Object.fromEntries(modules.map(module => [
-          module.key,
-          Object.fromEntries(module.actions.map(action => [
-            action,
-            value === 'viewer' && action === 'view'
-              && ['dashboard', 'customers', 'vehicles', 'services', 'jobs', 'stock'].includes(module.key),
-          ])),
-        ])),
+        ...buildRoleAccessPreset(modules, value),
       },
     }));
     setAdvanced(false);
@@ -92,7 +86,7 @@ export const RoleEditorForm = ({
         <div className="role-preset-options">
           {[
             { id: 'viewer', label: 'View only', help: 'Basic workshop pages, no finance or payroll' },
-            { id: 'none', label: 'No access', help: 'Keep permissions off' },
+            { id: 'standard', label: 'Standard access', help: 'Manage customers, vehicles and jobs' },
             { id: 'custom', label: 'Custom', help: 'Choose permissions yourself' },
           ].map(item => (
             <label key={item.id} className={mode === item.id ? 'is-selected' : ''}>

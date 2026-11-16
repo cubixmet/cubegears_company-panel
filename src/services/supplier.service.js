@@ -34,9 +34,16 @@ export const supplierService = {
     if (USE_MOCK_API) return [...stockPurchasesMock];
     return asList(await apiClient.get('/stock/purchase-orders'));
   },
-  async products() {
-    if (USE_MOCK_API) return [...stockMockItems];
-    return asList(await apiClient.get('/stock'));
+  async products(search = '') {
+    if (USE_MOCK_API) {
+      const term = String(search || '').trim().toLowerCase();
+      return stockMockItems.filter(row => !term || [
+        row.partName, row.name, row.sku, row.partNumber, row.brand, row.barcode,
+      ].some(value => String(value || '').toLowerCase().includes(term)));
+    }
+    return asList(await apiClient.get('/stock', {
+      params: search ? { search: String(search).trim().slice(0, 120) } : {},
+    }));
   },
 };
 export default supplierService;

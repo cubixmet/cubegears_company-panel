@@ -1,0 +1,145 @@
+/* Job Card financial bridge: scoped to internal workshop-only sections.
+   Never overlays public invoice/PDF styles or changes workflow state. */
+.cg-job-connected-links {
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin:4px 0 13px;padding:10px 12px;
+  border:1px solid var(--border,#e2e8f0);
+  border-radius:12px;background:var(--surface,#fff);min-width:0;
+}
+.cg-job-connected-links a,
+.job-financial-header-link {
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  min-height:42px;max-width:100%;min-width:0;
+  padding:8px 12px;border:1px solid var(--border,#dce3ea);
+  border-radius:9px;background:var(--surface-2,#f8fafc);
+  color:var(--primary,#2563eb);font-size:13px;line-height:1.4;
+  font-weight:710;text-decoration:none;overflow-wrap:anywhere;
+}
+.cg-job-connected-links a:hover,
+.job-financial-header-link:hover {
+  background:var(--primary-soft,#eef4ff);
+}
+.job-financial-header-link.is-primary {
+  background:var(--primary,#2563eb);color:#fff;border-color:transparent;
+}
+.cg-job-connected-links a:focus-visible,
+.job-financial-header-link:focus-visible {
+  outline:2px solid var(--primary,#2563eb);outline-offset:2px;
+}
+.cg-job-finance-warning {
+  margin:0 0 12px;padding:12px;
+  border-radius:10px;border:1px solid var(--border,#e2e8f0);
+  background:var(--surface-2,#f8fafc);
+  color:var(--text-secondary,#64748b);
+  font-size:13px;line-height:1.5;
+}
+.job-total-cost-panel.is-global {
+  min-width:0;margin-bottom:13px;
+  padding:clamp(12px,1.5vw,17px);
+  border:1px solid var(--border,#dce3ea);
+  border-radius:12px;box-shadow:none;background:var(--surface,#fff);
+}
+.job-total-cost-panel .job-total-cost-heading h3 {
+  font-size:16px;line-height:1.45;
+  font-weight:760;letter-spacing:0;
+}
+.job-total-cost-panel .job-total-cost-heading p {
+  font-size:12px;line-height:1.55;
+  color:var(--text-secondary,#64748b);
+}
+.job-total-cost-panel .job-total-finance-grid {
+  margin-top:12px;gap:9px;
+}
+@media(min-width:951px){
+  .cg-job-detail.job-workspace-dashboard .job-total-cost-panel.is-global .job-total-finance-grid:not(.has-bill) {
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+.job-total-cost-panel .job-total-finance-grid .job-total-cost-card {
+  min-width:0;min-height:97px;padding:12px;
+  border:1px solid var(--border,#dce3ea);
+  border-radius:10px;box-shadow:none;
+}
+.job-total-cost-panel .job-total-finance-grid .job-total-cost-card strong {
+  font-size:clamp(16px,1.65vw,21px);line-height:1.35;
+  font-variant-numeric:tabular-nums;
+}
+.job-total-cost-panel .job-total-finance-grid .job-total-cost-card span {
+  font-size:12px;line-height:1.4;
+}
+.job-total-cost-panel .job-total-finance-grid .job-total-cost-card small {
+  font-size:11px;line-height:1.55;
+}
+.job-total-cost-panel .job-total-finance-grid .is-margin {
+  border-style:solid;background:var(--primary-soft,#edf4ff);
+}
+.job-total-cost-panel .job-customer-payment-grid {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+.job-total-cost-panel .job-customer-payment-grid .job-total-cost-card {
+  min-height:76px;
+}
+.job-total-cost-panel .job-customer-payment-grid .job-total-cost-card.is-due strong {
+  color:var(--danger,#b42318);
+}
+.job-total-cost-panel .cg-job-cost-breakdown {
+  margin:11px 0 0;
+  padding:0;border:1px solid var(--border,#dce3ea);
+  border-radius:10px;background:var(--surface,#fff);overflow:hidden;
+}
+.job-total-cost-panel .cg-job-cost-breakdown summary {
+  display:flex;align-items:center;justify-content:space-between;
+  min-height:43px;padding:10px 12px;
+  font-size:13px;font-weight:700;line-height:1.45;
+  color:var(--text-primary,#172033);
+  cursor:pointer;list-style:none;
+}
+.job-total-cost-panel .cg-job-cost-breakdown summary::-webkit-details-marker {display:none;}
+.job-total-cost-panel .cg-job-cost-breakdown summary::after {
+  content:'+';font-size:18px;font-weight:700;color:var(--primary,#2563eb);
+}
+.job-total-cost-panel .cg-job-cost-breakdown[open] summary::after {content:'−';}
+.job-total-cost-panel .cg-job-cost-breakdown summary:focus-visible {
+  outline:2px solid var(--primary,#2563eb);outline-offset:-2px;
+}
+.job-total-cost-panel .cg-job-cost-breakdown .job-total-cost-grid {
+  padding:10px;border-top:1px solid var(--border,#dce3ea);
+  margin:0;gap:8px;
+}
+.job-total-cost-panel .job-total-cost-footnotes {
+  font-size:11px;line-height:1.6;
+}
+.jobs-dashboard .jobs-mobile-gst-finance .jobs-financial-amount-line {
+  display:flex;align-items:center;justify-content:space-between;
+  gap:9px;font-size:12px;line-height:1.5;
+  color:var(--text-secondary,#64748b);
+}
+.jobs-dashboard .jobs-financial-amount-line strong {
+  font-size:13px;font-weight:760;overflow-wrap:anywhere;
+  font-variant-numeric:tabular-nums;
+}
+@media(max-width:950px){
+  .job-total-cost-panel .job-total-finance-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+@media(max-width:620px){
+  .cg-job-connected-links {
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;
+    padding:9px;
+  }
+  .cg-job-connected-links a {font-size:12px;padding:8px;}
+  .job-total-cost-panel.is-global {padding:11px;}
+  .job-total-cost-panel .job-total-finance-grid {gap:7px;}
+  .job-total-cost-panel .job-total-finance-grid .job-total-cost-card {
+    min-height:90px;padding:10px;
+  }
+  .job-total-cost-panel .job-total-finance-grid .job-total-cost-card strong {font-size:16px;}
+  .job-total-cost-panel .job-customer-payment-grid .job-total-cost-card {min-height:78px;}
+}
+@media(max-width:360px){
+  .cg-job-connected-links {grid-template-columns:minmax(0,1fr);}
+  .job-total-cost-panel .job-total-finance-grid {
+    grid-template-columns:minmax(0,1fr);
+  }
+}

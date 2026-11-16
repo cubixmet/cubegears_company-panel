@@ -61,3 +61,56 @@
   .cg-supplier-purchase-split>label:nth-child(3){grid-column:1}
   .cg-supplier-payment-channel-actions button{flex:1 1 135px}
 }
+
+/* Cash account resolution on previous supplier credit payments. */
+.cg-supplier-account-auto,
+.cg-supplier-cash-setup{
+  min-width:0;display:grid;align-content:center;gap:6px;
+  border:1px solid var(--border,#d9e0e7);border-radius:10px;
+  background:var(--surface-muted,rgba(127,127,127,.04));padding:12px;
+}
+.cg-supplier-account-auto strong{font-size:13px;font-weight:650}
+.cg-supplier-account-auto span{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.cg-supplier-account-auto small,
+.cg-supplier-cash-setup small{font-size:12px;line-height:1.5;color:var(--text-secondary,#667085)}
+.cg-supplier-cash-setup>p{font-size:14px;line-height:1.5}
+.cg-supplier-cash-setup-controls{display:grid;gap:10px}
+.cg-supplier-cash-setup-controls>label{display:grid;gap:6px;font-size:13px;font-weight:600}
+.cg-supplier-inline-account-btn{
+  justify-self:start;min-height:44px;padding:9px 13px;
+  border:1px solid var(--primary,#2870dc);border-radius:9px;
+  background:var(--surface,#fff);color:var(--primary,#2870dc);
+  font-size:14px;font-weight:600;cursor:pointer;
+}
+
+
+/* Supplier payments use the Finance default; never expose a second account selector. */
+.cg-supplier-debit-preview{
+  align-self:center;min-width:0;padding:11px 12px;margin:0;
+  border:1px solid var(--border,#d9e0e7);
+  border-radius:10px;background:var(--surface-muted,rgba(127,127,127,.05));
+  color:var(--text-secondary,#667085);font-size:13px;line-height:1.55;
+}
+.cg-supplier-debit-preview strong{font-weight:700;color:var(--text-primary,inherit)}
+.cg-supplier-debit-preview a{color:var(--primary,#2870dc);text-decoration:underline}
+
+/* Recover from an unconfigured Finance payment source without losing the supplier page. */
+.cg-supplier-finance-route-actions{
+  display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px;
+}
+.cg-supplier-finance-route-link,
+.cg-supplier-finance-refresh{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-height:44px;padding:9px 13px;border-radius:9px;font-size:13px;
+  font-weight:650;line-height:1.4;text-decoration:none;cursor:pointer;
+}
+.cg-supplier-finance-route-link{
+  background:var(--primary,#3561d6);color:white !important;
+  border:1px solid var(--primary,#3561d6);
+}
+.cg-supplier-finance-refresh{
+  background:transparent;color:var(--primary,#3561d6);
+  border:1px solid var(--border,#d9e0e7);
+}
+.cg-supplier-finance-route-link:focus-visible,
+.cg-supplier-finance-refresh:focus-visible{outline:2px solid var(--primary,#3561d6);outline-offset:2px}

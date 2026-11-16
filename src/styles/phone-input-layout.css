@@ -1,0 +1,103 @@
+/* Shared PhoneInput: prevent country selector from covering national digits.
+ * Applies to all customer, supplier, staff and Job forms using PhoneInput.
+ * The control retains E.164/country-specific validation handled by callers.
+ */
+.ui-field.cubegears-field-group {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.ui-field.cubegears-field-group > .ui-phone__label {
+  display: block;
+  position: static;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.ui-field.cubegears-field-group > .ui-phone.ui-input-shell {
+  box-sizing: border-box;
+  display: flex !important;
+  flex-flow: row nowrap;
+  align-items: stretch;
+  gap: 0;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 10px;
+}
+.ui-field.cubegears-field-group > .ui-phone.ui-input-shell > select.ui-phone__country {
+  box-sizing: border-box;
+  display: block;
+  position: relative;
+  flex: 0 0 106px !important;
+  width: 106px !important;
+  min-width: 106px !important;
+  max-width: 106px !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 21px 0 9px !important;
+  border: 0 !important;
+  border-right: 1px solid var(--border, #dce3ea) !important;
+  border-radius: 0 !important;
+  background-color: var(--surface-2, #f8fafc);
+  color: var(--text-primary, #172033);
+  font-size: 13px !important;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ui-field.cubegears-field-group > .ui-phone.ui-input-shell > input.ui-input {
+  box-sizing: border-box;
+  display: block;
+  position: static;
+  flex: 1 1 0% !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 11px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--text-primary, #172033);
+  font-size: 16px !important;
+  font-weight: 450;
+  font-variant-numeric: tabular-nums;
+}
+.ui-field.cubegears-field-group > .ui-phone.ui-input-shell:focus-within {
+  border-color: var(--primary, #5047ee);
+  box-shadow: 0 0 0 2px var(--primary-soft, #eef2ff);
+}
+.ui-field.cubegears-field-group > .ui-phone.ui-input-shell > :is(input, select):focus-visible {
+  outline-offset: -3px;
+}
+.ui-field.cubegears-field-group > .ui-field__message {
+  display: block;
+  position: static;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 430px) {
+  .ui-field.cubegears-field-group > .ui-phone.ui-input-shell > select.ui-phone__country {
+    flex-basis: 94px !important;
+    width: 94px !important;
+    min-width: 94px !important;
+    max-width: 94px !important;
+    padding-left: 7px !important;
+    font-size: 12px !important;
+  }
+}

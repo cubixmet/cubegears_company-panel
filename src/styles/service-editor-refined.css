@@ -1,0 +1,332 @@
+/* CubixGear Add / Edit Service: one predictable form surface across screen sizes.
+   Scoped to the service editor inside ResponsiveModalSheet. Other service dialogs unchanged. */
+.responsive-modal-body .cg-service-editor {
+  display:block;
+  width:100%;
+  min-width:0;
+  margin:0;
+  padding:0;
+  color:var(--text-primary);
+}
+.responsive-modal-body .cg-service-editor *,
+.responsive-modal-body .cg-service-editor *::before,
+.responsive-modal-body .cg-service-editor *::after { box-sizing:border-box; }
+
+.responsive-modal-body .cg-service-editor-intro {
+  margin:0 0 14px;
+  padding:12px 14px;
+  border-radius:10px;
+  background:var(--surface-2);
+  color:var(--text-secondary);
+  font-size:13px;
+  line-height:1.6;
+}
+.responsive-modal-body .cg-service-editor-intro span {
+  color:var(--text-primary);
+  font-weight:650;
+}
+.responsive-modal-body .cg-service-editor .service-form {
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  min-width:0;
+  padding:0;
+}
+.responsive-modal-body .cg-service-editor .service-form-section {
+  display:flex;
+  flex-direction:column;
+  gap:13px;
+  min-width:0;
+  padding:15px 16px;
+  margin:0;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--surface);
+  box-shadow:none;
+}
+.responsive-modal-body .cg-service-editor .service-section-header {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-height:0;
+  padding:0 0 11px;
+  border-bottom:1px solid var(--border);
+}
+.responsive-modal-body .cg-service-editor .service-section-header>div {
+  min-width:0;
+}
+.responsive-modal-body .cg-service-editor .cg-service-section-icon {
+  display:grid;
+  place-items:center;
+  flex:0 0 37px;
+  width:37px;
+  height:37px;
+  border-radius:10px;
+  background:var(--primary-soft);
+  color:var(--primary);
+}
+.responsive-modal-body .cg-service-editor .service-section-header h2 {
+  font-size:16px!important;
+  line-height:1.35!important;
+  font-weight:750!important;
+  color:var(--text-primary);
+  margin:0;
+}
+.responsive-modal-body .cg-service-editor .service-section-header p {
+  margin:3px 0 0;
+  font-size:12px!important;
+  line-height:1.5;
+  color:var(--text-secondary);
+}
+.responsive-modal-body .cg-service-editor .service-form-grid {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:start;
+  column-gap:13px;
+  row-gap:13px;
+  min-width:0;
+  margin:0;
+  padding:0;
+}
+.responsive-modal-body .cg-service-editor .service-form-grid>.is-wide {
+  grid-column:1/-1;
+}
+.responsive-modal-body .cg-service-editor .service-field {
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  min-width:0;
+}
+.responsive-modal-body .cg-service-editor .service-field>span {
+  font-size:14px!important;
+  line-height:1.45;
+  font-weight:650;
+  color:var(--text-primary);
+}
+.responsive-modal-body .cg-service-editor .cg-service-required {
+  color:var(--danger);
+  font-weight:750;
+}
+.responsive-modal-body .cg-service-editor .service-field
+:is(input:not([type=checkbox]),select,textarea) {
+  display:block;
+  width:100%;
+  min-width:0;
+  height:auto;
+  min-height:50px!important;
+  padding:11px 12px!important;
+  border:0!important;
+  border-radius:10px!important;
+  background:var(--surface-2)!important;
+  box-shadow:none!important;
+  font-size:16px!important;
+  line-height:1.45;
+  color:var(--text-primary)!important;
+}
+.responsive-modal-body .cg-service-editor .service-field textarea {
+  min-height:120px!important;
+  resize:vertical;
+}
+.responsive-modal-body .cg-service-editor .service-field :is(input,select,textarea):focus-visible {
+  outline:2px solid var(--primary)!important;
+  outline-offset:2px;
+}
+.responsive-modal-body .cg-service-editor .cg-service-field-hint {
+  display:block;
+  margin:0;
+  color:var(--text-secondary);
+  font-size:12px;
+  font-weight:450;
+  line-height:1.4;
+}
+.responsive-modal-body .cg-service-editor .service-category-select-field {
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  min-width:0;
+}
+.responsive-modal-body .cg-service-editor .service-add-category-inline {
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  align-self:flex-start;
+  min-height:36px;
+  padding:6px 1px;
+  border:0;
+  background:transparent;
+  color:var(--primary);
+  font-size:13px;
+  font-weight:720;
+  border-radius:7px;
+}
+.responsive-modal-body .cg-service-editor .service-add-category-inline:focus-visible {
+  outline:2px solid var(--primary);outline-offset:2px;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-tax-heading {
+  display:grid;
+  gap:3px;
+  padding-top:12px;
+  margin-top:1px;
+  border-top:1px solid var(--border);
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-tax-heading h3 {
+  margin:0;
+  color:var(--text-primary);
+  font-size:14px;
+  font-weight:730;
+  line-height:1.4;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-tax-heading p {
+  margin:0;
+  color:var(--text-secondary);
+  font-size:12px;
+  line-height:1.55;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-gst-field {
+  min-width:0;
+}
+.responsive-modal-body .cg-service-editor .cg-shared-gst-rate {
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  min-width:0;
+  width:100%;
+}
+.responsive-modal-body .cg-service-editor .cg-shared-gst-rate-hint {
+  display:block;
+  color:var(--text-secondary);
+  font-size:12px;
+  line-height:1.4;
+}
+.responsive-modal-body .cg-service-editor .service-field select:disabled {
+  opacity:.65;
+  cursor:not-allowed;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-tax-message {
+  display:flex;
+  align-items:center;
+  padding:11px 12px;
+  min-height:50px;
+  margin:0;
+  border-radius:10px;
+  background:var(--surface-2);
+  color:var(--text-secondary);
+  font-size:12px;
+  line-height:1.5;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-notes {
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-summary {
+  display:grid;
+  grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(0,1fr));
+  gap:9px;
+  min-width:0;
+  padding:11px;
+  border-radius:11px;
+  background:var(--surface-2);
+  border:1px solid var(--border);
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-summary>div {
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:5px;
+  min-width:0;
+  padding:3px 5px;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-summary>div+div {
+  border-left:1px solid var(--border);
+  padding-left:12px;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-summary span {
+  font-size:11px;
+  color:var(--text-secondary);
+  line-height:1.35;
+  font-weight:620;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-summary strong {
+  font-size:14px;
+  font-weight:750;
+  color:var(--text-primary);
+  line-height:1.4;
+  overflow-wrap:anywhere;
+  font-variant-numeric:tabular-nums;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-summary small {
+  font-size:11px;
+  line-height:1.35;
+  color:var(--text-secondary);
+  overflow-wrap:anywhere;
+}
+.responsive-modal-body .cg-service-editor .service-form-actions.cg-service-editor-actions {
+  position:sticky;
+  bottom:-1px;
+  z-index:3;
+  display:flex;
+  justify-content:flex-end;
+  gap:9px;
+  margin:0;
+  padding:12px 1px calc(7px + env(safe-area-inset-bottom,0px));
+  border-top:1px solid var(--border);
+  background:var(--surface);
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-actions button {
+  width:auto;
+  flex:0 1 160px;
+  min-height:49px!important;
+  padding:11px 16px;
+  border-radius:10px;
+  font-size:14px!important;
+  font-weight:720;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-actions .is-primary {
+  background:var(--primary);
+  border-color:var(--primary);
+  color:#fff;
+}
+.responsive-modal-body .cg-service-editor .cg-service-editor-actions button:disabled {
+  opacity:.55;cursor:not-allowed;
+}
+@media(max-width:767px){
+  .responsive-modal-sheet:has(.cg-service-editor) {
+    width:100%;
+    max-width:100%;
+    border-radius:15px 15px 0 0;
+  }
+  .responsive-modal-body .cg-service-editor .service-form-section {
+    padding:13px;
+  }
+  .responsive-modal-body .cg-service-editor .service-form-grid,
+  .responsive-modal-body .cg-service-editor .cg-service-editor-notes {
+    grid-template-columns:minmax(0,1fr);
+    gap:12px;
+  }
+  .responsive-modal-body .cg-service-editor .service-form-grid>.is-wide {
+    grid-column:auto;
+  }
+  .responsive-modal-body .cg-service-editor .cg-service-editor-summary {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+  .responsive-modal-body .cg-service-editor .cg-service-editor-summary>div:first-child {
+    grid-column:1/-1;
+  }
+  .responsive-modal-body .cg-service-editor .cg-service-editor-summary>div:nth-child(2) {
+    border-left:0;padding-left:5px;
+  }
+  .responsive-modal-body .cg-service-editor .cg-service-editor-actions button {
+    flex:1 1 0;
+    min-width:0;
+  }
+}
+@media(max-width:390px){
+  .responsive-modal-body .cg-service-editor .service-section-header h2 {font-size:15px!important;}
+  .responsive-modal-body .cg-service-editor .cg-service-editor-intro {font-size:12px;}
+  .responsive-modal-body .cg-service-editor .cg-service-editor-actions {gap:7px;}
+  .responsive-modal-body .cg-service-editor .cg-service-editor-actions button {
+    font-size:13px!important;padding:10px 8px;
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .responsive-modal-body .cg-service-editor * {scroll-behavior:auto;}
+}

@@ -2296,3 +2296,76 @@
     font-size: 14px !important;
   }
 }
+
+/* Daily attendance: align ten data columns without breaking time/OT values.
+   The desktop table scrolls horizontally when the workspace is narrow;
+   the existing mobile cards remain the primary layout below 768px. */
+.cg-attendance-manager .attendance-manager-daily .am-daily-table {
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table::-webkit-scrollbar {
+  display: block;
+  height: 7px;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table table {
+  width: 100%;
+  min-width: 1260px;
+  table-layout: fixed;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table th,
+.cg-attendance-manager .attendance-manager-daily .am-daily-table td {
+  box-sizing: border-box;
+  padding: 13px 11px;
+  vertical-align: middle;
+  line-height: 1.45;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table th {
+  font-size: 11px;
+  font-weight: 650;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(1) { width: 14%; text-align: left; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(2) { width: 16%; text-align: left; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(3) { width: 9%; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(4) { width: 9%; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(5) { width: 7%; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(6) { width: 10%; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(7) { width: 8%; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(8) { width: 13%; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(9) { width: 6%; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(10) { width: 8%; }
+.cg-attendance-manager .attendance-manager-daily .am-daily-table :is(th, td):nth-child(n+3) {
+  text-align: center;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table td:nth-child(n+3) {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table td:nth-child(1),
+.cg-attendance-manager .attendance-manager-daily .am-daily-table td:nth-child(2) {
+  overflow-wrap: anywhere;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table td:nth-child(2) .am-table-subtext {
+  line-height: 1.5;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table td:nth-child(8) select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 156px;
+  margin-inline: auto;
+  text-align: left;
+}
+.cg-attendance-manager .attendance-manager-daily .am-daily-table td:nth-child(10) .am-edit-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  white-space: nowrap;
+}

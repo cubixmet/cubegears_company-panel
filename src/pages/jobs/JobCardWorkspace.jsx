@@ -35,6 +35,8 @@ import { JobActivityTimeline } from '../../components/jobs/JobActivityTimeline';
 import { JobWorkPhotoPanel } from '../../components/jobs/JobWorkPhotoPanel';
 import { jobDisplayLabel } from '../../components/jobs/jobs.utils';
 import { jobInvoiceGST, jobInvoiceFinance } from '../../utils/jobGstFinance';
+import { isPostedInvoice } from '../../utils/invoiceFinanceLinks';
+import '../../styles/job-financial-bridge.css';
 import '../../styles/job-gst-finance.css';
 import { JobBreadcrumbs } from '../../components/jobs/JobBreadcrumbs';
 import '../../styles/jobs-unified-ui.css';
@@ -110,13 +112,17 @@ export function JobCardWorkspace() {
   const location = useLocation();
   const navigate = useNavigate();
   const { can } = useFeatureAccess();
+  const canEditJob = can('jobs.edit');
+  const canViewStaff = can('staff.view');
   const hasInvoiceAccess = can('invoices.view');
   const canCreateInvoice = can('invoices.create');
+  const canEditInvoice = can('invoices.edit');
   const canViewPayments = can('payments.view');
   const canCreatePayment = can('payments.create');
   const canViewGST = can('gstr.view');
   const hasStockAccess = can('stock.view');
   const workflowTabsRef = useRef(null);
+  const billingRequest = useRef(null);
 
   const [job, setJob] = useState(null);
   const [workflow, setWorkflow] = useState(null);
@@ -127,6 +133,9 @@ export function JobCardWorkspace() {
   const [invoicePdfError, setInvoicePdfError] = useState('');
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingError, setBillingError] = useState('');
+  const [paymentHistoryError, setPaymentHistoryError] = useState('');
+  const [billingSummaryState, setBillingSummaryState] = useState({ jobId: null, data: null });
+  const [billingSummaryError, setBillingSummaryError] = useState('');
   const [staff, setStaff] = useState([]);
   const [timerRefreshVersion, setTimerRefreshVersion] = useState(0);
   const [workQuickSection, setWorkQuickSection] = useState('service');
@@ -197,59 +206,83 @@ export function JobCardWorkspace() {
     rail.scrollTo({ left: Math.max(0, left), behavior: 'instant' });
   }, [activeTab]);
 
+  // Fetch posted Job Card invoice totals even when the Invoice tab is not open.
+  // Invoice/GST payment records remain canonical on Django; no browser totals are posted.
+  useEffect(() => {
+    if (!job?.id || !hasInvoiceAccess || USE_MOCK_API) {
+      setBillingSummaryState({ jobId: null, data: null });
+      setBillingSummaryError('');
+      return undefined;
+    }
+    let active = true;
+    setBillingSummaryError('');
+    jobService.getJobBillingSummary(job.id).then(data => {
+      if (active) setBillingSummaryState({ jobId: job.id, data });
+    }).catch(err => {
+      if (active) {
+        setBillingSummaryState({ jobId: job.id, data: null });
+        setBillingSummaryError(err?.message || 'Could not load posted invoice balances.');
+      }
+    });
+    return () => { active = false; };
+  }, [job?.id, job?.status, hasInvoiceAccess, activeTab, timerRefreshVersion]);
+
   const loadBilling = async () => {
-    if (!id) return;
+    if (!id || !hasInvoiceAccess) return;
+    const request = Symbol();
+    billingRequest.current = request;
     setBillingLoading(true);
     setBillingError('');
+    setPaymentHistoryError('');
     try {
       const invoiceResponse = await billingService.list({ jobId: id });
+      if (billingRequest.current !== request) return;
       const allInvoices = Array.isArray(invoiceResponse) ? invoiceResponse : invoiceResponse?.results || [];
       const related = allInvoices.filter((row) =>
         (row.kind || 'invoice') === 'invoice' &&
         (String(row.jobId || row.job_id || row.sourceJobId || row.source_job_id || '') === String(id) ||
          (job?.jobNumber && String(row.jobCardNo || row.job_card_no || '') === String(job.jobNumber)))
       ).sort((a, b) => String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || '')));
-      const current = related.find((row) => row.status !== 'Cancelled') || related[0];
-      // Invoice read access and payment ledger read access are separate roles.
-      // A job invoice must remain viewable by invoice-only staff.
-      const paymentResponse = current && canViewPayments
-        ? await paymentService.getPayments({ invoice: current.id }) : [];
-      const allPayments = Array.isArray(paymentResponse) ? paymentResponse : paymentResponse?.results || [];
+      const current = related.find(isPostedInvoice) || related.find((row) => row.status !== 'Cancelled') || related[0];
       setJobInvoices(related);
+      setJobPayments([]);
+      const paymentResponse = isPostedInvoice(current) && canViewPayments
+        ? await paymentService.getPayments({ invoice: current.id }).catch((error) => {
+          if (billingRequest.current === request) {
+            setPaymentHistoryError(error?.message || 'Unable to load recent payments.');
+          }
+          return [];
+        }) : [];
+      if (billingRequest.current !== request) return;
+      const allPayments = Array.isArray(paymentResponse) ? paymentResponse : paymentResponse?.results || [];
       setJobPayments(allPayments.filter((row) => String(row.invoice || '') === String(current?.id))
         .sort((a, b) => String(b.created_at || b.date || '').localeCompare(String(a.created_at || a.date || ''))));
     } catch (requestError) {
-      setBillingError(requestError?.message || 'Unable to load invoice and payment records.');
+      if (billingRequest.current === request) {
+        setBillingError(requestError?.message || 'Unable to load invoice and payment records.');
+      }
     } finally {
-      setBillingLoading(false);
+      if (billingRequest.current === request) setBillingLoading(false);
     }
   };
 
   useEffect(() => {
-    if (activeTab === 'invoice' && job?.id) loadBilling();
-  }, [activeTab, job?.id, job?.jobNumber]);
+    if (activeTab === 'invoice' && job?.id === id && hasInvoiceAccess) loadBilling();
+    return () => { billingRequest.current = null; };
+  }, [activeTab, id, job?.id, job?.jobNumber, hasInvoiceAccess, canViewPayments]);
 
   const load = async () => {
     setLoading(true);
     setError('');
 
     try {
-      const [data, staffData, flow] = await Promise.all([
+      const [data, flow] = await Promise.all([
         jobService.getJobById(id),
-        staffService.getStaff(),
         jobService.getJobWorkflow(id)
       ]);
 
       setJob(data || null);
       setWorkflow(flow || null);
-      setStaff(Array.isArray(staffData) ? staffData.filter((item) => item.employmentStatus === 'Active') : []);
-
-      if (data?.vehicleReg) {
-        const history = await jobService.getVehicleHistory(data.vehicleReg);
-        setVehicleHistory(history.filter((item) => item.id !== data.id));
-      } else {
-        setVehicleHistory([]);
-      }
 
       setDeliveryForm({
         finalKm: data?.delivery?.finalKm ?? data?.kilometre ?? '',
@@ -275,8 +308,31 @@ export function JobCardWorkspace() {
   };
 
   useEffect(() => {
+    setJobInvoices([]);
+    setJobPayments([]);
+    setBillingSummaryState({ jobId: null, data: null });
     load();
   }, [id]);
+
+  useEffect(() => {
+    setStaff([]);
+    if (!canViewStaff) return undefined;
+    let active = true;
+    staffService.getStaff().then((rows) => {
+      if (active) setStaff(rows.filter((item) => item.employmentStatus === 'Active'));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [canViewStaff]);
+
+  useEffect(() => {
+    setVehicleHistory([]);
+    if (!job?.vehicleReg || job.id !== id) return undefined;
+    let active = true;
+    jobService.getVehicleHistory(job.vehicleReg).then((rows) => {
+      if (active) setVehicleHistory(rows.filter((item) => item.id !== id));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [id, job?.id, job?.vehicleReg]);
 
   const persist = async (patch) => {
     if (!job) return null;
@@ -365,18 +421,61 @@ export function JobCardWorkspace() {
   const estimateGrandTotal = taxable + estimateTaxAmount;
 
   const latestEstimate = estimates.at(-1) || null;
-  const linkedInvoice = jobInvoices.find((row) => row.status !== 'Cancelled') || null;
+  const linkedInvoice = jobInvoices.find(isPostedInvoice)
+    || jobInvoices.find((row) => row.status !== 'Cancelled') || null;
+  const postedBilling = billingSummaryState.jobId === job?.id ? billingSummaryState.data : null;
+  const hasPostedBilling = Boolean(postedBilling?.postedInvoiceCount);
+  const jobLinkedInvoiceId = postedBilling?.primaryInvoiceId || linkedInvoice?.id || null;
   const financial = jobInvoiceFinance(linkedInvoice);
   const invoiceGST = jobInvoiceGST(linkedInvoice);
   const isInvoiceFinalized = financial.posted;
-  const invoiceTotal = linkedInvoice
-    ? cleanNumber(linkedInvoice.total)
+  const workSellingBeforeTax = postedBilling?.workSellingBeforeGST;
+  const draftSellingBeforeTax = postedBilling?.draftSellingBeforeGST;
+  const draftInvoiceTotal = postedBilling?.draftInvoiceTotal;
+  // All internal margin comparisons exclude GST; the invoice total includes tax.
+  const jobSellingBeforeTax = hasPostedBilling
+    ? cleanNumber(postedBilling.sellingBeforeGST)
+    : linkedInvoice
+      ? invoiceGST?.taxable ?? (linkedInvoice.invoiceType === 'regular'
+        ? linkedInvoice.taxable ?? linkedInvoice.subtotal ?? linkedInvoice.total : null)
+      : draftSellingBeforeTax ?? workSellingBeforeTax ?? (latestEstimate?.subtotal != null ? Math.max(0,
+        cleanNumber(latestEstimate.subtotal) - cleanNumber(latestEstimate.discount)) : null);
+  const jobSalesSource = hasPostedBilling ? 'final_invoice' : linkedInvoice
+    ? (isInvoiceFinalized ? 'final_invoice' : 'draft_invoice')
+    : draftInvoiceTotal != null ? 'draft_invoice'
+      : workSellingBeforeTax != null ? 'work' : latestEstimate ? 'estimate' : 'none';
+  const invoiceTotal = hasPostedBilling
+    ? cleanNumber(postedBilling.invoiceTotal)
+    : linkedInvoice ? cleanNumber(linkedInvoice.total)
     : (USE_MOCK_API ? cleanNumber(job?.billing?.invoiceTotal || latestEstimate?.grandTotal || 0) : 0);
-  const invoicePaid = linkedInvoice ? cleanNumber(linkedInvoice.paid) : cleanNumber(job?.billing?.paidAmount || 0);
-  const invoiceBalance = Math.max(0, linkedInvoice ? cleanNumber(linkedInvoice.balance ?? (invoiceTotal - invoicePaid)) : invoiceTotal - invoicePaid);
-  const invoicePaymentStatus = linkedInvoice
-    ? (invoiceTotal <= 0 ? 'No amount due' : invoiceBalance <= 0 ? 'Paid' : invoicePaid > 0 ? 'Partially Paid' : 'Unpaid')
+  const invoicePaid = hasPostedBilling
+    ? cleanNumber(postedBilling.paid)
+    : linkedInvoice ? cleanNumber(linkedInvoice.paid) : cleanNumber(job?.billing?.paidAmount || 0);
+  const invoiceBalance = Math.max(0, hasPostedBilling
+    ? cleanNumber(postedBilling.outstanding)
+    : linkedInvoice
+      ? cleanNumber(linkedInvoice.balance ?? (invoiceTotal - invoicePaid))
+      : invoiceTotal - invoicePaid);
+  const invoicePaymentStatus = hasPostedBilling || linkedInvoice
+    ? (!hasPostedBilling && !isInvoiceFinalized ? 'Draft · not due'
+      : invoiceTotal <= 0 ? 'No amount due'
+        : invoiceBalance <= 0 ? 'Paid' : invoicePaid > 0 ? 'Partially Paid' : 'Unpaid')
     : (USE_MOCK_API ? job?.paymentStatus || 'Pending' : 'Not invoiced');
+  const hasIssuedInvoice = hasPostedBilling || isInvoiceFinalized;
+  const invoiceTabTotal = hasIssuedInvoice || linkedInvoice ? invoiceTotal : draftInvoiceTotal;
+  const invoiceDraftExists = (linkedInvoice?.status || postedBilling?.primaryInvoiceStatus) === 'Draft';
+  const deliveryCompleted = normalizeJobStatus(job?.status) === 'Delivered';
+  const billingActionLabel = jobLinkedInvoiceId
+    ? (invoiceDraftExists && canEditInvoice ? 'Review & Finalize Invoice' : 'View Invoice')
+    : (canCreateInvoice && !billingLoading && !billingError ? 'Create Invoice' : '');
+  const showDeliveryForm = deliveryCompleted || hasIssuedInvoice || USE_MOCK_API;
+  const deliveryEditable = !deliveryCompleted && canEditJob;
+  const deliveryMessage = deliveryCompleted ? 'Vehicle delivered.'
+    : showDeliveryForm ? (canEditJob ? 'Record the final handover details.' : 'Delivery details are read-only.')
+      : billingLoading && !jobLinkedInvoiceId ? 'Checking invoice status…'
+        : billingError && !jobLinkedInvoiceId ? 'Retry loading the invoice to check delivery eligibility.'
+          : invoiceDraftExists ? 'Finalize the draft invoice to record delivery.'
+            : 'Create and finalize the invoice to record delivery.';
 
 
   // The backend workflow endpoint is the single source of truth for
@@ -385,6 +484,8 @@ export function JobCardWorkspace() {
   const coreCompleted = workflow?.completed || [];
   const inspectionWasSkipped = workflow?.inspectionStatus === 'Skipped' || job?.inspection?.status === 'Skipped';
   const estimateWasSkipped = workflow?.estimateDecision?.status === 'Skipped' || workflow?.skipped?.includes('estimate');
+  const workWasSkipped = workflow?.skipped?.includes('work');
+  const qcWasSkipped = workflow?.skipped?.includes('qc');
   const sectionComplete = {
     overview: coreCompleted.includes('overview'),
     inspection: coreCompleted.includes('inspection'),
@@ -423,18 +524,20 @@ export function JobCardWorkspace() {
   const nextVisibleTab = visibleTabs[visibleTabIndex + 1] || null;
   const activeTabComplete = Boolean(sectionComplete[activeTab]);
   const activeTabLocked = isSectionLocked(activeTab);
+  const activeStageSkipped = (activeTab === 'work' && workWasSkipped) || (activeTab === 'qc' && qcWasSkipped);
+  const accessibleCurrentStage = moduleTabAllowed(currentStage) ? currentStage : 'qc';
   const ActiveSectionIcon = TAB_ICONS[activeTab] || FileText;
   const activeTabLabel = TABS.find(([key]) => key === activeTab)?.[1] || 'Overview';
 
   useEffect(() => {
-    if (!job?.id || !workflow) return;
+    if (job?.id !== id || !workflow) return;
     const pieces = location.pathname.split('/').filter(Boolean);
     const requested = pieces.length > 2 ? pieces[2] : null;
     const supported = requested === 'full-log' || TABS.some(([key]) => key === requested);
-    if (!supported || isSectionLocked(requested)) {
-      navigate('/jobs/' + job.id + '/' + currentStage, { replace: true });
+    if (!supported || !moduleTabAllowed(requested) || isSectionLocked(requested)) {
+      navigate('/jobs/' + id + '/' + accessibleCurrentStage, { replace: true });
     }
-  }, [job?.id, workflow, location.pathname, currentStage, navigate]);
+  }, [id, job?.id, workflow, location.pathname, accessibleCurrentStage, hasInvoiceAccess, hasStockAccess, navigate]);
 
   const refreshJobWorkflow = async (advanceFrom = null) => {
     const [updated, flow] = await Promise.all([
@@ -444,13 +547,14 @@ export function JobCardWorkspace() {
     setJob(updated);
     setWorkflow(flow);
     if (advanceFrom && flow.current !== advanceFrom) {
-      navigate('/jobs/' + id + '/' + flow.current, { replace: true });
+      const nextStage = moduleTabAllowed(flow.current) ? flow.current : advanceFrom;
+      navigate('/jobs/' + id + '/' + nextStage, { replace: true });
     }
     return flow;
   };
 
   const completeStage = async (stage, extraOptions = {}) => {
-    if (!workflow || saving) return;
+    if (!workflow || !canEditJob || saving) return;
     const options = { ...extraOptions };
     if (stage === 'estimate') {
       const version = options.estimateVersion ? ` V${options.estimateVersion}` : '';
@@ -791,6 +895,12 @@ export function JobCardWorkspace() {
     navigate(`/invoices/new?kind=invoice&jobId=${encodeURIComponent(job.id)}`);
   };
 
+  const openJobInvoice = () => {
+    if (!jobLinkedInvoiceId) return createInvoice();
+    const invoicePath = `/invoices/${encodeURIComponent(jobLinkedInvoiceId)}`;
+    navigate(invoiceDraftExists && canEditInvoice ? `${invoicePath}/edit` : invoicePath);
+  };
+
   const downloadJobInvoicePdf = () => {
     if (!linkedInvoice?.id || invoicePdfLoading) return;
     setInvoicePdfError('');
@@ -852,9 +962,11 @@ export function JobCardWorkspace() {
     setPaymentForm((old) => ({ ...old, amount: '' }));
   };
 
-  const saveDelivery = async () => {
+  const saveDelivery = async (event) => {
+    event.preventDefault();
+    if (!canEditJob || deliveryCompleted || saving) return;
     if (!USE_MOCK_API) {
-      if (!isInvoiceFinalized) {
+      if (!hasIssuedInvoice) {
         setError('Finalize the linked invoice before completing delivery.');
         return;
       }
@@ -916,6 +1028,9 @@ export function JobCardWorkspace() {
     </div>
   );
 
+  const readyForDelivery = job.status === 'Ready for Delivery';
+  const shareTarget = readyForDelivery ? 'ready_delivery' : 'job';
+
   return (
     <div className="job-management-page cg-job-detail jobs-ui-polished job-workspace-dashboard flex w-full min-w-0 flex-col gap-4 pb-4">
       <JobBreadcrumbs current={TABS.find(([key]) => key === activeTab)?.[1] || "Overview"} jobLabel={jobDisplayLabel(job)} jobId={job.id} />
@@ -929,25 +1044,57 @@ export function JobCardWorkspace() {
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="job-overview-status-badge">{normalizeJobStatus(job.status)}</span>
-          <WhatsAppManualShareButton targetType="job" targetId={job.id} />
-          {job.status === 'Ready for Delivery' && (
-            <WhatsAppManualShareButton targetType="ready_delivery" targetId={job.id}
-              label="Share Vehicle Ready Message" />
+          <WhatsAppManualShareButton key={`${job.id}:${shareTarget}`} targetType={shareTarget} targetId={job.id}
+            label={readyForDelivery ? 'Share Vehicle Ready Message' : 'Send via WhatsApp'} buttonOnly />
+          {hasInvoiceAccess && jobLinkedInvoiceId && activeTab !== 'invoice' && (
+            <Link to={'/invoices/' + encodeURIComponent(jobLinkedInvoiceId)}
+              className="job-financial-header-link">
+              <ReceiptText size={15} aria-hidden="true"/> Open Invoice
+            </Link>
           )}
-          {hasInvoiceAccess && !isSectionLocked('invoice') && activeTab !== 'invoice' &&
-            (linkedInvoice || canCreateInvoice) && (
-              <button type="button" onClick={() => openTab('invoice')} className="inline-flex h-10 items-center gap-2 rounded-xl border-0 bg-primary px-4 text-xs font-bold text-white">
-                <ReceiptText size={15}/>{linkedInvoice ? 'View Invoice' : 'Create Invoice'}
+          {hasInvoiceAccess && !jobLinkedInvoiceId && !isSectionLocked('invoice') &&
+            activeTab !== 'invoice' && canCreateInvoice && (
+              <button type="button" onClick={() => openTab('invoice')}
+                className="job-financial-header-link is-primary">
+                <ReceiptText size={15} aria-hidden="true"/> Create Invoice
               </button>
             )}
         </div>
       </header>
 
+      <nav className="cg-job-connected-links" aria-label="Job Card connected records">
+        {can('customers.view') && job.customerId &&
+          <Link to={'/customers/' + encodeURIComponent(job.customerId)}>Customer Profile <ChevronRight size={14}/></Link>}
+        {can('vehicles.view') && job.vehicleId &&
+          <Link to={'/vehicles/' + encodeURIComponent(job.vehicleId)}>Vehicle History <ChevronRight size={14}/></Link>}
+        {can('staff.view') && job.assignedEmployeeId &&
+          <Link to={'/staff-management/staff/' + encodeURIComponent(job.assignedEmployeeId)}>Assigned Staff <ChevronRight size={14}/></Link>}
+        {hasInvoiceAccess && jobLinkedInvoiceId &&
+          <Link to={'/invoices/' + encodeURIComponent(jobLinkedInvoiceId)}>Linked Invoice <ChevronRight size={14}/></Link>}
+        {canViewPayments && hasPostedBilling &&
+          <Link to={'/finance/payments?invoice=' + encodeURIComponent(postedBilling.primaryInvoiceNumber || '')}>
+            Payment History <ChevronRight size={14}/>
+          </Link>}
+      </nav>
+
+      {billingSummaryError && hasInvoiceAccess && !USE_MOCK_API &&
+        <p className="cg-job-finance-warning" role="alert">
+          Invoice totals unavailable: {billingSummaryError}
+        </p>}
       {can('payroll.view') && can('expenses.view') && hasStockAccess && <JobTotalCostPanel
         jobId={job.id}
         refreshVersion={timerRefreshVersion}
         refreshOnTab={activeTab}
         customerServiceCharges={customerServiceCharges}
+        billedTotal={hasPostedBilling || linkedInvoice ? invoiceTotal
+          : draftInvoiceTotal ?? (jobSalesSource === 'estimate'
+            ? cleanNumber(latestEstimate.total ?? latestEstimate.grandTotal) : null)}
+        netSellingValue={jobSellingBeforeTax}
+        salesSource={jobSalesSource}
+        receivedTotal={hasPostedBilling ? postedBilling.paid : null}
+        outstandingTotal={hasPostedBilling ? postedBilling.outstanding : null}
+        paymentVisible={canViewPayments}
+        postedInvoiceCount={postedBilling?.postedInvoiceCount || 0}
       />}
 
       {activeTab !== 'overview' && activeTab !== 'activity' && !showWorkTools && (
@@ -969,7 +1116,7 @@ export function JobCardWorkspace() {
           ['Fuel', job.fuelLevel || '—'],
           ['Technician', job.assignedEmployeeName || 'Unassigned'],
           ['Estimate', latestEstimate ? money.format(latestEstimate.grandTotal || 0) : 'Not created'],
-          ['Payment', job.paymentStatus || 'Pending']
+          ['Payment', hasInvoiceAccess ? invoicePaymentStatus : 'Restricted']
         ].filter(([label]) => showAdvanced || ['Customer', 'Technician', 'Payment'].includes(label)).map(([label, value]) => (
           <div key={label} className="min-w-0 rounded-2xl border border-line bg-surface p-3">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted">{label}</div>
@@ -988,7 +1135,8 @@ export function JobCardWorkspace() {
         <nav ref={workflowTabsRef} className="job-detail-tabs job-workflow-tabs" aria-label="Main Job Card stages">
           {visibleTabs.map(([key, label], index) => {
             const complete = Boolean(sectionComplete[key]);
-            const skipped = (key === 'inspection' && inspectionWasSkipped) || (key === 'estimate' && estimateWasSkipped);
+            const skipped = workflow?.skipped?.includes(key) ||
+              (key === 'inspection' && inspectionWasSkipped) || (key === 'estimate' && estimateWasSkipped);
             const locked = isSectionLocked(key);
             const isActive = activeTab === key || (key === 'work' && activeExtraTab && activeTab !== 'activity' && !locked);
             return (
@@ -1069,8 +1217,8 @@ export function JobCardWorkspace() {
           <h2>{activeTabLabel}</h2>
         </div>
         {activeTab !== 'activity' && <span className={'job-workspace-section-state ' + (activeTabLocked ? 'is-locked' : activeTabComplete ? 'is-complete' : 'is-open')}>
-          {activeTabLocked ? <LockKeyhole size={13} aria-hidden="true"/> : activeTabComplete ? <CheckCircle2 size={13} aria-hidden="true"/> : <Clock3 size={13} aria-hidden="true"/>}
-          {activeTabLocked ? 'Locked' : activeTabComplete ? 'Complete' : 'In progress'}
+          {activeTabLocked ? <LockKeyhole size={13} aria-hidden="true"/> : activeStageSkipped ? <SkipForward size={13} aria-hidden="true"/> : activeTabComplete ? <CheckCircle2 size={13} aria-hidden="true"/> : <Clock3 size={13} aria-hidden="true"/>}
+          {activeTabLocked ? 'Locked' : activeStageSkipped ? 'Skipped' : activeTabComplete ? 'Complete' : 'In progress'}
         </span>}
         {!activeTabLocked && !activeTabComplete && activeTab === currentStage && activeTab === 'work' && can('jobs.edit') && (
           <button type="button" className="job-work-skip-trigger" disabled={saving}
@@ -1078,10 +1226,10 @@ export function JobCardWorkspace() {
             <SkipForward size={16} aria-hidden="true" /> Skip Work
           </button>
         )}
-        {!activeTabLocked && !activeTabComplete && activeTab === currentStage && activeTab !== 'qc' && activeTab !== 'invoice' && (
+        {!activeTabLocked && !activeTabComplete && activeTab === currentStage && activeTab === 'work' && canEditJob && (
           <button type="button" className="job-stage-complete-button" disabled={saving} onClick={() => completeStage(activeTab)}>
             <CheckCircle2 size={15} aria-hidden="true" />
-            {saving ? 'Saving…' : activeTab === 'estimate' ? 'Approve & Continue' : activeTab === 'work' ? 'Finish Work & Continue' : activeTab === 'invoice' ? 'Finish Job Card' : 'Complete & Continue'}
+            {saving ? 'Saving…' : 'Finish Work & Continue'}
           </button>
         )}
       </section>
@@ -1141,7 +1289,7 @@ export function JobCardWorkspace() {
           <LockKeyhole size={24} aria-hidden="true" />
           <h3>{activeTabLabel} is locked</h3>
           <p>Complete the current required stage to unlock this section.</p>
-          <button type="button" onClick={() => navigate('/jobs/' + job.id + '/' + currentStage, { replace: true })}>Go to current stage</button>
+          <button type="button" onClick={() => navigate('/jobs/' + job.id + '/' + accessibleCurrentStage, { replace: true })}>Go to current stage</button>
         </section>
       ) : (
         <>
@@ -1158,11 +1306,11 @@ export function JobCardWorkspace() {
                 {showAdvanced ? 'Hide details' : 'More details'}
               </button>
               {sectionComplete.overview ? (
-                <button type="button" className="job-overview-main-action" onClick={() => openTab(currentStage)}>
+                <button type="button" className="job-overview-main-action" onClick={() => openTab(accessibleCurrentStage)}>
                   <CheckCircle2 size={16} aria-hidden="true" /> {currentStage === 'overview' ? 'Overview complete' : 'Go to current stage'}
                   <ChevronRight size={15} aria-hidden="true" />
                 </button>
-              ) : (
+              ) : canEditJob && (
                 <button type="button" className="job-overview-main-action" onClick={() => completeStage('overview')} disabled={saving || activeTabLocked}>
                   <CheckCircle2 size={16} aria-hidden="true" /> {saving ? 'Saving…' : 'Complete & Continue'}
                   <ChevronRight size={15} aria-hidden="true" />
@@ -1241,7 +1389,7 @@ export function JobCardWorkspace() {
                 <div><dt>Check-in</dt><dd>{job.checkInTime || job.createdDate || '—'}</dd></div>
                 <div><dt>Branch</dt><dd>{job.branch || '—'}</dd></div>
                 <div><dt>Estimate</dt><dd>{latestEstimate ? money.format(latestEstimate.grandTotal || 0) : 'Not created'}</dd></div>
-                <div><dt>Payment</dt><dd>{job.paymentStatus || 'Pending'}</dd></div>
+                <div><dt>Payment</dt><dd>{hasInvoiceAccess ? invoicePaymentStatus : 'Restricted'}</dd></div>
               </dl>
               <div className="job-overview-more-grid">
                 <div className="job-overview-feedback">
@@ -1650,10 +1798,15 @@ export function JobCardWorkspace() {
 
       {activeTab === 'qc' && (
         <JobQualityCheckPanel
+          key={job.id}
           job={job}
-          canEdit={currentStage === 'qc' && !activeTabLocked && !activeTabComplete}
+          canEdit={canEditJob && currentStage === 'qc' && !activeTabLocked && !activeTabComplete}
           onSaved={() => refreshJobWorkflow()}
-          onCompleted={() => refreshJobWorkflow('qc')}
+          onCompleted={(result) => {
+            if (result.job) setJob(result.job);
+            setWorkflow(result);
+            if (moduleTabAllowed(result.current)) navigate(`/jobs/${job.id}/${result.current}`, { replace: true });
+          }}
         />
       )}
 
@@ -1689,23 +1842,23 @@ export function JobCardWorkspace() {
                   <ReceiptText size={15} aria-hidden="true"/> Receive Payment
                 </button>
               )}
-                            {(linkedInvoice || canCreateInvoice) && <button
+              {(hasIssuedInvoice || deliveryCompleted || USE_MOCK_API) && billingActionLabel && <button
                 type="button"
-                onClick={() => linkedInvoice ? navigate('/invoices/' + linkedInvoice.id) : createInvoice()}
+                onClick={openJobInvoice}
                 className="job-primary-action"
               >
                 <ReceiptText size={15} aria-hidden="true" />
-                {linkedInvoice ? 'View Invoice' : 'Create Invoice'}
+                {billingActionLabel}
               </button>}
             </div>
           </header>
 
-          <div className="job-invoice-dashboard-stats">
+          {invoiceTabTotal != null && <div className="job-invoice-dashboard-stats">
             {[
-              ['Invoice Total', invoiceTotal, 'total'],
-              ...(canViewPayments ? [
-                ['Paid Amount', invoicePaid, 'paid'],
-                ['Balance Due', invoiceBalance, 'balance']
+              [hasIssuedInvoice ? 'Posted Invoice Total' : 'Draft Invoice Total', invoiceTabTotal, 'total'],
+              ...(canViewPayments && hasIssuedInvoice ? [
+                ['Customer Paid', invoicePaid, 'paid'],
+                ['Outstanding Due', invoiceBalance, 'balance']
               ] : [])
             ].map(([label, amount, tone]) => (
               <div className={'job-invoice-stat is-' + tone} key={label}>
@@ -1713,11 +1866,11 @@ export function JobCardWorkspace() {
                 <strong>{money.format(amount)}</strong>
               </div>
             ))}
-            <div className="job-invoice-stat is-status">
+            {canViewPayments && <div className="job-invoice-stat is-status">
               <span>Payment Status</span>
-              <strong>{canViewPayments ? invoicePaymentStatus : 'Restricted'}</strong>
-            </div>
-          </div>
+              <strong>{hasIssuedInvoice ? invoicePaymentStatus : 'Draft'}</strong>
+            </div>}
+          </div>}
 
           {linkedInvoice && (
             <section className="job-gst-summary" aria-label="Job invoice GST and finance">
@@ -1758,21 +1911,15 @@ export function JobCardWorkspace() {
             <button type="button" onClick={loadBilling}>Retry</button>
           </div>}
 
-          {linkedInvoice && !isInvoiceFinalized && <div className="job-invoice-inline-message" role="status">
-             Invoice not finalized. <button type="button" onClick={() => navigate('/invoices/' + linkedInvoice.id)}>Open Invoice</button>
-           </div>}
            <div className="job-invoice-dashboard-columns">
             <section className="job-panel job-invoice-billing-card">
               <div className="job-invoice-section-heading">
-                <div>
-                  <h3>Billing details</h3>
-                  <p>{linkedInvoice ? 'Linked to the official invoice record' : 'Create an invoice to start billing this job'}</p>
-                </div>
-                <span className="job-invoice-status-badge">{linkedInvoice?.status || 'Not invoiced'}</span>
+                <h3>Billing details</h3>
+                <span className="job-invoice-status-badge">{linkedInvoice?.status || postedBilling?.primaryInvoiceStatus || 'Not invoiced'}</span>
               </div>
 
               <div className="job-invoice-details">
-                <div><span>Invoice Number</span><strong>{linkedInvoice?.number || (USE_MOCK_API ? job.billing?.invoiceNumber : '') || 'Not generated'}</strong></div>
+                <div><span>Invoice Number</span><strong>{linkedInvoice?.number || postedBilling?.primaryInvoiceNumber || (USE_MOCK_API ? job.billing?.invoiceNumber : '') || 'Not generated'}</strong></div>
                 <div><span>Customer</span><strong>{job.customerName || 'Walk-in'}</strong></div>
                 <div><span>Vehicle</span><strong>{job.vehicleReg || '—'}</strong></div>
                 <div><span>Payment Method</span><strong>{linkedInvoice?.paymentMode || (USE_MOCK_API ? job.billing?.paymentMethod : '') || '—'}</strong></div>
@@ -1790,25 +1937,21 @@ export function JobCardWorkspace() {
                 </div>
               )}
 
-              {(!linkedInvoice && !USE_MOCK_API) ? (
-                <div className="job-invoice-empty">
-                  <FileText size={20} aria-hidden="true" />
-                  <strong>No invoice linked yet</strong>
-                  <p>Generate an invoice from this job before recording a payment.</p>
-                </div>
-              ) : (!USE_MOCK_API && !isInvoiceFinalized) ? (
-                <p className="job-invoice-inline-message">Finalize the linked invoice to record customer payments.</p>
-              ) : (!USE_MOCK_API) ? (
+              {!USE_MOCK_API && !hasIssuedInvoice ? (
+                !deliveryCompleted && billingActionLabel && <button type="button" className="job-primary-action" onClick={openJobInvoice}>
+                  <ReceiptText size={15} aria-hidden="true" /> {billingActionLabel}
+                </button>
+              ) : !USE_MOCK_API ? (
                 <div className="job-gst-finance-collection">
                   <strong>Customer payment · Finance ledger</strong>
                   <p>Cash/Bank account selection, partial collections, idempotency and payment audit happen in Finance. No GST is added to a receipt.</p>
                   {invoiceBalance <= 0
                     ? <p className="job-invoice-inline-message">Invoice settled. No further payment is required.</p>
-                    : canCreatePayment
+                    : canCreatePayment && financial.paymentUrl
                       ? <button type="button" className="job-payment-submit" onClick={() => navigate(financial.paymentUrl)}>
                         Open Finance to Receive {canViewPayments ? money.format(invoiceBalance) : 'Payment'}
                       </button>
-                      : <p className="job-invoice-inline-message">Only authorized Finance staff can receive payments.</p>}
+                      : !canCreatePayment && <p className="job-invoice-inline-message">Only authorized Finance staff can receive payments.</p>}
                 </div>
               ) : (
                 <form className="job-payment-form" onSubmit={recordPayment}>
@@ -1848,33 +1991,34 @@ export function JobCardWorkspace() {
                   ))}
                 </div>
               )}
+              {paymentHistoryError && <p className="job-invoice-inline-message is-error" role="alert">{paymentHistoryError}</p>}
             </section>
 
             <section className="job-panel job-invoice-delivery-card">
               <div className="job-invoice-section-heading">
                 <div>
                   <h3>Vehicle delivery</h3>
-                  <p>Confirm final handover details.</p>
+                  <p>{deliveryMessage}</p>
                 </div>
               </div>
-              <div className="job-invoice-delivery-fields">
+              {showDeliveryForm && <form className="job-invoice-delivery-fields" onSubmit={saveDelivery}>
                 <label>
                   Final KM
-                  <input required inputMode="numeric" type="number" min={Number(job.kilometre || 0)} step="1" max="2147483647" disabled={normalizeJobStatus(job.status) === 'Delivered'} value={deliveryForm.finalKm} onChange={(e) => setDeliveryForm({ ...deliveryForm, finalKm: e.target.value })} placeholder="Vehicle odometer" />
+                  <input required inputMode="numeric" type="number" min={Number(job.kilometre || 0)} step="1" max="2147483647" readOnly={!deliveryEditable || saving} value={deliveryForm.finalKm} onChange={(e) => setDeliveryForm({ ...deliveryForm, finalKm: e.target.value })} placeholder="Vehicle odometer" />
                 </label>
                 <label>
                   Customer acknowledgement
-                  <input required maxLength={160} disabled={normalizeJobStatus(job.status) === 'Delivered'} value={deliveryForm.customerSignature} onChange={(e) => setDeliveryForm({ ...deliveryForm, customerSignature: e.target.value })} placeholder="Customer name" />
+                  <input required maxLength={160} readOnly={!deliveryEditable || saving} value={deliveryForm.customerSignature} onChange={(e) => setDeliveryForm({ ...deliveryForm, customerSignature: e.target.value })} placeholder="Customer name" />
                 </label>
                 <label>
                   Warranty / service notes
-                  <textarea rows={3} maxLength={1500} disabled={normalizeJobStatus(job.status) === 'Delivered'} value={deliveryForm.warrantyNotes} onChange={(e) => setDeliveryForm({ ...deliveryForm, warrantyNotes: e.target.value })} placeholder="Handover notes" />
+                  <textarea rows={3} maxLength={1500} readOnly={!deliveryEditable || saving} value={deliveryForm.warrantyNotes} onChange={(e) => setDeliveryForm({ ...deliveryForm, warrantyNotes: e.target.value })} placeholder="Handover notes" />
                 </label>
-                <button type="button" disabled={saving || !can('jobs.edit') || normalizeJobStatus(job.status) === 'Delivered' || (!USE_MOCK_API && !isInvoiceFinalized)} onClick={saveDelivery} className="job-invoice-deliver-button">
+                {deliveryEditable && <button type="submit" disabled={saving} className="job-invoice-deliver-button">
                   <CheckCircle2 size={16} aria-hidden="true" />
-                  {normalizeJobStatus(job.status) === 'Delivered' ? 'Vehicle Delivered' : 'Complete Delivery'}
-                </button>
-              </div>
+                  {saving ? 'Saving…' : 'Complete Delivery'}
+                </button>}
+              </form>}
             </section>
           </div>
         </div>

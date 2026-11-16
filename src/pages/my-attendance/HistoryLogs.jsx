@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Clock, Eye, Filter } from 'lucide-react';
 import { attendanceService } from '../../services/attendance.service';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
+import { formatAttendanceTime } from '../../utils/attendanceTime';
 
 export const HistoryLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -234,7 +235,7 @@ export const HistoryLogs = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <Clock size={13} style={{ color: 'var(--primary)' }} />
                       <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>
-                        {ses.clockIn} → {ses.clockOut || <span style={{ color: 'var(--danger)', fontWeight: '700' }}>Missing</span>}
+                        {formatAttendanceTime(ses.clockIn)} → {ses.clockOut ? formatAttendanceTime(ses.clockOut) : <span style={{ color: 'var(--danger)', fontWeight: '700' }}>Missing</span>}
                       </span>
                     </div>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>
@@ -342,8 +343,7 @@ export const HistoryLogs = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                       {log.sessions.map((s, i) => (
                         <div key={i} style={{ fontSize: '12px' }}>
-                          <span style={{ fontWeight: '600' }}>{s.clockIn} → {s.clockOut || <span style={{ color: 'var(--danger)' }}>Missing</span>}</span>
-                          <span style={{ color: 'var(--text-muted)', marginLeft: '6px' }}>({s.duration})</span>
+                          <span style={{ fontWeight: '600' }}>{formatAttendanceTime(s.clockIn)} → {s.clockOut ? formatAttendanceTime(s.clockOut) : <span style={{ color: 'var(--danger)' }}>Missing</span>}</span>
                         </div>
                       ))}
                     </div>
@@ -361,7 +361,7 @@ export const HistoryLogs = () => {
                       <span style={{ fontWeight: '700', color: log.correction.status === 'Approved' ? 'var(--success)' : 'var(--warning)' }}>
                         Correction: {log.correction.status}
                       </span>
-                      <span style={{ color: 'var(--text-muted)' }}>Req Out: {log.correction.proposedClockOut}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>Req Out: {formatAttendanceTime(log.correction.proposedClockOut)}</span>
                     </div>
                   ) : (
                     <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>No Correction</span>
@@ -415,11 +415,11 @@ export const HistoryLogs = () => {
                 <span style={{ fontWeight: '700', color: 'var(--primary)' }}>Punch Correction Audit History</span>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Original Clock Out:</span>
-                  <span style={{ fontWeight: '600' }}>{viewDetailsLog.correction.originalClockOut}</span>
+                  <span style={{ fontWeight: '600' }}>{formatAttendanceTime(viewDetailsLog.correction.originalClockOut)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Corrected Time:</span>
-                  <span style={{ fontWeight: '600', color: 'var(--success)' }}>{viewDetailsLog.correction.proposedClockOut}</span>
+                  <span style={{ fontWeight: '600', color: 'var(--success)' }}>{formatAttendanceTime(viewDetailsLog.correction.proposedClockOut)}</span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Reason:</span>
@@ -450,7 +450,7 @@ export const HistoryLogs = () => {
         {selectedCorrectionLog && (
           <form onSubmit={handleSubmitCorrection} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div style={{ fontSize: '13px', color: 'var(--text-secondary)', backgroundColor: 'var(--surface-2)', padding: '10px 12px', borderRadius: '10px' }}>
-              Date: <strong>{selectedCorrectionLog.date}</strong> | Session: <strong>{selectedCorrectionLog.sessions[0]?.clockIn} → Missing</strong>
+              Date: <strong>{selectedCorrectionLog.date}</strong> | Session: <strong>{formatAttendanceTime(selectedCorrectionLog.sessions[0]?.clockIn)} → Missing</strong>
             </div>
 
             <div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Banknote, CalendarCheck2, CheckCircle2, Clock3, History, Search, Users, Wallet } from 'lucide-react';
+import { ArrowUpRight, Banknote, CalendarCheck2, CheckCircle2, Clock3, History, RefreshCcw, Search, Users, Wallet, X } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { dailyWageService } from '../../services/dailyWage.service';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
@@ -108,17 +108,27 @@ export const DailyWagePage = ({ mode = 'overview' }) => {
       .map((e) => [e.branchId, e.branchName || 'Branch'])).entries()],
     [data],
   );
+  const hasActiveFilters = Boolean(query.trim()) || branch !== 'All'
+    || (mode === 'history' && Boolean(from || to));
+  const resetFilters = () => {
+    setQuery('');
+    setBranch('All');
+    if (mode === 'history') {
+      setFrom('');
+      setTo('');
+    }
+  };
 
   if (!canView) return <div className="dw-page"><Empty text="You need Payroll View permission to see wage accounts."/></div>;
 
   return (
-    <main className="dw-page dashboard-page">
+    <main className={`dw-page dashboard-page${mode === 'overview' ? ' dw-daily-wages' : ' dw-ledger-page'}`}>
       <header className="dw-header dashboard-heading">
         <div className="dashboard-heading-copy">
           <h1>{mode === 'overview' ? 'Daily Wages' : mode === 'history' ? 'Daily Wage History' : 'Wage Payments'}</h1>
         </div>
-        <button className="dw-button" type="button" onClick={() => setRefreshToken((v) => v + 1)}>
-          <Clock3 size={16}/> Refresh
+        <button className="dw-button" type="button" disabled={loading} onClick={() => setRefreshToken((v) => v + 1)}>
+          <RefreshCcw size={16} aria-hidden="true"/> {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </header>
       <DailyWageNav selected={mode}/>
@@ -147,25 +157,39 @@ export const DailyWagePage = ({ mode = 'overview' }) => {
             <h2 id="dw-records-heading">{mode === 'overview' ? 'Employee Wage Accounts' : mode === 'history' ? 'Posted Daily Earnings' : 'Wage Payment Transactions'}</h2>
 
           </div>
-          <span>{loading || error ? '—' : items.length} records</span>
+          <span role="status" aria-live="polite">{loading || error ? '—' : items.length} {mode === 'overview' ? 'staff' : 'records'}</span>
         </div>
-        <div className="dw-toolbar">
-          <label className="dw-search"><Search size={17}/>
+        <div className="dw-toolbar" aria-label="Payroll record filters">
+          <label className="dw-search"><Search size={17} aria-hidden="true"/>
             <input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search staff or records" aria-label="Search Daily Wages"/>
           </label>
           <select aria-label="Filter by branch" value={branch} onChange={(event) => setBranch(event.target.value)}>
             <option value="All">All Branches</option>
             {branches.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
           </select>
+          {hasActiveFilters && (
+            <button type="button" className="dw-button dw-clear-filters" onClick={resetFilters}>
+              <X size={15} aria-hidden="true" /> Clear Filters
+            </button>
+          )}
           {mode === 'history' && (
             <>
-              <label>From <input type="date" max={to || undefined} value={from} onChange={(event) => setFrom(event.target.value)}/></label>
-              <label>To <input type="date" min={from || undefined} value={to} onChange={(event) => setTo(event.target.value)}/></label>
+              <label>From <input type="date" aria-label="History from date" max={to || undefined} value={from} onChange={(event) => setFrom(event.target.value)}/></label>
+              <label>To <input type="date" aria-label="History to date" min={from || undefined} value={to} onChange={(event) => setTo(event.target.value)}/></label>
             </>
           )}
         </div>
         {loading ? <Empty text="Loading wage records…"/> : error ? <Empty text="Unable to display wage records."/> : !items.length ? (
-          <Empty text="No wage entries match the selected filters."/>
+          <div className="dw-empty">
+            {hasActiveFilters ? 'No records match the selected filters.' : mode === 'overview'
+              ? 'No wage accounts available.' : mode === 'history'
+                ? 'No daily earnings recorded.' : 'No wage payment transactions.'}
+            {hasActiveFilters && (
+              <button type="button" className="dw-button dw-clear-filters" onClick={resetFilters}>
+                <X size={15} aria-hidden="true" /> Clear Filters
+              </button>
+            )}
+          </div>
         ) : (
           <div className="dw-table-scroll">
             {mode === 'overview' ? (
@@ -175,12 +199,12 @@ export const DailyWagePage = ({ mode = 'overview' }) => {
                   <tr key={w.id}>
                     <td data-label="Employee"><strong>{w.name}</strong><small>{w.employeeCode} · {w.designation || 'Staff'}</small></td>
                     <td data-label="Daily Rate">{w.dailyRate ? rupees(w.dailyRate) : <span className="dw-pending">Set Rate</span>}</td>
-                    <td data-label="Attendance"><span className={w.today.finalized ? 'dw-ok' : 'dw-pending'}>{w.today.finalized ? w.today.attendance : 'Pending'}</span></td>
+                    <td data-label="Today's Attendance"><span className={w.today.finalized ? 'dw-ok' : 'dw-pending'}>{w.today.finalized ? w.today.attendance : 'Pending'}</span></td>
                     <td data-label="Today's Wage">{rupees(w.today.totalWage)}</td>
                     <td data-label="Extra">{rupees(w.today.extraEarnings)}</td>
-                    <td data-label="Unpaid"><strong>{rupees(w.currentBalance)}</strong></td>
+                    <td data-label="Unpaid Balance"><strong>{rupees(w.currentBalance)}</strong></td>
                     <td data-label="Last Paid">{w.lastPaymentDate || '—'}</td>
-                    <td data-label="Action"><button className="dw-button is-primary" onClick={() => navigate(`/staff/${w.id}/wages`)} type="button">Wage Account </button></td>
+                    <td data-label="Action"><button className="dw-button is-primary dw-account-action" onClick={() => navigate(`/staff/${w.id}/wages`)} type="button">Wage Account <ArrowUpRight size={16} aria-hidden="true" /></button></td>
                   </tr>
                 ))}</tbody>
               </table>
@@ -190,9 +214,9 @@ export const DailyWagePage = ({ mode = 'overview' }) => {
                 <tbody>{items.map((e) => <tr key={e.id}>
                   <td data-label="Date">{e.date}</td><td data-label="Employee"><button type="button" className="dw-text-link" onClick={() => navigate(`/staff/${e.employeeId}/wages`)}>{e.employeeName}</button></td>
                   <td data-label="Attendance">{e.attendance}</td><td data-label="Applied Rate">{rupees(e.dailyRate)}</td>
-                  <td data-label="Base">{rupees(e.baseWage)}</td><td data-label="Extras">{rupees(e.extras)}</td>
+                  <td data-label="Base Wage">{rupees(e.baseWage)}</td><td data-label="Extras">{rupees(e.extras)}</td>
                   <td data-label="Adjustments">{rupees(e.adjustments)}</td><td data-label="Total"><strong>{rupees(e.total)}</strong></td>
-                  <td data-label="Payment"><span className={e.paymentStatus === 'Paid' ? 'dw-ok' : 'dw-pending'}>{e.paymentStatus || 'Unpaid'}</span></td>
+                  <td data-label="Payment Status"><span className={e.paymentStatus === 'Paid' ? 'dw-ok' : 'dw-pending'}>{e.paymentStatus || 'Unpaid'}</span></td>
                 </tr>)}</tbody>
               </table>
             ) : (
@@ -202,7 +226,7 @@ export const DailyWagePage = ({ mode = 'overview' }) => {
                   <td data-label="Date">{p.date}</td><td data-label="Employee">{p.employeeName}</td><td data-label="Amount"><strong>{rupees(p.amount)}</strong></td>
                   <td data-label="Method">{p.method}</td><td data-label="Reference">{p.reference || '—'}</td>
                   <td data-label="Status"><span className={p.reversed ? 'dw-pending' : 'dw-ok'}>{p.reversed ? 'Reversed' : 'Paid'}</span></td>
-                  <td data-label="Account"><button type="button" className="dw-text-link" onClick={() => navigate(`/staff/${p.employeeId}/wages`)}>View Account</button></td>
+                  <td data-label="Wage Account"><button type="button" className="dw-text-link" onClick={() => navigate(`/staff/${p.employeeId}/wages`)}>View Account</button></td>
                 </tr>)}</tbody>
               </table>
             )}

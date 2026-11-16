@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useState } from 'react';
 import { Download, FileText, Share2 } from 'lucide-react';
 import { ResponsiveModalSheet } from '../common/ResponsiveModalSheet';
@@ -24,7 +25,7 @@ export function EWayBillPdfShareSheet({ document, onClose }) {
   const [notice, setNotice] = useState('');
 
   const id = document?.id;
-  const documentNo = document?.documentNo || id || 'E-Way Bill';
+  const documentNo = recordLabel(document?.documentNo || id, 'E-Way Bill');
 
   useEffect(() => {
     if (!id) return undefined;

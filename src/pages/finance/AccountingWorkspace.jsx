@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BookOpen, Building2, RefreshCw } from 'lucide-react';
 import { financeService } from '../../services/finance.service';
@@ -41,11 +42,11 @@ function CoverageWarning({ value }) {
   </p>;
 }
 function Table({ columns, rows, empty = 'No records available.' }) {
-  return <div className="gl-table-wrap"><table><thead><tr>
+  return <div className="gl-table-wrap"><table className="finance-responsive-table" role="table"><thead><tr>
     {columns.map(x => <th key={x}>{x}</th>)}
     </tr></thead><tbody>
     {rows.length ? rows.map((row, i) => <tr key={row.id || row.code || i}>
-      {row.cells.map((cell, j) => <td key={j}>{cell}</td>)}
+      {row.cells.map((cell, j) => <td key={j} data-label={columns[j]}><span>{cell}</span></td>)}
     </tr>) : <tr><td colSpan={columns.length}>{empty}</td></tr>}
     </tbody></table></div>;
 }
@@ -159,10 +160,10 @@ export default function AccountingWorkspace() {
   };
   if (!canRead) return <p role="alert">Accounting reports require finance view permission.</p>;
   const statement = reports[tab] || {};
-  return <main className="gl-workspace" aria-label="Workshop double-entry accounting">
+  return <section className="gl-workspace" aria-label="Workshop double-entry accounting">
     <header className="gl-heading">
-      <div><h1><BookOpen size={23}/> Accounting Reports</h1>
-        <p>Review double-entry records, business statements and bank reconciliation. Historical coverage warnings are shown separately.</p>
+      <div><h1>Accounting Reports</h1>
+        <p>Journals, financial statements and bank reconciliation.</p>
       </div>
       <button type="button" onClick={reload} disabled={loading || saving}>
         <RefreshCw size={16}/> Refresh
@@ -181,11 +182,10 @@ export default function AccountingWorkspace() {
     </nav>
     {tab === 'chart' && <section className="gl-panel">
       <h2>Chart of Accounts</h2>
-      <p>Your accounting account list. Cash and bank balances are controlled by posted money transactions.</p>
       <Table columns={['Code', 'Account', 'Type', 'Status']}
         rows={chart.map(r => ({
           code: r.code,
-          cells: [r.code, r.name, r.type, r.isActive ? 'Active' : 'Inactive'],
+          cells: [recordLabel(r.code), r.name, r.type, r.isActive ? 'Active' : 'Inactive'],
         }))}/>
     </section>}
     {tab === 'journals' && <section className="gl-panel">
@@ -200,7 +200,7 @@ export default function AccountingWorkspace() {
           <label>Account<select required value={row.code} disabled={saving}
             onChange={e => setLines(v => v.map((r, i) => i === index ? { ...r, code: e.target.value } : r))}>
             <option value="">Select account</option>
-            {nonCash.map(a => <option key={a.id} value={a.code}>{a.code} · {a.name}</option>)}
+            {nonCash.map(a => <option key={a.id} value={a.code}>{recordLabel(a.code)} · {a.name}</option>)}
           </select></label>
           <label>Debit<input inputMode="decimal" disabled={saving} value={row.debit}
             onChange={e => setLines(v => v.map((r, i) => i === index ?
@@ -221,9 +221,9 @@ export default function AccountingWorkspace() {
       <Table columns={['Date', 'Source', 'Memo', 'Debit / Credit']}
         rows={(journals.journals || []).map(r => ({
           id: r.id,
-          cells: [r.postedAt.slice(0, 10), r.kind, r.memo,
+          cells: [r.postedAt.slice(0, 10), r.kind, recordLabel(r.memo),
             (r.lines || []).map((line, i) => <span key={i} className="gl-journal-detail">
-              {line.code}: Dr {money(line.debit)} / Cr {money(line.credit)}
+              {recordLabel(line.code)}: Dr {money(line.debit)} / Cr {money(line.credit)}
             </span>)],
         }))}/>
     </section>}
@@ -241,7 +241,7 @@ export default function AccountingWorkspace() {
         <div className="gl-totals">Total Debit {money(statement.totalDebit)} · Total Credit {money(statement.totalCredit)}</div>
         <Table columns={['Code', 'Account', 'Debit balance', 'Credit balance']}
           rows={(statement.accounts || []).map(row => ({
-            code: row.code, cells: [row.code, row.name,
+            code: row.code, cells: [recordLabel(row.code), row.name,
               money(row.debitBalance), money(row.creditBalance)],
           }))}/>
       </>}
@@ -265,7 +265,7 @@ export default function AccountingWorkspace() {
         <p>Balance difference: {money(statement.difference)} · {statement.isBalanced ? 'Balanced' : 'Requires audit'}</p>
         <Table columns={['Code', 'Account', 'Type', 'Balance']}
           rows={(statement.accounts || []).map(r => ({
-            code: r.code, cells: [r.code, r.name, r.type, money(r.balance)],
+            code: r.code, cells: [recordLabel(r.code), r.name, r.type, money(r.balance)],
           }))}/>
       </>}
     </section>}
@@ -294,13 +294,13 @@ export default function AccountingWorkspace() {
           Load uncleared ledger entries
         </button>
         {candidates.length > 0 && <div className="gl-table-wrap">
-          <table><thead><tr><th>Cleared</th><th>Date</th><th>Reference</th><th>Amount</th></tr></thead>
+          <table className="finance-responsive-table" role="table"><thead><tr><th>Cleared</th><th>Date</th><th>Reference</th><th>Amount</th></tr></thead>
           <tbody>{candidates.map(row => <tr key={row.id}>
-            <td><input type="checkbox" aria-label={'Clear ledger entry ' + row.id}
+            <td><input type="checkbox" aria-label={'Clear ledger entry ' + recordLabel(row.reference || row.id)}
               checked={selected.includes(row.id)}
               onChange={e => setSelected(v => e.target.checked
                 ? [...v, row.id] : v.filter(id => id !== row.id))}/></td>
-            <td>{row.date}</td><td>{row.reference || row.type}</td><td>{money(row.amount)}</td>
+            <td>{row.date}</td><td>{recordLabel(row.reference || row.id, row.type)}</td><td>{money(row.amount)}</td>
           </tr>)}</tbody></table>
         </div>}
         <button type="submit" disabled={saving || !selected.length}>
@@ -316,5 +316,5 @@ export default function AccountingWorkspace() {
           ],
         }))}/>
     </section>}
-  </main>;
+  </section>;
 }

@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useMemo, useState } from "react";
 import { Search, AlertCircle, RefreshCw } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -238,7 +239,7 @@ export function Reports() {
     if ((tab === 'overview' || tab === 'payments') && availability.payments) {
       append('CUSTOMER PAYMENTS', ['Reference', 'Date', 'Customer', 'Invoice', 'Method', 'Direction', 'Status', 'Amount'],
         report.paymentRows.map((item) => [
-          item.reference || item.id, reportDate(item, 'payment'), item.customerName,
+          recordLabel(item.receiptNo || item.reference || item.id), reportDate(item, 'payment'), item.customerName,
           item.invoiceNo, item.method, item.direction || 'IN', item.status,
           (String(item.direction || 'IN').toUpperCase() === 'OUT' ? -1 : 1) * Number(item.amount || 0),
         ]));

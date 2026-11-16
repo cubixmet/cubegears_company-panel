@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { PackagePlus, Search, ReceiptText, Wallet } from 'lucide-react';
 import { ResponsiveModalSheet } from '../common/ResponsiveModalSheet';
+import SupplierSelectField from '../common/SupplierSelectField';
 import '../../styles/stock-purchase-start.css';
 
 const positiveQuantity = value => /^\d+(?:\.\d{1,2})?$/.test(String(value).trim()) &&
@@ -35,8 +36,9 @@ export default function StockPurchaseStartDialog({
       .some(value => String(value || '').toLowerCase().includes(needle))).slice(0, 14);
   }, [items, search]);
 
-  const selectedSupplier = suppliers.find(row => String(row.id) === supplierId);
-  const valid = Boolean(selected && selectedSupplier && positiveQuantity(quantity) && canPurchase);
+  // The shared supplier selector supports creating a supplier immediately.
+  // A newly created supplier may not be present in the parent's cached array.
+  const valid = Boolean(selected && supplierId && positiveQuantity(quantity) && canPurchase);
 
   const chooseItem = item => {
     setPartId(String(item.id));
@@ -92,13 +94,8 @@ export default function StockPurchaseStartDialog({
         <button type="button" onClick={() => { setPartId(''); setSearch(''); setSupplierId(''); }}>Change</button>
       </div>}
       <div className="cg-stock-purchase-fields">
-        <label>Supplier *
-          <select value={supplierId} required onChange={event => setSupplierId(event.target.value)}>
-            <option value="">Select supplier</option>
-            {suppliers.filter(row => row.status !== 'Inactive' && row.is_active !== false).map(row =>
-              <option key={row.id} value={row.id}>{row.name}</option>)}
-          </select>
-        </label>
+        <SupplierSelectField label="Supplier" valueMode="id" required
+          value={supplierId} onChange={setSupplierId} disabled={!canPurchase}/>
         <label>Purchase Quantity *
           <input type="number" required min="0.01" max="999999.99" step="0.01"
             inputMode="decimal" value={quantity}
@@ -106,7 +103,7 @@ export default function StockPurchaseStartDialog({
         </label>
       </div>
       {!suppliers.length && <p role="status" className="cg-stock-purchase-help">
-        No suppliers found. <Link to="/suppliers" onClick={onClose}>Create or select a supplier</Link> first.
+        No suppliers loaded in this list. Use Add New Supplier above to create one without leaving the purchase.
       </p>}
       {selected && !linkedSupplierId(selected) && <p className="cg-stock-purchase-help">
         This catalog part has no linked supplier. The first posted purchase will associate it

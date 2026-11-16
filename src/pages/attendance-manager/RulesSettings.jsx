@@ -245,7 +245,6 @@ export const RulesSettings = () => {
         {multiMode && (
           <label className="attendance-rule-field">
             <span>Maximum Sessions Per Day</span>
-            <small>0 = unlimited</small>
             <input
               type="number"
               min="0"
@@ -373,28 +372,19 @@ export const RulesSettings = () => {
             <div><h3>Punch Location</h3></div>
           </div>
           <div className="attendance-punch-location-settings attendance-location-from-onboarding">
-            <p className="attendance-location-owner-note">
-              Punch location is taken from your saved workshop location in
-              <strong> Onboarding → Main branch &amp; location</strong>.
-              Latitude, longitude and radius are not entered again here.
-            </p>
             {rules.punchLocationMode === 'workshop' &&
               rules.workshopLatitude != null && rules.workshopLongitude != null ? (
                 <div className="attendance-location-readonly" role="status">
-                  <strong>Workshop radius active</strong>
-                  <span>Latitude: {rules.workshopLatitude}</span>
-                  <span>Longitude: {rules.workshopLongitude}</span>
-                  <span>Allowed radius: {rules.punchRadiusMeters} metres</span>
-                  <small>Staff need precise device GPS within the configured radius to punch in or out.</small>
+                  <strong>Workshop GPS active</strong>
+                  <span>Radius: {rules.punchRadiusMeters} m</span>
                 </div>
               ) : (
                 <div className="attendance-location-readonly" role="status">
                   <strong>Workshop GPS not configured</strong>
-                  <small>Ask the workshop owner to capture and save the workshop location in Onboarding. Existing legacy attendance rules remain unchanged until it is saved.</small>
                 </div>
               )}
             <a href="/onboarding" className="attendance-location-setup-link">
-              Open Workshop Setup (owner)
+              Open Workshop Setup
             </a>
           </div>
         </section>

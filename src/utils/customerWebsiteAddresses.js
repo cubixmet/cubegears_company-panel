@@ -10,6 +10,18 @@ export function isLocalCustomerWebsiteDevelopment(isDev, hostname) {
   ));
 }
 
+export function localCustomerWebsiteOrigin(value) {
+  if (!value) return '';
+  try {
+    const url = new URL(String(value).trim());
+    if (url.protocol === 'http:' && url.port !== '0' && ['localhost', '127.0.0.1'].includes(url.hostname) &&
+        !url.username && !url.password && !url.search && !url.hash && url.pathname === '/') {
+      return url.origin;
+    }
+  } catch { /* An invalid origin cannot be used for local links. */ }
+  return '';
+}
+
 export function customerWebsiteAddresses({
   subdomain = '',
   subdomainLabel = '',
@@ -20,20 +32,9 @@ export function customerWebsiteAddresses({
   const label = String(subdomainLabel).trim();
   // Local Customer Website origin comes from Vite development configuration,
   // never from a fixed runtime port or an arbitrary remote hostname.
-  let localPort = null;
-  if (localDevelopment && localOrigin) {
-    try {
-      const url = new URL(String(localOrigin));
-      if (url.protocol === 'http:' &&
-          ['localhost', '127.0.0.1'].includes(url.hostname) &&
-          !url.username && !url.password && !url.search && !url.hash &&
-          url.pathname === '/') {
-        localPort = url.port;
-      }
-    } catch { /* Bad or missing development config has no local preview. */ }
-  }
-  const localSuffix = localPort !== null
-    ? '.localhost' + (localPort ? ':' + localPort : '') : '';
+  const origin = localDevelopment ? localCustomerWebsiteOrigin(localOrigin) : '';
+  const localPort = origin ? new URL(origin).port : '';
+  const localSuffix = origin ? '.localhost' + (localPort ? ':' + localPort : '') : '';
   const localUrl = localSuffix && validLabel.test(label)
     ? 'http://' + label + localSuffix + '/' : '';
   const productionHost = subdomain;

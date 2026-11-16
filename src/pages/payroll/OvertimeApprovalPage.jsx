@@ -1,5 +1,6 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, CheckCircle2, Clock3, Search, ShieldCheck, Users, XCircle } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock3, RefreshCcw, Search, ShieldCheck, X, XCircle } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
 import { appConfirm } from '../../components/common/appDialogs';
@@ -86,6 +87,18 @@ export function OvertimeApprovalPage() {
   ].filter(value => Number.isInteger(value) && value >= 2000 && value <= 2100))]
     .sort((a,b)=>b-a),[requests,year]);
 
+  const hasActiveFilters = Boolean(query.trim())
+    || [month, year, branch, staff].some(value => value !== 'All');
+
+  const clearFilters = () => {
+    setQuery('');
+    setParams(current => {
+      const next = new URLSearchParams(current);
+      ['month', 'year', 'branch', 'staff'].forEach(field => next.set(field, 'All'));
+      return next;
+    });
+  };
+
   const setFilter = (field,value) => {
     setParams(old => {
       const next = new URLSearchParams(old);
@@ -168,7 +181,7 @@ export function OvertimeApprovalPage() {
           <h1>Overtime Approvals</h1>
         </div>
         <button className="dw-button" type="button" onClick={() => setRefresh(v=>v+1)} disabled={loading}>
-          <Clock3 size={17} aria-hidden="true"/> Refresh
+          <RefreshCcw size={17} aria-hidden="true"/> {loading ? 'Refreshing…' : 'Refresh'}
         </button>
       </header>
       <DailyWageNav selected="overtime"/>
@@ -185,7 +198,7 @@ export function OvertimeApprovalPage() {
           <section className="dw-card" aria-labelledby="dw-overtime-title">
             <div className="dw-card-head">
               <div><h2 id="dw-overtime-title">Pending Requests</h2></div>
-              <span>{loading || loadError ? '—' : rows.length} pending · {loading || loadError ? '—' : rows.reduce((sum,row)=>sum+overtimeHours(row),0).toFixed(2)} hours</span>
+              <span role="status" aria-live="polite">{loading || loadError ? '—' : rows.length} pending · {loading || loadError ? '—' : rows.reduce((sum,row)=>sum+overtimeHours(row),0).toFixed(2)} hours</span>
             </div>
             <div className="dw-overtime-filters">
               <label>Month
@@ -222,15 +235,26 @@ export function OvertimeApprovalPage() {
                     aria-label="Search overtime requests" placeholder="Staff, date or reason"/>
                 </span>
               </label>
+              {hasActiveFilters && (
+                <div className="dw-overtime-filter-actions">
+                  <button className="dw-button dw-clear-filters" type="button" onClick={clearFilters}>
+                    <X size={15} aria-hidden="true"/> Clear Filters
+                  </button>
+                </div>
+              )}
             </div>
             {loading ? <p className="dw-empty" role="status">Loading pending overtime…</p> :
-              !rows.length ? <p className="dw-empty">No pending overtime requests for the selected filters.</p> :
+              loadError ? <p className="dw-empty">Unable to display pending overtime. Use Retry above.</p> :
+              !rows.length ? <div className="dw-empty">
+                No pending overtime requests for the selected filters.
+                {hasActiveFilters && <button type="button" className="dw-button dw-clear-filters" onClick={clearFilters}><X size={15} aria-hidden="true"/> Clear Filters</button>}
+              </div> :
               <div className="dw-overtime-list">
                 {rows.map(row=>(
                   <article className="dw-overtime-card" key={row.id}>
                     <div className="dw-overtime-card-head">
                       <div><strong>{row.staffName || 'Staff'}</strong>
-                        <small>{row.staffId || 'Employee'} · {row.branchName || row.branch || 'Workshop'}</small></div>
+                        <small>{recordLabel(row.staffId, 'Employee')} · {row.branchName || row.branch || 'Workshop'}</small></div>
                       <span className="dw-pending">Pending</span>
                     </div>
                     <div className="dw-overtime-facts">

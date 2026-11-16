@@ -1,0 +1,224 @@
+/* Supplier profile: a single active tab, accessible deep-links, compact UI. */
+.cg-suppliers-ui .cg-supplier-details-tabs {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
+  padding: 5px 0 10px;
+  margin: 0 0 13px;
+  border-bottom: 1px solid var(--border, #dce3ea);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.cg-suppliers-ui .cg-supplier-details-tabs > button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 7px;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 0;
+  padding: 9px 13px;
+  border: 1px solid var(--border, #dce3ea);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: var(--text-secondary, #64748b);
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+.cg-suppliers-ui .cg-supplier-details-tabs > button:hover:not(.is-active) {
+  background: var(--surface-2, #f3f6fa);
+  color: var(--text-primary, #172033);
+}
+.cg-suppliers-ui .cg-supplier-details-tabs > button.is-active {
+  color: var(--primary, #4f46e5);
+  background: var(--primary-soft, #eef2ff);
+  border-color: var(--primary, #4f46e5);
+  font-weight: 750;
+}
+.cg-suppliers-ui .cg-supplier-details-tabs > button:focus-visible {
+  outline: 2px solid var(--primary, #4f46e5);
+  outline-offset: 2px;
+}
+.cg-suppliers-ui .cg-supplier-tab-panel {
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
+}
+.cg-suppliers-ui .cg-supplier-tab-panel[hidden],
+.cg-suppliers-ui .cg-supplier-purchase-card[hidden] {
+  display: none !important;
+}
+/* Suggestions from the live Django stock directory. */
+.cg-suppliers-ui .cg-supplier-product-search {
+  box-sizing: border-box;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+}
+.cg-suppliers-ui .cg-supplier-product-search > label {
+  color: var(--text-secondary, #52617a);
+  font-size: 13px;
+  font-weight: 650;
+}
+.cg-suppliers-ui .cg-supplier-product-search > small {
+  font-size: 12px;
+  color: var(--text-secondary, #52617a);
+}
+.cg-suppliers-ui .cg-supplier-product-results {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  max-height: 250px;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--border, #dce3ea);
+  border-radius: 10px;
+  background: var(--surface-2, #f8fafc);
+  overscroll-behavior: contain;
+}
+.cg-suppliers-ui .cg-supplier-product-results > button {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 3px;
+  min-width: 0;
+  min-height: 52px;
+  padding: 9px 11px;
+  border: 1px solid var(--border, #dce3ea);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: var(--text-primary, #172033);
+  text-align: left;
+  cursor: pointer;
+}
+.cg-suppliers-ui .cg-supplier-product-results > button:hover,
+.cg-suppliers-ui .cg-supplier-product-results > button.is-selected {
+  border-color: var(--primary, #4f46e5);
+  background: var(--primary-soft, #eef2ff);
+}
+.cg-suppliers-ui .cg-supplier-product-results > button:focus-visible {
+  outline: 2px solid var(--primary, #4f46e5);
+  outline-offset: 1px;
+}
+.cg-suppliers-ui .cg-supplier-product-results strong {
+  display: block;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 650;
+}
+.cg-suppliers-ui .cg-supplier-product-results small {
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-secondary, #52617a);
+}
+.cg-suppliers-ui .cg-supplier-products-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 11px;
+  padding: 0 11px;
+  border: 1px solid var(--border, #dce3ea);
+  border-radius: 9px;
+  background: var(--surface-2, #f8fafc);
+}
+.cg-suppliers-ui .cg-supplier-products-search input {
+  box-sizing: border-box;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary, #172033);
+  font-size: 16px;
+}
+.cg-suppliers-ui .cg-supplier-products-search:focus-within {
+  border-color: var(--primary, #4f46e5);
+  outline: 1px solid var(--primary, #4f46e5);
+}
+.cg-suppliers-ui .cg-supplier-details-tabs + .cg-supplier-page-error {margin-top: 4px}
+@media (max-width: 670px) {
+  .cg-suppliers-ui .cg-supplier-details-tabs {
+    gap: 6px;
+    margin-bottom: 10px;
+    padding: 3px 1px 10px;
+  }
+  .cg-suppliers-ui .cg-supplier-details-tabs > button {
+    padding: 9px 11px;
+    min-height: 44px;
+    font-size: 12px;
+  }
+  .cg-suppliers-ui .cg-supplier-product-results {
+    grid-template-columns: minmax(0, 1fr);
+    max-height: 220px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cg-suppliers-ui .cg-supplier-details-tabs > button { transition: none; }
+}
+
+
+/* Compact balances on Overview, from posted supplier-finance records. */
+.cg-suppliers-ui .cg-supplier-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  width: 100%;
+  margin: 14px 0;
+}
+.cg-suppliers-ui .cg-supplier-summary-card {
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 78px;
+  padding: 12px;
+  border: 1px solid var(--border, #dce3ea);
+  border-radius: 10px;
+  background: var(--surface-2, #f8fafc);
+}
+.cg-suppliers-ui .cg-supplier-summary-card > span {
+  color: var(--text-secondary, #64748b);
+  font-size: 12px;
+  font-weight: 550;
+}
+.cg-suppliers-ui .cg-supplier-summary-card > strong {
+  color: var(--text-primary, #172033);
+  font-size: clamp(15px, 1.4vw, 19px);
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.cg-suppliers-ui .cg-supplier-search-feedback {
+  margin: 0 0 9px;
+  font-size: 12px;
+  color: var(--text-secondary, #64748b);
+}
+@media (max-width: 900px) {
+  .cg-suppliers-ui .cg-supplier-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 440px) {
+  .cg-suppliers-ui .cg-supplier-summary-grid { gap: 7px; }
+  .cg-suppliers-ui .cg-supplier-summary-card { padding: 10px; min-height: 70px; }
+  .cg-suppliers-ui .cg-supplier-summary-card > strong { font-size: 15px; }
+}

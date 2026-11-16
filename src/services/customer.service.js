@@ -26,6 +26,12 @@ const toCustomerPayload = (data = {}) => {
     const value = String(payload.customerType || '').toLowerCase();
     payload.customerType = value === 'individual' ? 'individual' : 'business';
   }
+  // Single customer Phone is also the saved manual WhatsApp contact.
+  // Never start an automatic notification or copy an old, separate number.
+  // Partial updates without a phone must preserve the existing number.
+  if (Object.prototype.hasOwnProperty.call(payload, 'phone')) {
+    payload.whatsapp = String(payload.phone || '').trim();
+  }
   // Messaging is managed by the separate consent/integration workflow.
   delete payload.sendWhatsappUpdate;
   return payload;

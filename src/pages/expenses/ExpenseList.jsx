@@ -1,8 +1,9 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { appConfirm, appPrompt } from '../../components/common/appDialogs';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
 import { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { BarChart3, Calendar, CheckCircle2, CircleDollarSign, Edit3, FileText, IndianRupee, Layers3, Receipt, Trash2, Link2, WalletCards } from "lucide-react";
 import { expenseService } from '../../services/expense.service';
 import { ExpenseBudgetPanel } from '../../components/expenses/ExpenseBudgetPanel';
@@ -496,7 +497,7 @@ export const ExpenseList = () => {
   };
 
   const removeExpense = async (expense) => {
-    if (!canDelete || !await appConfirm(`Delete expense ${expense.id}?`)) return;
+    if (!canDelete || !await appConfirm(`Delete expense ${recordLabel(expense.id)}?`)) return;
     setActionError('');
     try {
       await expenseService.deleteExpense(expense.id);
@@ -558,7 +559,7 @@ export const ExpenseList = () => {
         {actionError ? <div className="expense-alert" role="alert">{actionError}</div> : null}
         <header className="expense-detail-header">
           <div>
-            <span>{selectedExpense.id}</span>
+            <span>{recordLabel(selectedExpense.id)}</span>
             <h1>{selectedExpense.title}</h1>
             <p>{selectedExpense.category} · {selectedExpense.expenseDate}</p>
           </div>
@@ -644,7 +645,7 @@ export const ExpenseList = () => {
                 <div key={entry.id} className="expense-settlement-record">
                   <span>{new Date(entry.postedAt).toLocaleDateString('en-IN')} · {entry.accountName}</span>
                   <strong>{money.format(Number(entry.amount))}</strong>
-                  <small>{entry.method} · {entry.reference || 'No reference'}</small>
+                  <small>{entry.method} · {recordLabel(entry.reference || entry.id, 'No reference')}</small>
                   <small>{entry.reversedAt ? `Reversed: ${entry.reversalReason || 'Audited correction'}` : 'Posted'}</small>
                   {canEdit && !entry.reversedAt && (
                     <button type="button" disabled={submitting} className="is-danger"
@@ -668,7 +669,7 @@ export const ExpenseList = () => {
             </div>
 
             <div className="expense-info-grid">
-              <div><span>Expense ID</span><strong>{selectedExpense.id}</strong></div>
+              <div><span>Expense Reference</span><strong>{recordLabel(selectedExpense.id)}</strong></div>
               <div><span>Category</span><strong>{selectedExpense.category}</strong></div>
               <div><span>Vendor</span><strong>{selectedExpense.vendor}</strong></div>
               <div><span>Payment Method</span><strong>{selectedExpense.paymentMethod}</strong></div>
@@ -713,30 +714,6 @@ export const ExpenseList = () => {
     <div className="expense-management-page cg-expenses">
       {actionError ? <div className="expense-alert" role="alert">{actionError}</div> : null}
       <ExpensesHeader onAdd={()=>navigate('/finance/expenses/new')} />
-      {canViewSupplierAccounting && (
-        <section className="expense-panel" aria-label="Linked supplier purchase accounting">
-          <div className="expense-section-header">
-            <div>
-              <h2>Supplier Purchases &amp; Pending Payments</h2>
-              <p>Parts purchases are recorded against supplier bills and inventory;
-                they are not counted again as operational expense payments.</p>
-            </div>
-          </div>
-          {linkedSupplierError && <p className="expense-alert" role="alert">{linkedSupplierError}</p>}
-          {!linkedSupplierTotals && !linkedSupplierError && <p>Loading linked supplier amounts…</p>}
-          {linkedSupplierTotals && <div className="expense-detail-kpis">
-            <div><span>Posted Supplier Purchases</span>
-              <strong>{money.format(Number(linkedSupplierTotals.supplierPurchases))}</strong></div>
-            <div><span>Supplier Payments Made</span>
-              <strong>{money.format(Number(linkedSupplierTotals.supplierPayments))}</strong></div>
-            <div><span>Credit Outstanding</span>
-              <strong>{money.format(Number(linkedSupplierTotals.supplierOutstanding))}</strong></div>
-          </div>}
-          <p>To record a supplier transaction, open that supplier from the Suppliers directory.</p>
-        </section>
-      )}
-
-
       <ExpenseOverviewStats
         currentMonthTotal={currentMonthRows.reduce((sum,item)=>sum+item.amount,0)}
         approvedTotal={approvedRows.reduce((sum,item)=>sum+item.amount,0)}
@@ -830,6 +807,24 @@ export const ExpenseList = () => {
           </div>
         </div>
       ) : null}
+      {canViewSupplierAccounting && (
+        <details className="expense-panel finance-disclosure">
+          <summary>Supplier purchases &amp; outstanding credit</summary>
+          {linkedSupplierError && <p className="expense-alert" role="alert">{linkedSupplierError}</p>}
+          {!linkedSupplierTotals && !linkedSupplierError && <p>Loading linked supplier amounts…</p>}
+          {linkedSupplierTotals && <div className="expense-detail-kpis">
+            <div><span>Posted Supplier Purchases</span>
+              <strong>{money.format(Number(linkedSupplierTotals.supplierPurchases))}</strong></div>
+            <div><span>Supplier Payments Made</span>
+              <strong>{money.format(Number(linkedSupplierTotals.supplierPayments))}</strong></div>
+            <div><span>Credit Outstanding</span>
+              <strong>{money.format(Number(linkedSupplierTotals.supplierOutstanding))}</strong></div>
+          </div>}
+          <Link to="/suppliers/purchases" className="finance-link-btn">View supplier bills</Link>
+        </details>
+      )}
+
+
     </div>
   );
 };

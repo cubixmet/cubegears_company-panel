@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 
 import { Edit3, Eye, Layers3, Search, Trash2 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -14,7 +15,7 @@ export const ExpenseListView=({expenses,query,onQueryChange,categoryFilter,onCat
     <select aria-label="Filter by expense status" value={statusFilter} onChange={e=>onStatusChange(e.target.value)}><option>All</option><option>Approved</option><option>Paid</option><option>Pending Approval</option><option>Draft</option><option>Rejected</option></select>
   </section>
   <div className="expense-card-grid">{expenses.map(expense=><article key={expense.id} className="expense-card">
-    <div className="expense-card__head"><div><span>{expense.id}</span><strong>{expense.title}</strong></div><b className={'expense-status '+statusClass(expense.status)}>{expense.status}</b></div>
+    <div className="expense-card__head"><div><span>{recordLabel(expense.id)}</span><strong>{expense.title}</strong></div><b className={'expense-status '+statusClass(expense.status)}>{expense.status}</b></div>
     <div className="expense-category-chip"><Layers3 size={12}/>{expense.category}</div>
     <div className="expense-card-values"><div><span>Amount</span><strong>{formatMoney(expense.amount)}</strong></div><div><span>Date</span><strong>{expense.expenseDate}</strong></div><div><span>Payment</span><strong>{expense.paymentMethod}</strong></div></div>
     <div className="expense-vendor"><span>Vendor / Payable To</span><strong>{expense.vendor}</strong></div>

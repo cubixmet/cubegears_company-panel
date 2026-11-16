@@ -65,15 +65,26 @@ export function EstimateCatalogPicker({ kind, value, disabled, onChange, onSelec
 
   const choose = (row) => {
     const name = displayName(row, kind);
+    const rawRate = isPart ? row.tax ?? row.tax_rate : row.taxRate ?? row.tax_rate ?? 18;
+    const classification = isPart
+      ? row.zeroTaxClassification || row.gst_zero_classification || ''
+      : row.taxTreatment || row.tax_treatment || '';
+    const isClassifiedZero = Number(rawRate) === 0
+      && ['exempt', 'nil_rated', 'non_gst', 'out_of_scope'].includes(classification);
+    const rate = rawRate == null || rawRate === '' ? ''
+      : Number.isFinite(Number(rawRate)) ? String(Number(rawRate)) : '';
+    // A legacy 0% Stock record with no classification is not an exemption.
+    // It must be classified explicitly, rather than being silently quoted at 0%.
     onSelect({
       description: name,
       unitPrice: String(priceOf(row, kind)),
       type: isPart ? 'Part' : 'Labour',
       catalogId: row.id,
       catalogCode: isPart ? row.sku || row.barcode || '' : row.code || '',
-      taxRate: isPart
-        ? (Number(row.tax ?? row.tax_rate) > 0 ? String(row.tax ?? row.tax_rate) : '')
-        : String(row.taxRate ?? row.tax_rate ?? 18),
+      taxRate: rate === '0' && !isClassifiedZero ? '' : rate,
+      taxChoice: isClassifiedZero ? 'none' : '',
+      taxTreatment: isClassifiedZero ? classification : 'taxable',
+      taxTreatmentConfirmed: false,
       hsnSac: isPart ? row.hsnCode || row.hsn_code || '' : row.hsnSac || row.hsn_sac || '998714'
     });
     setOpened(false);

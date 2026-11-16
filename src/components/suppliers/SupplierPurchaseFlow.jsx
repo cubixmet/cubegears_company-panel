@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { supplierFinanceSetupRoute } from '../../utils/supplierFinanceReturnRoute';
 import { supplierFinanceService } from '../../services/supplierFinance.service';
 import { stockCatalogService } from '../../services/stockCatalog.service';
 import { invoiceLineTaxChoices, invoiceTotalRateFromChoice, invoiceChoiceFromTotalRate } from '../../utils/invoiceTaxUi';
-import { FINANCE_CHANNELS, accountChannel, financeAccountsForChannel } from '../../utils/financeCashBank';
+import { FINANCE_CHANNELS, accountChannel, defaultFinanceAccountId, financeAccountsForChannel } from '../../utils/financeCashBank';
 import { findPostedSupplierBillReplay } from '../../utils/supplierPurchaseReplay';
+import { purchaseProductOptions } from '../../utils/supplierProductSearch';
+import { normalizeSupplierGstin, supplierGstinError, supplierGstinStateCode } from '../../utils/supplierGstin';
 import '../../styles/supplier-purchase-flow.css';
 
 const rupees = value => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(Number(value || 0));
@@ -32,7 +35,6 @@ const choices = invoiceLineTaxChoices('unknown');
 const totalRate = row => row.gstChoice === 'none' ? 0 :
   row.gstChoice === 'custom' ? n(row.customTax) : n(invoiceTotalRateFromChoice(row.gstChoice));
 // Supplier bills use the same two Cash/Bank channels as Finance Management.
-const accountMethod = account => accountChannel(account?.kind);
 const getErrorText = error => {
   const data = error?.response?.data || error?.data || {};
   if (typeof data === 'string') return data;
@@ -43,21 +45,38 @@ const fieldClass = 'cg-supplier-purchase-input';
 
 export default function SupplierPurchaseFlow({
   supplier, initialPart = null, canPurchase = false, canPay = false,
+  showPurchase = true, showPayments = true,
   bills = [], onChanged = () => {},
 }) {
+  const location = useLocation();
+  const accountSetupRoute = channel => supplierFinanceSetupRoute(location, channel);
   const [stock, setStock] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const resolvedAccountFor = channel => accounts.find(account =>
+    String(account.id) === defaultFinanceAccountId(accounts, channel));
   const accountBalanceShown = account => account.recordedBalance != null
     ? ' · ' + rupees(account.recordedBalance) + ' available'
     : '';
   const [states, setStates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [accountsLoading, setAccountsLoading] = useState(true);
+  const [accountsError, setAccountsError] = useState('');
+  const [settlementError, setSettlementError] = useState('');
+  const [settlementNotice, setSettlementNotice] = useState('');
+  const [cashSetupOpen, setCashSetupOpen] = useState(false);
+  const [cashOpeningBalance, setCashOpeningBalance] = useState('');
+  const [cashSetupError, setCashSetupError] = useState('');
+  const [creatingCashAccount, setCreatingCashAccount] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const errorRef = useRef(null);
   const prefilled = useRef('');
   const [activePart, setActivePart] = useState(emptyPart);
   const [partSearch, setPartSearch] = useState('');
+  const [remoteProducts, setRemoteProducts] = useState([]);
+  const [searchingProducts, setSearchingProducts] = useState(false);
+  const [productSearchError, setProductSearchError] = useState('');
+  const [searchRetry, setSearchRetry] = useState(0);
   const [parts, setParts] = useState([]);
   const [step, setStep] = useState('part');
   const [savingPart, setSavingPart] = useState(false);
@@ -67,7 +86,7 @@ export default function SupplierPurchaseFlow({
   const [invoiceNumber, setInvoiceNumber] = useState(purchaseReference);
   const [placeOfSupply, setPlaceOfSupply] = useState('');
   const [splits, setSplits] = useState([]);
-  const [settlement, setSettlement] = useState({ amount: '', channel: '', accountId: '', reference: '' });
+  const [settlement, setSettlement] = useState({ amount: '', channel: '', reference: '' });
   const [settling, setSettling] = useState(false);
   const settleKey = useRef(requestKey());
 
@@ -75,32 +94,76 @@ export default function SupplierPurchaseFlow({
     if (error) errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [error]);
 
-  const reload = async () => {
-    const [items, moneyAccounts, gst] = await Promise.all([
-      stockCatalogService.getItems(),
-      supplierFinanceService.getAccounts(),
-      supplierFinanceService.getGSTOptions(),
-    ]);
-    setStock(items);
-    setAccounts(moneyAccounts.filter(account => account.isActive &&
-      accountChannel(account.kind)));
-    setStates(gst.states || []);
+  const reloadAccounts = async () => {
+    const moneyAccounts = await supplierFinanceService.getAccounts();
+    setAccounts(moneyAccounts.filter(account => account.isActive && accountChannel(account.kind)));
   };
+
+  const refreshPaymentAccounts = async () => {
+    setAccountsLoading(true);
+    setAccountsError('');
+    try {
+      await reloadAccounts();
+      setSettlementError('');
+    } catch (cause) {
+      setAccountsError(getErrorText(cause));
+    } finally {
+      setAccountsLoading(false);
+    }
+  };
+
+  const reload = async () => {
+    // Payment-account updates must not depend on inventory or GST endpoints.
+    await reloadAccounts();
+    if (canPurchase && showPurchase) {
+      const [items, gst] = await Promise.all([
+        stockCatalogService.getItems(),
+        supplierFinanceService.getGSTOptions(),
+      ]);
+      setStock(items);
+      setStates(gst.states || []);
+      setPlaceOfSupply(previous => previous || gst.suggestedBuyerStateCode || '');
+    }
+  };
+
   useEffect(() => {
     let alive = true;
+    setAccountsLoading(true);
+    setAccountsError('');
+    supplierFinanceService.getAccounts()
+      .then(moneyAccounts => {
+        if (alive) setAccounts(moneyAccounts.filter(account =>
+          account.isActive && accountChannel(account.kind)));
+      })
+      .catch(cause => {
+        if (alive) {
+          setAccounts([]);
+          setAccountsError(getErrorText(cause));
+        }
+      })
+      .finally(() => { if (alive) setAccountsLoading(false); });
+    return () => { alive = false; };
+  }, [supplier.id]);
+
+  useEffect(() => {
+    // The payment tab must work independently of stock and GST lookups.
+    if (!canPurchase || !showPurchase) {
+      setLoading(false);
+      return undefined;
+    }
+    let alive = true;
     setLoading(true);
-    Promise.all([stockCatalogService.getItems(), supplierFinanceService.getAccounts(),
-      supplierFinanceService.getGSTOptions()])
-      .then(([items, moneyAccounts, gst]) => {
+    Promise.all([stockCatalogService.getItems(), supplierFinanceService.getGSTOptions()])
+      .then(([items, gst]) => {
         if (!alive) return;
         setStock(items);
-        setAccounts(moneyAccounts.filter(a => a.isActive && accountChannel(a.kind)));
         setStates(gst.states || []);
+        setPlaceOfSupply(previous => previous || gst.suggestedBuyerStateCode || '');
       })
       .catch(cause => { if (alive) setError(getErrorText(cause)); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [supplier.id]);
+  }, [supplier.id, canPurchase, showPurchase]);
 
   useEffect(() => {
     if (!initialPart?.itemId || !stock.length || prefilled.current === String(initialPart.itemId)) return;
@@ -113,21 +176,50 @@ export default function SupplierPurchaseFlow({
       quantity: String(initialPart.quantity || '1'),
       purchaseRate: String(initialPart.purchaseRate ?? item.costPrice ?? 0),
       sellingPrice: String(item.sellingPrice ?? 0),
-      gstChoice: n(item.tax) === 0 ? 'none' :
-        invoiceChoiceFromTotalRate(String(item.tax), 'cgst_sgst') || 'custom',
-      customTax: String(item.tax || ''),
-      zeroClassification: item.zeroTaxClassification || '',
+      gstChoice: unregisteredSupplier || n(item.tax) === 0 ? 'none' :
+        invoiceChoiceFromTotalRate(String(item.tax), purchaseJurisdiction) || 'custom',
+      customTax: unregisteredSupplier ? '' : String(item.tax || ''),
+      zeroClassification: unregisteredSupplier ? 'unregistered' : item.zeroTaxClassification || '',
     }));
     setPartSearch(item.partName || item.name || '');
     setStep('part');
+    setNotice('Product and quantity ready. Add Product, then confirm purchase.');
     document.getElementById('supplier-purchase-form')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [initialPart, stock]);
 
-  const stockOptions = useMemo(() => stock.filter(item => {
-    const text = [item.partName, item.name, item.partNumber, item.sku].filter(Boolean).join(' ').toLowerCase();
-    const ownSupplier = !item.supplier || String(item.supplier?.id || item.supplier) === String(supplier.id);
-    return ownSupplier && text.includes(partSearch.trim().toLowerCase());
-  }).slice(0, 70), [stock, partSearch, supplier.id]);
+  // Search the authenticated Django stock endpoint; searching a cached first
+  // page could not find some products, especially ones linked to other vendors.
+  useEffect(() => {
+    const query = partSearch.trim();
+    if (!query || !showPurchase) {
+      setRemoteProducts([]);
+      setSearchingProducts(false);
+      setProductSearchError('');
+      return undefined;
+    }
+    let current = true;
+    setSearchingProducts(true);
+    setProductSearchError('');
+    const timer = window.setTimeout(async () => {
+      try {
+        const rows = await stockCatalogService.getItems(query);
+        if (current) setRemoteProducts(Array.isArray(rows) ? rows : []);
+      } catch (cause) {
+        if (current) {
+          setRemoteProducts([]);
+          setProductSearchError('Could not search stock. Retry or select a loaded product.');
+        }
+      } finally {
+        if (current) setSearchingProducts(false);
+      }
+    }, 250);
+    return () => { current = false; window.clearTimeout(timer); };
+  }, [partSearch, searchRetry, showPurchase]);
+
+  const stockOptions = useMemo(
+    () => purchaseProductOptions(stock, remoteProducts, partSearch, partSearch.trim() ? 60 : 80),
+    [stock, remoteProducts, partSearch],
+  );
 
   const postedBills = useMemo(() => bills
     .filter(bill => bill.postingStatus === 'Posted' && n(bill.outstanding) > 0)
@@ -143,8 +235,13 @@ export default function SupplierPurchaseFlow({
   const total = costRows.reduce((sum, row) => sum + row.total, 0);
   const paidNow = splits.reduce((sum, row) => sum + n(row.amount), 0);
   const remaining = Math.max(0, total - paidNow);
-  const supplierStateCode = String(supplier.gstNo || supplier.gstin || '').slice(0, 2);
-  const gstBreakup = placeOfSupply && /^\d{2}$/.test(supplierStateCode)
+  const supplierGstin = normalizeSupplierGstin(supplier.gstNo || supplier.gstin);
+  const gstinProblem = supplierGstinError(supplierGstin);
+  const supplierStateCode = supplierGstinStateCode(supplierGstin);
+  const unregisteredSupplier = !supplierGstin;
+  const purchaseJurisdiction = placeOfSupply && supplierStateCode && placeOfSupply !== supplierStateCode
+    ? 'igst' : 'cgst_sgst';
+  const gstBreakup = placeOfSupply && supplierStateCode
     ? (placeOfSupply === supplierStateCode
       ? { mode: 'Intra-state', cgst: Math.round(tax * 50) / 100,
           sgst: Math.round(tax * 100 - Math.round(tax * 50)) / 100, igst: 0 }
@@ -154,20 +251,24 @@ export default function SupplierPurchaseFlow({
   // purchase GST components when the posted bill is created.
 
   const selectItem = value => {
-    const item = stock.find(row => String(row.id) === String(value));
+    const item = [...remoteProducts, ...stock].find(row => String(row.id) === String(value));
     if (value === '__new__') {
-      setActivePart(emptyPart());
-      setActivePart(previous => ({ ...previous, itemId: '__new__' }));
+      setActivePart({ ...emptyPart(), itemId: '__new__', description: partSearch.trim() });
     } else if (item) {
+      setStock(current => current.some(row => String(row.id) === String(item.id))
+        ? current : [item, ...current]);
+      setPartSearch(item.partName || item.name || item.sku || '');
       const rate = n(item.tax);
-      const matched = invoiceChoiceFromTotalRate(String(rate), 'cgst_sgst');
+      const matched = invoiceChoiceFromTotalRate(String(rate), purchaseJurisdiction);
       setActivePart(previous => ({
         ...previous, itemId: String(item.id),
         description: item.partName || item.name || '', partNumber: item.partNumber || '',
         hsnCode: item.hsnCode || '', purchaseRate: String(item.costPrice ?? 0),
         sellingPrice: String(item.sellingPrice ?? 0),
-        gstChoice: rate === 0 ? 'none' : matched.startsWith('saved:') ? 'custom' : matched,
-        customTax: String(rate), zeroClassification: item.zeroTaxClassification || '',
+        gstChoice: unregisteredSupplier || rate === 0 ? 'none'
+          : matched.startsWith('saved:') ? 'custom' : matched,
+        customTax: unregisteredSupplier ? '' : String(rate),
+        zeroClassification: unregisteredSupplier ? 'unregistered' : item.zeroTaxClassification || '',
       }));
     } else {
       setActivePart(emptyPart());
@@ -195,8 +296,11 @@ export default function SupplierPurchaseFlow({
     if (part.gstChoice === 'custom' && (!part.customTax || rate < 0 || rate > 100)) {
       setError('Enter a valid HSN-specific total GST percentage.'); return;
     }
-    if (rate === 0 && !part.zeroClassification) {
-      setError('Choose why this product has 0% GST.'); return;
+    if (unregisteredSupplier && rate !== 0) {
+      setError('Unregistered supplier: GST must be 0%.'); return;
+    }
+    if (!unregisteredSupplier && rate === 0 && !part.zeroClassification) {
+      setError('Select the 0% GST classification.'); return;
     }
     if (parts.some(row => row.itemId === part.itemId && row.itemId !== '__new__')) {
       setError('This part is already in the purchase. Edit the quantity in the list instead.'); return;
@@ -217,7 +321,9 @@ export default function SupplierPurchaseFlow({
           partName: part.description.trim(), partNumber: part.partNumber.trim(),
           hsnCode: part.hsnCode.trim(), supplier: supplier.id,
           stockQuantity: 0, onHand: 0, costPrice: cost, sellingPrice: selling,
-          tax: rate, zeroTaxClassification: rate === 0 ? part.zeroClassification : '',
+          tax: unregisteredSupplier ? 0 : rate,
+          zeroTaxClassification: rate === 0
+            ? (unregisteredSupplier ? 'unregistered' : part.zeroClassification) : '',
           unit: 'Piece', minimumStock: 0,
         });
         if (!created?.id) throw new Error('Part creation did not return an ID.');
@@ -227,8 +333,9 @@ export default function SupplierPurchaseFlow({
       setParts(rows => [...rows, {
         itemId, description: part.description, quantity: fixed(qty),
         purchaseRate: fixed(cost), sellingPrice: fixed(selling),
-        gstRate: String(rate), gstChoice: part.gstChoice,
-        gstTreatment: rate === 0 ? part.zeroClassification : 'taxable',
+        gstRate: String(unregisteredSupplier ? 0 : rate), gstChoice: part.gstChoice,
+        gstTreatment: unregisteredSupplier ? 'unregistered'
+          : rate === 0 ? part.zeroClassification : 'taxable',
         updateItemPrices: part.updateItemPrices && part.itemId !== '__new__',
       }]);
       setActivePart(emptyPart());
@@ -241,10 +348,8 @@ export default function SupplierPurchaseFlow({
   const changeSplit = (index, changes) => setSplits(rows => rows.map((row, i) => i === index ? { ...row, ...changes } : row));
   const addPaymentChannel = channel => {
     if (!FINANCE_CHANNELS.includes(channel) || splits.length >= 5) return;
-    const matching = financeAccountsForChannel(accounts, channel);
     setSplits(existing => [...existing, {
-      id: requestKey(), channel, accountId: matching.length === 1 ? String(matching[0].id) : '',
-      amount: '', reference: '',
+      id: requestKey(), channel, amount: '', reference: '',
     }]);
   };
 
@@ -255,16 +360,16 @@ export default function SupplierPurchaseFlow({
       setError('A valid purchase reference and date are required.'); return;
     }
     const positiveGst = parts.some(row => n(row.gstRate) > 0);
-    if (!placeOfSupply) {
-      setError('Choose the workshop / buyer Place of Supply for the purchase GST record.'); return;
+    if (!unregisteredSupplier && !placeOfSupply) {
+      setError('Select the buyer state for a GST-registered supplier.'); return;
     }
-    if (positiveGst && !String(supplier.gstNo || supplier.gstin || '').trim()) {
-      setError('For GST purchases, select Place of Supply and verify the Supplier GSTIN.'); return;
+    if (positiveGst && unregisteredSupplier) {
+      setError('This supplier has no GSTIN. Set GST to 0%, or add the real GSTIN in Edit Supplier.'); return;
     }
-    const supplierState = String(supplier.gstNo || supplier.gstin || '').slice(0, 2);
-    if (positiveGst && !/^\d{2}$/.test(supplierState)) {
-      setError('Supplier GSTIN does not contain a valid state code. Verify Supplier Details.'); return;
+    if (gstinProblem) {
+      setError(gstinProblem + ' Open Edit Supplier to correct or clear the saved GSTIN before posting.'); return;
     }
+    const supplierState = supplierStateCode;
     if (positiveGst && parts.some(row =>
       (['cgst', 'sgst'].includes(row.gstChoice.split(':')[0]) && placeOfSupply !== supplierState) ||
       (row.gstChoice.startsWith('igst:') && placeOfSupply === supplierState)
@@ -278,14 +383,16 @@ export default function SupplierPurchaseFlow({
     }
     const accountTotals = new Map();
     for (const row of splits) {
-      const account = accounts.find(a => String(a.id) === row.accountId);
-      if (!account || !FINANCE_CHANNELS.includes(row.channel) ||
-        accountChannel(account.kind) !== row.channel ||
-        !Number.isFinite(Number(row.amount)) ||
-        n(row.amount) <= 0 || !/^\d+(?:\.\d{1,2})?$/.test(String(row.amount))) {
-        setError('Every Cash/Bank split needs a valid account and amount.'); return;
+      if (!FINANCE_CHANNELS.includes(row.channel) ||
+        !Number.isFinite(Number(row.amount)) || n(row.amount) <= 0 ||
+        !/^\d+(?:\.\d{1,2})?$/.test(String(row.amount))) {
+        setError('Choose Cash or Bank and enter a valid amount for every payment.'); return;
       }
-      accountTotals.set(row.accountId, n(row.amount) + (accountTotals.get(row.accountId) || 0));
+      const account = resolvedAccountFor(row.channel);
+      if (!account) {
+        setError('Choose the Default Payment Account for ' + row.channel + ' in Finance > Accounts.'); return;
+      }
+      accountTotals.set(String(account.id), n(row.amount) + (accountTotals.get(String(account.id)) || 0));
     }
     for (const [id, value] of accountTotals.entries()) {
       const account = accounts.find(a => String(a.id) === id);
@@ -297,7 +404,7 @@ export default function SupplierPurchaseFlow({
     // Django posts the supplier bill, stock receipt and money splits atomically.
     const purchasePayload = {
       supplierId: String(supplier.id), invoiceNumber: invoiceNumber.trim(),
-      invoiceDate: purchaseDate, placeOfSupply: placeOfSupply || undefined,
+      invoiceDate: purchaseDate, placeOfSupply: unregisteredSupplier ? undefined : placeOfSupply || undefined,
       receiveIntoStock: true, postNow: true,
       items: parts.map(row => ({
         itemId: row.itemId, description: row.description,
@@ -308,15 +415,11 @@ export default function SupplierPurchaseFlow({
           : {}),
       })),
       ...(splits.length ? {
-        payments: splits.map(row => {
-          const account = accounts.find(a => String(a.id) === row.accountId);
-          return {
-            accountId: row.accountId, amount: fixed(row.amount),
-            paidOn: purchaseDate, method: accountMethod(account),
-            kind: 'Payment', reference: row.reference.trim(),
-            idempotencyKey: row.id,
-          };
-        }),
+        // Django resolves the current default account under a DB lock.
+        payments: splits.map(row => ({
+          amount: fixed(row.amount), paidOn: purchaseDate, method: row.channel,
+          kind: 'Payment', reference: row.reference.trim(), idempotencyKey: row.id,
+        })),
       } : {}),
     };
     setPosting(true);
@@ -366,21 +469,79 @@ export default function SupplierPurchaseFlow({
     finally { setPosting(false); }
   };
 
+  const createCashInHandAccount = async () => {
+    if (creatingCashAccount) return;
+    setCashSetupError('');
+    const balance = String(cashOpeningBalance).trim();
+    if (!/^\d+(?:\.\d{1,2})?$/.test(balance)) {
+      setCashSetupError('Enter the actual opening cash balance (₹0 or more, up to two decimals).');
+      return;
+    }
+    // A duplicate account must not be created if an active cash ledger already
+    // exists, even if the account selector was previously empty.
+    if (financeAccountsForChannel(accounts, 'Cash').length) {
+      setCashSetupOpen(false);
+      setSettlement(previous => ({
+        ...previous, channel: 'Cash',
+      }));
+      return;
+    }
+    setCreatingCashAccount(true);
+    try {
+      const created = await supplierFinanceService.createAccount({
+        name: 'Cash in Hand', kind: 'Cash', openingBalance: balance,
+      });
+      // Use the POST result immediately: a subsequent GET failure must not
+      // mislead the user into creating the account a second time.
+      if (!created?.id) throw new Error('The account was created but no ID was returned. Refresh Finance Accounts before retrying.');
+      const account = { ...created, kind: 'Cash', name: 'Cash in Hand',
+        isActive: true, recordedBalance: created.recordedBalance ?? balance };
+      setAccounts(previous => [...previous.filter(row => String(row.id) !== String(account.id)), account]);
+      setSettlement(previous => ({ ...previous, channel: 'Cash' }));
+      setCashSetupOpen(false);
+      setCashOpeningBalance('');
+      setSettlementError('');
+      setSettlementNotice('Cash in Hand account created and selected. You can now record a payment within its recorded balance.');
+    } catch (cause) {
+      setCashSetupError(getErrorText(cause) + ' Check Finance Accounts before creating another account.');
+    } finally {
+      setCreatingCashAccount(false);
+    }
+  };
+
   const settleExisting = async event => {
     event.preventDefault();
     if (settling) return;
     setError('');
+    setSettlementError('');
+    setSettlementNotice('');
     const amount = Number(settlement.amount);
-    const account = accounts.find(a => String(a.id) === String(settlement.accountId));
-    if (!account || !FINANCE_CHANNELS.includes(settlement.channel) ||
-      accountChannel(account.kind) !== settlement.channel ||
-      !Number.isFinite(amount) || amount <= 0 ||
-      !/^\d+(?:\.\d{1,2})?$/.test(String(settlement.amount)) ||
-      amount > remainingSupplier + 0.001) {
-      setError('Select an account and amount within the outstanding supplier credit.'); return;
+    const account = resolvedAccountFor(settlement.channel);
+    if (!settlement.amount || !Number.isFinite(amount) || amount <= 0 ||
+      !/^\d+(?:\.\d{1,2})?$/.test(String(settlement.amount))) {
+      setSettlementError('Enter a payment amount greater than zero (up to two decimal places).');
+      return;
+    }
+    if (amount > remainingSupplier + 0.001) {
+      setSettlementError('Payment cannot exceed the supplier balance due.');
+      return;
+    }
+    if (!settlement.channel || !FINANCE_CHANNELS.includes(settlement.channel)) {
+      setSettlementError('Select Cash or Bank / UPI as the payment method.');
+      return;
+    }
+    if (accountsLoading || accountsError) {
+      setSettlementError('Payment accounts have not loaded. Reload the account list before confirming.');
+      return;
+    }
+    if (!account) {
+      setSettlementError('Select a Default Payment Account for ' + settlement.channel +
+        ' in Finance > Accounts. This keeps the correct ledger balance.');
+      return;
     }
     if (account.recordedBalance != null && amount > n(account.recordedBalance) + 0.001) {
-      setError('Insufficient recorded account balance.'); return;
+      setSettlementError('Insufficient recorded balance in ' + account.name + '.');
+      return;
     }
     let toAllocate = Math.round(amount * 100);
     const allocations = [];
@@ -389,23 +550,36 @@ export default function SupplierPurchaseFlow({
       if (applied > 0) allocations.push({ billId: bill.id, amount: (applied / 100).toFixed(2) });
       toAllocate -= applied;
     }
-    if (toAllocate > 0) {
-      setError('Payment exceeds the remaining unpaid supplier bills.'); return;
+    if (toAllocate > 0 || !allocations.length) {
+      setSettlementError('Payment exceeds the remaining posted supplier bills. Refresh and try again.');
+      return;
     }
     setSettling(true);
     try {
       await supplierFinanceService.recordPayment({
-        supplierId: supplier.id, accountId: account.id, amount: fixed(amount),
-        kind: 'Payment', method: accountMethod(account),
+        supplierId: supplier.id, amount: fixed(amount),
+        kind: 'Payment', method: settlement.channel,
         paidOn: localDate(), reference: settlement.reference.trim(),
         allocations, idempotencyKey: settleKey.current,
       });
+      // The write succeeded. Never suggest retrying the payment because a
+      // subsequent read-only balance refresh failed.
       settleKey.current = requestKey();
-      setSettlement({ amount: '', channel: '', accountId: '', reference: '' });
-      await Promise.resolve(onChanged());
-      await reload();
-    } catch (cause) { setError(getErrorText(cause)); }
-    finally { setSettling(false); }
+      setSettlement({ amount: '', channel: '', reference: '' });
+      setSettlementNotice('Payment recorded successfully. Supplier credit and account balance have been updated.');
+      const refreshes = await Promise.allSettled([Promise.resolve().then(() => onChanged()), reloadAccounts()]);
+      if (refreshes.some(result => result.status === 'rejected')) {
+        setSettlementNotice('Payment recorded. Some balances could not refresh; reload to view the latest transactions. Do not pay again.');
+      }
+    } catch (cause) {
+      const status = Number(cause?.status || cause?.response?.status || 0);
+      const uncertain = !status || status >= 500;
+      setSettlementError(uncertain
+        ? 'Payment confirmation is unavailable. Check Supplier Transactions before attempting again to prevent a duplicate payment.'
+        : getErrorText(cause));
+    } finally {
+      setSettling(false);
+    }
   };
 
   return (
@@ -413,10 +587,10 @@ export default function SupplierPurchaseFlow({
       {error && <p ref={errorRef} className="cg-supplier-purchase-error" role="alert">{error}</p>}
       {notice && <p className="cg-supplier-purchase-muted" role="status">{notice}</p>}
       {canPurchase && (
-        <section id="supplier-purchase-form" className="cg-supplier-purchase-card">
+        <section id="supplier-purchase-form" hidden={!showPurchase} className="cg-supplier-purchase-card">
           <header>
             <div><h2>Buy / Receive Spare Parts</h2>
-              <p>One product at a time. Add another, or finish on this Supplier page.</p></div>
+              <p>Add product and quantity, then confirm purchase.</p></div>
             <span className="cg-supplier-purchase-tag">Supplier: {supplier.name}</span>
           </header>
           <div className="cg-supplier-purchase-clock">
@@ -424,20 +598,42 @@ export default function SupplierPurchaseFlow({
             <span>Started: <strong>{new Date(purchaseOpenedAt).toLocaleString('en-IN', {
               day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
             })}</strong></span>
-            <span>Posting timestamp is recorded automatically on confirmation.</span>
           </div>
           {loading && <p role="status">Loading inventory and accounts…</p>}
           {!loading && step === 'part' && (
             <div className="cg-supplier-purchase-grid">
-              <label className="wide">Find an existing product
-                <input className={fieldClass} type="search" value={partSearch} onChange={e => setPartSearch(e.target.value)}
-                  placeholder="Search paint, brush, part number or SKU" />
-              </label>
+              <div className="wide cg-supplier-product-search">
+                <label htmlFor="supplier-stock-search">Search product</label>
+                <input id="supplier-stock-search" className={fieldClass} type="search" value={partSearch}
+                  onChange={event => {
+                    setPartSearch(event.target.value);
+                    setActivePart(emptyPart());
+                  }}
+                  placeholder="Product name, SKU, part number or barcode" autoComplete="off"/>
+                {searchingProducts && <small role="status">Searching products…</small>}
+                {productSearchError && <p role="alert" className="cg-supplier-purchase-error">
+                  {productSearchError} <button type="button" onClick={() => setSearchRetry(n => n + 1)}>Retry</button>
+                </p>}
+                {partSearch.trim() && !searchingProducts && (
+                  <div className="cg-supplier-product-results" role="group" aria-label="Matching products">
+                    {stockOptions.slice(0, 12).map(item => (
+                      <button key={item.id} type="button"
+                        className={String(activePart.itemId) === String(item.id) ? 'is-selected' : ''}
+                        onClick={() => selectItem(String(item.id))}>
+                        <strong>{item.partName || item.name || 'Product'}</strong>
+                        <small>{item.sku || item.partNumber || 'No SKU'} · Stock {item.onHand ?? 0}</small>
+                      </button>))}
+                    {!stockOptions.length && !productSearchError &&
+                      <small>No matching product. Choose Create New Product below.</small>}
+                  </div>
+                )}
+              </div>
               <label className="wide">Product *
-                <select className={fieldClass} value={activePart.itemId} onChange={e => selectItem(e.target.value)}>
+                <select className={fieldClass} value={activePart.itemId}
+                  onChange={e => selectItem(e.target.value)}>
                   <option value="">Choose product</option>
                   {stockOptions.map(item => <option key={item.id} value={String(item.id)}>
-                    {item.partName || item.name} — Stock {item.onHand ?? 0}
+                    {item.partName || item.name} — {item.sku || 'No SKU'} · Stock {item.onHand ?? 0}
                   </option>)}
                   <option value="__new__">+ Create New Product</option>
                 </select>
@@ -468,20 +664,22 @@ export default function SupplierPurchaseFlow({
                 <input className={fieldClass} type="number" min="0" step="0.01" inputMode="decimal"
                   value={activePart.sellingPrice} onChange={e => setActivePart(p => ({ ...p, sellingPrice: e.target.value }))}/>
               </label>
-              <label>GST / Tax for this product *
-                <select className={fieldClass} value={activePart.gstChoice}
-                  onChange={e => setActivePart(p => ({ ...p, gstChoice: e.target.value }))}>
-                  <option value="none">0% — Select Classification</option>
-                  {choices.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                  <option value="custom">Other saved / HSN-specific total %</option>
-                </select>
-              </label>
-              {activePart.gstChoice === 'custom' &&
+              {!unregisteredSupplier && (
+                <label>GST / Tax for this product *
+                  <select className={fieldClass} value={activePart.gstChoice}
+                    onChange={e => setActivePart(p => ({ ...p, gstChoice: e.target.value }))}>
+                    <option value="none">0% — Select Classification</option>
+                    {choices.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    <option value="custom">Other saved / HSN-specific total %</option>
+                  </select>
+                </label>
+              )}
+              {!unregisteredSupplier && activePart.gstChoice === 'custom' &&
                 <label>Custom total GST (%) *
                   <input className={fieldClass} type="number" min="0" max="100" step="0.01"
                     value={activePart.customTax} onChange={e => setActivePart(p => ({ ...p, customTax: e.target.value }))}/>
                 </label>}
-              {totalRate(activePart) === 0 &&
+              {!unregisteredSupplier && totalRate(activePart) === 0 &&
                 <label>0% classification *
                   <select className={fieldClass} value={activePart.zeroClassification}
                     onChange={e => setActivePart(p => ({ ...p, zeroClassification: e.target.value }))}>
@@ -495,10 +693,12 @@ export default function SupplierPurchaseFlow({
                     onChange={e => setActivePart(p => ({ ...p, updateItemPrices: e.target.checked }))}/>
                   Update catalogue purchase/selling prices for this item when posted (existing invoices stay unchanged)
                 </label>}
-              <p className="wide cg-supplier-purchase-muted">
-                GST selected: {totalRate(activePart)}% total. The server determines CGST + SGST/UTGST or IGST
-                using the verified Supplier GSTIN and Place of Supply.
-              </p>
+              {unregisteredSupplier && (
+                 <p className="wide cg-supplier-purchase-muted">
+                   No GST (Unregistered).{' '}
+                   <a href="#supplier-profile">Add supplier GSTIN</a> to enable GST purchases.
+                 </p>
+               )}
               <div className="wide cg-supplier-purchase-actions">
                 <button type="button" className="primary" disabled={savingPart}
                   onClick={addPart}>{savingPart ? 'Saving part…' : 'Add This Product'}</button>
@@ -537,14 +737,23 @@ export default function SupplierPurchaseFlow({
                   <label>Purchase date (automatic)
                     <input className={fieldClass} type="date" readOnly value={purchaseDate}/>
                   </label>
-                  <label>Place of Supply (GST verification)
-                    <select className={fieldClass} value={placeOfSupply}
-                      onChange={e => setPlaceOfSupply(e.target.value)}>
-                      <option value="">Choose buyer / workshop state</option>
-                      {states.map(row => <option key={row.code} value={row.code}>{row.code} — {row.name}</option>)}
-                    </select>
-                  </label>
+                  {!unregisteredSupplier && (
+                   <label>Buyer State (GST) *
+                     <select className={fieldClass} value={placeOfSupply}
+                       onChange={e => setPlaceOfSupply(e.target.value)}>
+                       <option value="">Select buyer state</option>
+                       {states.map(row => <option key={row.code} value={row.code}>{row.code} — {row.name}</option>)}
+                     </select>
+                   </label>
+                 )}
                 </div>
+                {(gstinProblem || (parts.some(row => n(row.gstRate) > 0) && !supplierGstin)) &&
+                  <div className="cg-supplier-purchase-error" role="alert">
+                    <strong>Supplier GSTIN needs attention.</strong>{' '}
+                    {gstinProblem || 'Supplier is unregistered and cannot charge GST.'}{' '}
+                    <a href="#supplier-profile">Open Supplier Details</a>, then use Edit Supplier.
+                    If unregistered, leave GSTIN blank and purchase at 0% GST.
+                  </div>}
                 <div className="cg-supplier-purchase-total">
                   <div><span>Parts subtotal</span><strong>{rupees(subtotal)}</strong></div>
                   <div><span>GST</span><strong>{rupees(tax)}</strong></div>
@@ -579,21 +788,17 @@ export default function SupplierPurchaseFlow({
                   <div className="cg-supplier-purchase-split" key={row.id}>
                     <label>Payment method *
                       <select className={fieldClass} value={row.channel || ''}
-                        onChange={e => changeSplit(index, { channel: e.target.value, accountId: '' })}>
+                        onChange={e => changeSplit(index, { channel: e.target.value })}>
                         <option value="">Select method</option>
                         <option value="Cash">Cash in Hand</option>
                         <option value="Bank">Bank</option>
                       </select>
                     </label>
-                    <label>Cash / Bank account *
-                      <select className={fieldClass} value={row.accountId}
-                        onChange={e => changeSplit(index, { accountId: e.target.value })}>
-                        <option value="">Select {row.channel === 'Cash' ? 'Cash in Hand' : row.channel === 'Bank' ? 'Bank' : 'payment method'} account</option>
-                        {financeAccountsForChannel(accounts, row.channel).map(account => <option key={account.id} value={account.id}>
-                          {account.name} ({accountMethod(account)}){accountBalanceShown(account)}
-                        </option>)}
-                      </select>
-                    </label>
+                    {row.channel && <p className="cg-supplier-debit-preview">
+                      {resolvedAccountFor(row.channel)
+                        ? <>Finance debit: <strong>{resolvedAccountFor(row.channel).name}</strong></>
+                        : <Link to={accountSetupRoute(row.channel)}>Set default {row.channel} payment account in Finance</Link>}
+                    </p>}
                     <label>Amount (₹)
                       <input className={fieldClass} type="number" min="0.01" step="0.01"
                         value={row.amount} onChange={e => changeSplit(index, { amount: e.target.value })}/>
@@ -619,10 +824,7 @@ export default function SupplierPurchaseFlow({
                   No active Cash/Bank account found. <Link to="/finance/accounts">Create a Cash or Bank account</Link>,
                   or record this purchase as supplier credit.
                 </p>}
-                <p className="cg-supplier-purchase-muted">
-                  Confirm posts stock, supplier bill, payment splits and remaining credit together.
-                  Do not enter the same supplier purchase again under Expenses or generic Payments.
-                </p>
+                <p className="cg-supplier-purchase-muted">Confirm to receive stock and record payment or supplier credit.</p>
               </>}
             </div>
           )}
@@ -630,9 +832,9 @@ export default function SupplierPurchaseFlow({
       )}
 
       {canPay && (
-        <section id="supplier-pay-now" className="cg-supplier-purchase-card">
+        <section id="supplier-pay-now" hidden={!showPayments} className="cg-supplier-purchase-card">
           <header><div><h2>Pay Previous Supplier Credit</h2>
-            <p>One payment can clear several unpaid purchase bills, oldest first.</p></div>
+            <p>Pay unpaid purchase bills.</p></div>
             <strong>{rupees(remainingSupplier)} due</strong>
           </header>
           {!postedBills.length
@@ -640,35 +842,108 @@ export default function SupplierPurchaseFlow({
             : <form className="cg-supplier-purchase-grid" onSubmit={settleExisting}>
               <label>Pay amount (₹) *
                 <input className={fieldClass} type="number" min="0.01" max={fixed(remainingSupplier)} step="0.01"
-                  value={settlement.amount} onChange={e => setSettlement(old => ({ ...old, amount: e.target.value }))}/>
+                  value={settlement.amount} onChange={e => { setSettlement(old => ({ ...old, amount: e.target.value })); setSettlementError(''); }}/>
               </label>
               <label>Payment method *
                 <select className={fieldClass} value={settlement.channel}
-                  onChange={e => setSettlement(old => ({ ...old, channel: e.target.value, accountId: '' }))}>
+                  onChange={e => {
+                    const channel = e.target.value;
+                    setSettlement(old => ({ ...old, channel }));
+                    setCashSetupOpen(false);
+                    setCashSetupError('');
+                    setSettlementError('');
+                  }}>
                   <option value="">Select method</option>
                   <option value="Cash">Cash in Hand</option>
-                  <option value="Bank">Bank</option>
+                  <option value="Bank">Bank / UPI (PhonePe, GPay, transfer)</option>
                 </select>
               </label>
-              <label>Cash / Bank account *
-                <select className={fieldClass} value={settlement.accountId}
-                  onChange={e => setSettlement(old => ({ ...old, accountId: e.target.value }))}>
-                  <option value="">Select {settlement.channel || 'payment method'} account</option>
-                  {financeAccountsForChannel(accounts, settlement.channel).map(account => <option key={account.id} value={account.id}>
-                    {account.name} ({accountMethod(account)}){accountBalanceShown(account)}
-                  </option>)}
-                </select>
-              </label>
+              {settlement.channel && resolvedAccountFor(settlement.channel) &&
+                <p className="cg-supplier-debit-preview" role="status">
+                  Automatically deducted from <strong>{resolvedAccountFor(settlement.channel).name}</strong>
+                  {accountBalanceShown(resolvedAccountFor(settlement.channel))} in <Link to="/finance">Finance</Link>.
+                </p>}
+              {settlement.channel && !accountsLoading && !accountsError &&
+                !resolvedAccountFor(settlement.channel) &&
+                financeAccountsForChannel(accounts, settlement.channel).length > 0 &&
+                <div className="cg-supplier-debit-preview" role="alert">
+                  Multiple accounts found. Set the {settlement.channel === 'Cash' ? 'Cash' : 'Bank / UPI'} account
+                  you want to use for this payment.
+                  <div className="cg-supplier-finance-route-actions">
+                    <Link to={accountSetupRoute(settlement.channel)} className="cg-supplier-finance-route-link">
+                      Set Default {settlement.channel === 'Cash' ? 'Cash' : 'Bank'} Account
+                    </Link>
+                    <button type="button" className="cg-supplier-finance-refresh" onClick={refreshPaymentAccounts}>
+                      Refresh Accounts
+                    </button>
+                  </div>
+                </div>}
+              {settlement.channel === 'Cash' && !accountsLoading && !accountsError &&
+                financeAccountsForChannel(accounts, 'Cash').length === 0 && (
+                  <div className="wide cg-supplier-cash-setup">
+                    <p>No active Cash in Hand account found. Create one to track physical cash payments.</p>
+                    {!cashSetupOpen
+                      ? <button type="button" className="cg-supplier-inline-account-btn" onClick={() => {
+                          setCashSetupOpen(true); setCashSetupError('');
+                        }}>+ Create Cash in Hand account</button>
+                      : <div className="cg-supplier-cash-setup-controls">
+                          <label>Actual opening cash balance (₹) *
+                            <input className={fieldClass} type="number" min="0" step="0.01"
+                              inputMode="decimal" placeholder="e.g. 1500.00" value={cashOpeningBalance}
+                              onChange={event => { setCashOpeningBalance(event.target.value); setCashSetupError(''); }} />
+                          </label>
+                          <small>Enter only cash physically available at the workshop. It will be the account opening balance, not an expense or supplier payment.</small>
+                          {cashSetupError && <p className="cg-supplier-purchase-error" role="alert">{cashSetupError}</p>}
+                          <div className="cg-supplier-purchase-actions">
+                            <button type="button" className="primary" disabled={creatingCashAccount}
+                              onClick={createCashInHandAccount}>
+                              {creatingCashAccount ? 'Creating…' : 'Create & Select Cash Account'}
+                            </button>
+                            <button type="button" disabled={creatingCashAccount}
+                              onClick={() => { setCashSetupOpen(false); setCashSetupError(''); }}>Cancel</button>
+                          </div>
+                        </div>}
+                    <small>You can also <Link to="/finance/accounts">manage Cash / Bank accounts</Link> in Finance.</small>
+                  </div>
+                )}
               <label className="wide">Payment reference (optional)
                 <input className={fieldClass} value={settlement.reference} maxLength={120}
-                  onChange={e => setSettlement(old => ({ ...old, reference: e.target.value }))}/>
+                  onChange={e => { setSettlement(old => ({ ...old, reference: e.target.value })); setSettlementError(''); }}/>
               </label>
               <p className="wide cg-supplier-purchase-muted">
                 This settles existing posted supplier bills only; no second stock receipt or expense will be created.
                 Remaining credit after this payment: {rupees(Math.max(0, remainingSupplier - n(settlement.amount)))}
               </p>
+              {accountsLoading && <p className="wide cg-supplier-purchase-muted" role="status">Loading payment accounts…</p>}
+              {accountsError && <div className="wide cg-supplier-purchase-error" role="alert">
+                Unable to load Cash / Bank accounts: {accountsError}{' '}
+                <button type="button" onClick={() => {
+                  setAccountsLoading(true);
+                  setAccountsError('');
+                  reloadAccounts().catch(cause => setAccountsError(getErrorText(cause)))
+                    .finally(() => setAccountsLoading(false));
+                }}>Retry loading accounts</button>
+              </div>}
+              {!accountsLoading && !accountsError && !accounts.length && settlement.channel !== 'Cash' &&
+                <p className="wide cg-supplier-purchase-muted" role="status">
+                  No payment account found. <Link to="/finance/accounts">Add a Cash / Bank / UPI account</Link> first.
+                </p>}
+              {settlementError && <div className="wide cg-supplier-purchase-error" role="alert">
+                <p>{settlementError}</p>
+                {settlement.channel && !resolvedAccountFor(settlement.channel) && (
+                  <div className="cg-supplier-finance-route-actions">
+                    <Link to={accountSetupRoute(settlement.channel)} className="cg-supplier-finance-route-link">
+                      Set Default {settlement.channel === 'Cash' ? 'Cash' : 'Bank'} Account
+                    </Link>
+                    <button type="button" className="cg-supplier-finance-refresh" onClick={refreshPaymentAccounts}>
+                      Refresh Accounts
+                    </button>
+                  </div>
+                )}
+              </div>}
+              {settlementNotice && <p className="wide cg-supplier-purchase-muted" role="status">{settlementNotice}</p>}
               <div className="wide cg-supplier-purchase-actions">
-                <button type="submit" className="primary" disabled={settling || !settlement.amount || !settlement.accountId || !settlement.channel}>
+                <button type="submit" className="primary" disabled={settling} aria-busy={settling}>
                   {settling ? 'Recording…' : 'Confirm Supplier Payment'}
                 </button>
               </div>

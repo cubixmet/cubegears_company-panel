@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { Download, Printer } from 'lucide-react';
 import { attendanceManagerService } from '../../services/attendanceManager.service';
+import { formatAttendanceDateTimeParts } from '../../utils/attendanceTime';
+
+const ReportPunch = ({ value, recordDate }) => {
+  const { time, date } = formatAttendanceDateTimeParts(value, recordDate);
+  return (
+    <span className="am-report-punch">
+      <strong className="am-report-punch-time">{time}</strong>
+      {date && <small className="am-report-punch-date">{date}</small>}
+    </span>
+  );
+};
 
 export const AttendanceReports = () => {
   const [team, setTeam] = useState([]);
@@ -98,8 +109,8 @@ export const AttendanceReports = () => {
                 <td>{item.designation}</td>
                 <td>{item.branch}</td>
                 <td><strong>{item.status}</strong></td>
-                <td>{item.clockIn || '—'}</td>
-                <td>{item.clockOut || '—'}</td>
+                <td><ReportPunch value={item.clockIn} recordDate={item.date || item.attendanceDate || item.createdDate} /></td>
+                <td><ReportPunch value={item.clockOut} recordDate={item.date || item.attendanceDate || item.createdDate} /></td>
                 <td>{item.worked || '—'}</td>
                 <td>{item.overtimeHours || 0}h</td>
                 <td>{item.lateMinutes || 0}m</td>
@@ -114,8 +125,8 @@ export const AttendanceReports = () => {
           <div><strong>{item.name}</strong><span>{item.status || '—'}</span></div>
           <small>{[item.branch, item.designation].filter(Boolean).join(' · ')}</small>
           <dl>
-            <div><dt>Check In</dt><dd>{item.clockIn || '—'}</dd></div>
-            <div><dt>Check Out</dt><dd>{item.clockOut || '—'}</dd></div>
+            <div><dt>Check In</dt><dd><ReportPunch value={item.clockIn} recordDate={item.date || item.attendanceDate || item.createdDate} /></dd></div>
+            <div><dt>Check Out</dt><dd><ReportPunch value={item.clockOut} recordDate={item.date || item.attendanceDate || item.createdDate} /></dd></div>
             <div><dt>Worked</dt><dd>{item.worked || '—'}</dd></div>
             <div><dt>OT</dt><dd>{item.overtimeHours || 0}h</dd></div>
           </dl>

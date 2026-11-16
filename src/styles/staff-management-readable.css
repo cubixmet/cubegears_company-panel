@@ -550,3 +550,16 @@
   .cg-staff-management .staff-directory-card { padding: 14px; }
   .cg-staff-management .staff-directory-card .staff-directory-details { padding: 9px; }
 }
+
+
+/* Staff list/overview readability: minimum 14px metadata, 16px inputs. */
+#root .app-shell .cg-staff-management .staff-simple-metrics span,
+#root .app-shell .cg-staff-management .staff-directory-details span {
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+}
+#root .app-shell .cg-staff-management .staff-simple-search input,
+#root .app-shell .cg-staff-management .staff-directory-search input {
+  font-size: 16px !important;
+  -webkit-text-size-adjust: 100%;
+}

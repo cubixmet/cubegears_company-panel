@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useFeatureAccess } from '../../context/FeatureAccessContext';
+import { USE_MOCK_API } from '../../api/apiConfig';
 import { CheckCircle2, ChevronDown, ClipboardList, Download, Package, Pencil, Plus, ReceiptText, Trash2, Wrench, SkipForward } from 'lucide-react';
 import { jobService } from '../../services/job.service';
 import { WhatsAppManualShareButton } from '../common/WhatsAppManualShareButton';
+import { recordLabel } from '../../utils/recordReferences';
 import { serviceService } from '../../services/service.service';
 import { stockCatalogService } from '../../services/stockCatalog.service';
 import { EstimateCatalogPicker } from './EstimateCatalogPicker';
@@ -18,7 +22,8 @@ import { invoiceTaxMode, invoiceChoiceFromTotalRate } from '../../utils/invoiceT
 const emptyLine = (type = 'Labour') => ({
   key: String(Date.now()) + '-' + String(Math.random()),
   description: '', type, quantity: '1', unitPrice: '', catalogId: '', catalogCode: '',
-  taxRate: type === 'Part' ? '' : '18', hsnSac: type === 'Part' ? '' : '998714'
+  // Editable estimate starting rate; actual HSN/SAC classification must be checked.
+  taxRate: '18', hsnSac: type === 'Part' ? '' : '998714'
 });
 const money = (value) => new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 2
@@ -59,6 +64,10 @@ export function QuickEstimatePanel({
   job, estimates = [], findings = [], canEdit, canReopen = false, wasSkipped = false, onReopen, onSaved, onApprove, onSkip,
   onReject, onShare, onEditInspection, onGoToWork, onDownloadApproved
 }) {
+  const { can } = useFeatureAccess();
+  const canReceivePurchasedStock = !USE_MOCK_API &&
+    ['stock.view', 'stock.create', 'stock.edit', 'payments.view', 'payments.create'].every(can);
+  const [purchaseShortcut, setPurchaseShortcut] = useState(null);
   const latest = estimates.at(-1) || null;
   const approvedEstimate = latestApprovedEstimate(estimates);
   // Backend JobActivity receipts survive later quote revisions, unlike the
@@ -371,11 +380,16 @@ export function QuickEstimatePanel({
             partName: draft.name.trim(),
             sku: draft.sku.trim(),
             brand: draft.brand.trim(),
+            supplier: draft.supplier || null,
             costPrice: Number(draft.costPrice),
             sellingPrice: Number(draft.price),
             unit: 'Piece',
             minimumStock: 0,
             onHand: 0,
+            tax: Number(draft.taxRate) || 0,
+            hsnCode: draft.hsnSac?.trim() || '',
+            zeroTaxClassification: registered && draft.taxChoice === 'none'
+              ? draft.taxTreatment : '',
           })
         : await serviceService.createService({
             name: draft.name.trim(),
@@ -383,6 +397,11 @@ export function QuickEstimatePanel({
               Math.random().toString(36).slice(2, 7).toUpperCase(),
             price: Number(draft.price),
             is_active: true,
+            ...(registered ? {
+              taxRate: Number(draft.taxRate) || 0,
+              hsnSac: draft.hsnSac?.trim() || '',
+              taxTreatment: draft.taxChoice === 'none' ? draft.taxTreatment : 'taxable',
+            } : {}),
           });
 
       const selection = buildEstimateCatalogSelection(draft, created);
@@ -396,6 +415,12 @@ export function QuickEstimatePanel({
       }
       setCatalogRequest(null);
       setCatalogError('');
+      setPurchaseShortcut(draft.kind === 'part' && draft.supplier && created?.id ? {
+        itemId: String(created.id),
+        supplierId: String(draft.supplier),
+        purchaseRate: String(draft.costPrice),
+        quantity: '1',
+      } : null);
       setFeedback(draft.kind === 'part'
         ? 'New spare part saved in Stock and added to the estimate.'
         : 'New work saved in Services and added to the estimate.');
@@ -576,7 +601,7 @@ export function QuickEstimatePanel({
           <p><strong>Reason:</strong> {latestDecline.reasonLabel}</p>
           {latestDecline.note && <p className="job-estimate-customer-message">{latestDecline.note}</p>}
           <small>Estimate V{latestDecline.version || latest.version} ·
-            Decision receipt: {latestDecline.receiptId}</small>
+            Decision receipt: {recordLabel(latestDecline.receiptId)}</small>
           <p>Update the work/parts above, save a new version, then share it to the customer portal.</p>
         </section>
       )}
@@ -585,6 +610,15 @@ export function QuickEstimatePanel({
         Inspection has changed. Approve & Continue will save the revised estimate before approval.
       </p>}
       {feedback && <p className="job-quick-feedback" role="status">{feedback}</p>}
+      {purchaseShortcut && canReceivePurchasedStock && (
+        <div className="job-estimate-purchase-shortcut">
+          <p>Spare part saved with zero stock. Receive purchased quantity by posting a supplier bill.</p>
+          <Link to={`/suppliers/${encodeURIComponent(purchaseShortcut.supplierId)}#supplier-purchase-form`}
+            state={{ purchasePrefill: purchaseShortcut }}>
+            Buy / Receive This Part
+          </Link>
+        </div>
+      )}
 
       <div className="job-quick-grid">
         <section className="job-quick-panel job-quick-work-parts">
@@ -766,6 +800,9 @@ export function QuickEstimatePanel({
         request={catalogRequest}
         saving={catalogSaving}
         error={catalogError}
+        registered={registered}
+        taxMode={taxMode}
+        gstRateOptions={job?.gstInfo?.gstRateOptions}
         onClose={() => { if (!catalogSaving) setCatalogRequest(null); }}
         onCreate={createCatalogItem}
       />
@@ -783,7 +820,7 @@ export function QuickEstimatePanel({
                   <strong>Customer feedback: {declineByEstimate.get(String(item.id)).reasonLabel}</strong>
                   {declineByEstimate.get(String(item.id)).note &&
                     <p>{declineByEstimate.get(String(item.id)).note}</p>}
-                  <small>Receipt: {declineByEstimate.get(String(item.id)).receiptId}</small>
+                  <small>Receipt: {recordLabel(declineByEstimate.get(String(item.id)).receiptId)}</small>
                 </div>
               )}
               {canEdit && item.id === latest?.id && item.status === 'Draft' &&

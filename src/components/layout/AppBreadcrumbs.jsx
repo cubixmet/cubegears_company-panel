@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { getStaffLandingPath } from '../../utils/staffLanding';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
@@ -6,6 +7,7 @@ import { ChevronRight, Home } from 'lucide-react';
 import { staffService } from '../../services/staff.service';
 import { customerService } from '../../services/customer.service';
 import { vehicleService } from '../../services/vehicle.service';
+import { supplierService } from '../../services/supplier.service';
 import { isRecordPath, recordBreadcrumbFallback, recordBreadcrumbLabel } from './breadcrumbRecordLabels';
 import '../../styles/breadcrumbs.css';
 
@@ -46,6 +48,8 @@ const LABELS = {
   shifts: 'Shifts',
   rules: 'Rules & Settings',
   'staff-management': 'Staff Management',
+  suppliers: 'Suppliers',
+  purchases: 'Purchase History',
   staff: 'Staff',
   roles: 'Roles & Permissions',
   teams: 'Teams',
@@ -84,6 +88,8 @@ const LABELS = {
 const prettify = (value) => {
   if (!value) return '';
   if (LABELS[value]) return LABELS[value];
+  const reference = recordLabel(value);
+  if (reference !== value) return reference;
   if (/^[A-Z]{2,}-/i.test(value) || /^\d+$/.test(value)) return decodeURIComponent(value);
   return decodeURIComponent(value)
     .replace(/[-_]+/g, ' ')
@@ -101,6 +107,7 @@ export function AppBreadcrumbs() {
   // Stable route-specific cache prevents briefly displaying the previous
   // customer's/vehicle's name while navigating to a different record.
   const [recordLabel, setRecordLabel] = useState(null);
+  const [supplierBreadcrumb, setSupplierBreadcrumb] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -157,6 +164,29 @@ export function AppBreadcrumbs() {
     return () => { alive = false; };
   }, [location.pathname]);
 
+  useEffect(() => {
+    const match = location.pathname.match(/^\/suppliers\/([0-9a-f-]{36})$/i);
+    if (!match) {
+      setSupplierBreadcrumb(null);
+      return undefined;
+    }
+    let active = true;
+    const identifier = match[1].toLowerCase();
+    // Never briefly reveal a humanized supplier UUID while fetching the record.
+    setSupplierBreadcrumb({ identifier, label: 'Supplier' });
+    supplierService.get(identifier)
+      .then((supplier) => {
+        if (active) setSupplierBreadcrumb({
+          identifier, label: /^SUP-\d{5,}$/i.test(String(supplier?.code || ''))
+            ? supplier.code : 'Supplier',
+        });
+      })
+      .catch(() => {
+        if (active) setSupplierBreadcrumb({ identifier, label: 'Supplier' });
+      });
+    return () => { active = false; };
+  }, [location.pathname]);
+
   const items = useMemo(() => {
     const segments = location.pathname.split('/').filter(Boolean);
     if (!segments.length || location.pathname === '/dashboard') return [];
@@ -181,16 +211,17 @@ export function AppBreadcrumbs() {
         label:
           isStaffProfile && index === 2
             ? staffBreadcrumbLabel || 'Staff Profile'
-            : index === 1 && isRecordPath(segments[0], segment)
-              ? (recordLabel?.kind === segments[0] && recordLabel?.identifier === decodeURIComponent(segment)
-                  ? recordLabel.label
-                  : recordBreadcrumbFallback(segments[0]))
-              : prettify(segment),
+            : index === 1 && segments[0] === 'suppliers' && /^[0-9a-f-]{36}$/i.test(segment)
+              ? (supplierBreadcrumb?.identifier === segment.toLowerCase() ? supplierBreadcrumb.label : 'Supplier')
+              : index === 1 && isRecordPath(segments[0], segment)
+                ? (recordLabel?.kind === segments[0] && recordLabel?.identifier === decodeURIComponent(segment)
+                    ? recordLabel.label : recordBreadcrumbFallback(segments[0]))
+                : prettify(segment),
         href: buildHref(segments, index),
         current: index === segments.length - 1
       }))
     ];
-  }, [location.pathname, staffBreadcrumbLabel, recordLabel, homePath]);
+  }, [location.pathname, staffBreadcrumbLabel, recordLabel, supplierBreadcrumb, homePath]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from 'react-router-dom';
+import { RefreshCcw, X } from 'lucide-react';
 import {
   StaffDirectoryCard,
   StaffDirectoryToolbar,
@@ -73,6 +74,8 @@ export const Staff = () => {
           item.department,
           getEmployeeLabel(item, index),
           item.employeeId,
+          item.phone,
+          typeof item.branch === 'object' ? item.branch?.name : item.branch,
         ].some((value) =>
           String(value || '').toLowerCase().includes(query),
         );
@@ -87,6 +90,14 @@ export const Staff = () => {
     });
   }, [staffList, search, selectedBranch, selectedStatus]);
 
+
+  const hasActiveFilters = Boolean(search.trim()) || selectedBranch !== 'All' || selectedStatus !== 'All';
+
+  const clearFilters = () => {
+    setSearch('');
+    setSelectedBranch('All');
+    setSelectedStatus('All');
+  };
 
   const handleToggleStatus = async (id) => {
     try {
@@ -109,13 +120,27 @@ export const Staff = () => {
         onAdd={() => navigate('/staff-management/add')}
       />
 
-      {error && <div className="staff-directory-message is-error">{error}</div>}
+      {error && (
+        <div className="staff-directory-message is-error" role="alert">
+          <span>{error}</span>
+          <button type="button" onClick={loadStaff} disabled={loading}>
+            <RefreshCcw size={15} aria-hidden="true" /> Retry
+          </button>
+        </div>
+      )}
 
-      <div className="staff-directory-results" role="status">
-        {loading ? 'Loading staff…' : `${filteredStaff.length} of ${staffList.length} staff`}
+      <div className="staff-directory-results" role="status" aria-live="polite">
+        <span>{loading ? 'Loading staff…' : error ? 'Staff data unavailable' : `${filteredStaff.length} of ${staffList.length} employees`}</span>
+        {hasActiveFilters && (
+          <button type="button" className="staff-directory-clear-filters" onClick={clearFilters}>
+            <X size={15} aria-hidden="true" /> Clear Filters
+          </button>
+        )}
       </div>
       {loading ? (
         <div className="staff-workshop-empty">Loading staff…</div>
+      ) : error ? (
+        <div className="staff-workshop-empty">Staff could not be loaded. Use Retry above.</div>
       ) : filteredStaff.length ? (
         <div className={`staff-card-grid staff-directory-table ${canViewPayroll || canManagePayroll ? 'has-wages' : 'without-wages'}`}>
           <div className="staff-directory-table-header" aria-hidden="true">
@@ -138,7 +163,14 @@ export const Staff = () => {
           ))}
         </div>
       ) : (
-        <div className="staff-workshop-empty">No staff matched your filters.</div>
+        <div className="staff-workshop-empty">
+          {hasActiveFilters ? 'No staff match these filters.' : 'No staff added yet.'}
+          {hasActiveFilters && (
+            <button type="button" className="staff-directory-clear-filters" onClick={clearFilters}>
+              <X size={15} aria-hidden="true" /> Clear Filters
+            </button>
+          )}
+        </div>
       )}
 
 

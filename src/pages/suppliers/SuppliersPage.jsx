@@ -3,18 +3,31 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Building2, CreditCard, Mail, MessageCircle, Package, Pencil, Phone, Plus, Search, ShoppingBag, Wallet, ChevronRight, RefreshCw, ReceiptText } from 'lucide-react';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { supplierService } from '../../services/supplier.service';
+import { CountryPhoneField } from '../../components/common/CountryPhoneField';
+import { validInternationalPhone } from '../../utils/jobCreateAdapters';
+import { normalizeSupplierGstin, supplierGstinError } from '../../utils/supplierGstin';
 import { supplierFinanceService } from '../../services/supplierFinance.service';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
 import { USE_MOCK_API } from '../../api/apiConfig';
 import SupplierPurchaseFlow from '../../components/suppliers/SupplierPurchaseFlow';
 import SupplierAccountStatement from '../../components/suppliers/SupplierAccountStatement';
+import SupplierAdvanceAddModal from '../../components/suppliers/SupplierAdvanceAddModal';
 import SupplierReturnsPanel from '../../components/suppliers/SupplierReturnsPanel';
 import { SupplierOverviewCards } from '../../components/suppliers/SupplierWorkspaceGuide';
 import { appConfirm } from '../../components/common/appDialogs';
 import { useLocation } from 'react-router-dom';
 import { customerContactLinks } from '../../components/jobs/customerContact.utils';
+import { filterSupplierProducts } from '../../utils/supplierProductSearch';
+import {
+  arrangeSupplierProducts, supplierProductStockQuantity,
+  supplierProductStockStatus, supplierProductStockSummary,
+} from '../../utils/supplierProductListView';
+import { SUPPLIER_TAB_HASHES, allowedSupplierTab } from '../../utils/supplierDetailTabs';
 import '../../styles/suppliers-workspace.css';
 import '../../styles/suppliers-unified-ui.css';
+import '../../styles/supplier-detail-tabs.css';
+import '../../styles/supplier-product-list.css';
+import '../../styles/supplier-ledger-workspace.css';
 
 const asText = value => String(value ?? '').trim();
 const formFields = ['name', 'contact_person', 'phone', 'email', 'gstNo', 'address'];
@@ -86,9 +99,14 @@ function SupplierEditor({ supplier, onClose, onSaved }) {
     if (!canWrite || busy) return;
     const errors = {};
     if (!form.name.trim()) errors.name = 'Supplier Name is required.';
+    if (form.phone.trim() && !validInternationalPhone(form.phone)) {
+      errors.phone = 'Enter a valid phone for the chosen country code.';
+    }
     if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
       errors.email = 'Enter a valid email address.';
     }
+    const gstinProblem = supplierGstinError(form.gstNo);
+    if (gstinProblem) errors.gstNo = gstinProblem;
     if (Object.keys(errors).length) {
       setFormErrors(errors);
       setError('');
@@ -98,7 +116,8 @@ function SupplierEditor({ supplier, onClose, onSaved }) {
     setError('');
     setFormErrors({});
     try {
-      const payload = { ...form, name: form.name.trim(), email: form.email.trim() };
+      const payload = { ...form, name: form.name.trim(), email: form.email.trim(),
+        gstNo: normalizeSupplierGstin(form.gstNo) };
       const saved = supplier
         ? await supplierService.update(supplier.id, payload)
         : await supplierService.create(payload);
@@ -139,8 +158,14 @@ function SupplierEditor({ supplier, onClose, onSaved }) {
   return <ResponsiveModalSheet isOpen onClose={tryClose}
     title={supplier ? 'Edit Supplier' : 'Add Supplier'} maxWidth="680px">
     <form className="cg-supplier-form" noValidate onSubmit={submit}>
-      <p className="cg-supplier-form-intro">Enter the supplier's contact details. Supplier Name is required; GSTIN and other details are optional.</p>
-      {formFields.map(key => <label key={key} className="cg-supplier-field">
+      <p className="cg-supplier-form-intro">Enter supplier details. GSTIN is optional for unregistered suppliers.</p>
+      {formFields.map(key => key === 'phone' ? (
+        <div key={key} className="cg-supplier-field">
+          <CountryPhoneField label="Phone" value={form.phone}
+            disabled={busy} error={formErrors.phone}
+            onChange={value => setField('phone', value)}/>
+        </div>
+      ) : <label key={key} className="cg-supplier-field">
         <span>{labels[key]}</span>
         {key === 'address'
           ? <textarea ref={node => { inputRefs.current[key] = node; }} rows={2}
@@ -148,9 +173,12 @@ function SupplierEditor({ supplier, onClose, onSaved }) {
               value={form[key]} onChange={e => setField(key, e.target.value)} />
           : <input ref={node => { inputRefs.current[key] = node; }} required={key === 'name'}
               type={key === 'email' ? 'email' : key === 'phone' ? 'tel' : 'text'}
-              maxLength={key === 'name' ? 180 : key === 'contact_person' ? 120 : key === 'phone' ? 30 : key === 'gstNo' ? 20 : 254}
+              maxLength={key === 'name' ? 180 : key === 'contact_person' ? 120 : key === 'phone' ? 30 : key === 'gstNo' ? 15 : 254}
               aria-invalid={Boolean(formErrors[key])} aria-describedby={formErrors[key] ? 'supplier-error-' + key : undefined}
-              value={form[key]} onChange={e => setField(key, e.target.value)} />}
+              value={form[key]} onChange={e => setField(key, key === 'gstNo' ? e.target.value.toUpperCase() : e.target.value)} />}
+        {key === 'gstNo' && <small className="cg-supplier-field-hint">
+          15 characters · first 2 are the state code (Kerala: 32). Leave blank if unregistered.
+        </small>}
         {formErrors[key] && <small id={'supplier-error-' + key} role="alert"
           className="cg-supplier-field-error">{formErrors[key]}</small>}
       </label>)}
@@ -184,6 +212,22 @@ export default function SuppliersPage({ section = 'all' }) {
     access.can('payments.create') && !USE_MOCK_API;
   const canPaySupplier = canViewFinance && access.can('payments.create') && !USE_MOCK_API;
   const canDelete = access.can('stock.delete') && !USE_MOCK_API;
+  const availableSupplierTabs = [
+    { key: 'overview', label: 'Overview', icon: Building2 },
+    ...(canCreatePurchase ? [{ key: 'purchase', label: 'Buy / Receive', icon: ShoppingBag }] : []),
+    ...(canPaySupplier ? [{ key: 'payments', label: 'Payments', icon: CreditCard }] : []),
+    { key: 'products', label: 'Products', icon: Package },
+    ...(canViewFinance ? [{ key: 'accounts', label: 'Accounts', icon: Wallet },
+      { key: 'returns', label: 'Returns', icon: ReceiptText }] : []),
+  ];
+  const activeSupplierTab = allowedSupplierTab(location.hash, availableSupplierTabs);
+  const chooseSupplierTab = key => {
+    if (!id || !availableSupplierTabs.some(tab => tab.key === key)) return;
+    navigate({
+      pathname: location.pathname, search: location.search,
+      hash: SUPPLIER_TAB_HASHES[key],
+    }, { state: location.state });
+  };
   const [suppliers, setSuppliers] = useState([]);
   const [creditBalances, setCreditBalances] = useState(null);
   const [balancesError, setBalancesError] = useState('');
@@ -207,11 +251,19 @@ export default function SuppliersPage({ section = 'all' }) {
   const [supplierFinanceError, setSupplierFinanceError] = useState('');
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
+  const [supplierProductSearch, setSupplierProductSearch] = useState('');
+  const [supplierProductAvailability, setSupplierProductAvailability] = useState('all');
+  const [supplierProductSort, setSupplierProductSort] = useState('name');
+  const [supplierProductVisibleLimit, setSupplierProductVisibleLimit] = useState(24);
+  const [remoteSupplierProducts, setRemoteSupplierProducts] = useState([]);
+  const [searchingSupplierProducts, setSearchingSupplierProducts] = useState(false);
+  const [supplierProductSearchError, setSupplierProductSearchError] = useState('');
   const [loading, setLoading] = useState(true);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [editor, setEditor] = useState(null);
+  const [advanceOpen, setAdvanceOpen] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [reloadList, setReloadList] = useState(0);
@@ -361,6 +413,58 @@ export default function SuppliersPage({ section = 'all' }) {
     return () => { active = false; };
   }, [canViewFinance, purchaseView]);
 
+  // Full Django catalogue search, not just the first stock page returned on
+  // supplier load. The endpoint remains company-scoped; filter by this supplier.
+  useEffect(() => {
+    const query = supplierProductSearch.trim();
+    if (!id || activeSupplierTab !== 'products' || !query) {
+      setRemoteSupplierProducts([]);
+      setSearchingSupplierProducts(false);
+      setSupplierProductSearchError('');
+      return undefined;
+    }
+    let current = true;
+    setSearchingSupplierProducts(true);
+    setSupplierProductSearchError('');
+    const timer = window.setTimeout(async () => {
+      try {
+        const rows = await supplierService.products(query);
+        if (current) setRemoteSupplierProducts(
+          rows.filter(row => supplierIdOf(row) === String(id)),
+        );
+      } catch {
+        if (current) {
+          setRemoteSupplierProducts([]);
+          setSupplierProductSearchError('Search unavailable. Showing loaded supplier products.');
+        }
+      } finally {
+        if (current) setSearchingSupplierProducts(false);
+      }
+    }, 250);
+    return () => { current = false; window.clearTimeout(timer); };
+  }, [id, activeSupplierTab, supplierProductSearch]);
+
+  const supplierProductsFiltered = useMemo(() => {
+    const combined = new Map();
+    for (const item of [...remoteSupplierProducts, ...products]) {
+      if (item?.id && !combined.has(String(item.id))) combined.set(String(item.id), item);
+    }
+    return filterSupplierProducts([...combined.values()], supplierProductSearch);
+  }, [products, remoteSupplierProducts, supplierProductSearch]);
+
+  const supplierProductStockCounts = useMemo(() =>
+    supplierProductStockSummary(supplierProductsFiltered), [supplierProductsFiltered]);
+  const supplierProductRows = useMemo(() =>
+    arrangeSupplierProducts(supplierProductsFiltered, supplierProductAvailability, supplierProductSort),
+  [supplierProductsFiltered, supplierProductAvailability, supplierProductSort]);
+  const visibleSupplierProducts = useMemo(() =>
+    supplierProductRows.slice(0, supplierProductVisibleLimit),
+  [supplierProductRows, supplierProductVisibleLimit]);
+
+  useEffect(() => {
+    setSupplierProductVisibleLimit(24);
+  }, [id, supplierProductSearch, supplierProductAvailability, supplierProductSort]);
+
   const supplierBalanceTotals = useMemo(() => {
     if (!creditBalances) return null;
     const rows = [...creditBalances.values()];
@@ -431,33 +535,29 @@ export default function SuppliersPage({ section = 'all' }) {
     if (!id) return;
     setSupplierFinanceError('');
     try {
-    const [summary, bills, payments, catalog] = await Promise.all([
-      supplierFinanceService.getSupplierSummary(id),
-      supplierFinanceService.getBills(id),
-      supplierFinanceService.getPayments(id),
-      supplierFinanceService.getSupplierLedger(id),
-      supplierFinanceService.getSupplierBalances(),
-      supplierService.products(),
-    ]);
-    setSupplierFinancials(summary);
-    setSupplierBills(bills);
-    setSupplierPayments(payments);
-    setSupplierLedger(ledger);
-    setCreditBalances(new Map(balances.map(row => [String(row.supplierId), row])));
-    setBalancesError('');
-    setSupplierFinanceError('');
-    setProducts(catalog.filter(row => supplierIdOf(row) === String(id)));
-    setCreditBalances(current => {
-      if (!current) return current;
-      const totalDue = bills
-        .filter(bill => bill.postingStatus === 'Posted')
-        .reduce((total, bill) => total + Number(bill.outstanding || 0), 0);
-      if (!Number.isFinite(totalDue)) return current;
-      const updated = new Map(current);
-      updated.set(String(id), totalDue);
-      return updated;
-    });
-    setNotice('Supplier purchase, stock, payments and outstanding balance updated.');
+      // Payments must refresh even if the optional product catalogue is unavailable.
+      // Keep the response order aligned with the six requests.
+      const [summary, bills, payments, ledger, balances, catalog] = await Promise.all([
+        supplierFinanceService.getSupplierSummary(id),
+        supplierFinanceService.getBills(id),
+        supplierFinanceService.getPayments(id),
+        supplierFinanceService.getSupplierLedger(id),
+        supplierFinanceService.getSupplierBalances(),
+        supplierService.products().catch(() => null),
+      ]);
+      setSupplierFinancials(summary);
+      setSupplierBills(bills);
+      setSupplierPayments(payments);
+      setSupplierLedger(ledger);
+      // Balance rows are objects used by the supplier totals; never replace one
+      // with a bare number, which makes the dashboard show an incorrect zero.
+      setCreditBalances(new Map(balances.map(row => [String(row.supplierId), row])));
+      setBalancesError('');
+      setSupplierFinanceError('');
+      if (Array.isArray(catalog)) {
+        setProducts(catalog.filter(row => supplierIdOf(row) === String(id)));
+      }
+      setNotice('Supplier purchase, stock, payments and outstanding balance updated.');
     } catch (cause) {
       setSupplierFinanceError(cause?.message || 'Supplier balances could not be refreshed. Try again.');
     }
@@ -477,16 +577,16 @@ export default function SuppliersPage({ section = 'all' }) {
   return <div className="cg-suppliers-page cg-suppliers-ui">
     <div className="cg-suppliers-head">
       <div>
-        {id&&<Link className="cg-suppliers-back" to="/suppliers"><ArrowLeft size={16}/> All Suppliers</Link>}
-        <span className="cg-suppliers-eyebrow">CUBIXGEAR · WORKSHOP SUPPLIERS</span>
+        {!id && <span className="cg-suppliers-eyebrow">CUBIXGEAR · WORKSHOP SUPPLIERS</span>}
         <h1 title={id ? (supplier?.name || 'Supplier Details') : undefined}>
           {id ? (supplier?.name || 'Supplier Details') : purchaseView ? 'Supplier Purchases' : 'Suppliers'}
         </h1>
-        <p className="cg-suppliers-subtitle">{id
-          ? 'View this supplier’s contacts, purchases, outstanding bills, returns and payments.'
-          : purchaseView
-            ? 'Review purchase orders separately from posted bills and supplier credit.'
-            : 'Manage supplier contacts and see the money still owed on posted purchase bills.'}</p>
+        {id && supplier && <p className="cg-supplier-public-code" aria-label="Supplier reference">
+          {/^SUP-\d{5,}$/i.test(String(supplier.code || '')) ? supplier.code : 'Supplier'}
+        </p>}
+        {!id && <p className="cg-suppliers-subtitle">{purchaseView
+          ? 'Purchase history and supplier bills.'
+          : 'Supplier contacts, stock and balances.'}</p>}
       </div>
       <div className="cg-supplier-header-actions">
         {id ? canEdit && supplier && <button type="button" className="cg-supplier-button" onClick={()=>setEditor(supplier)}>Edit Supplier</button>
@@ -499,12 +599,15 @@ export default function SuppliersPage({ section = 'all' }) {
       </div>
     </div>
 
-    {id && <nav className="cg-supplier-details-nav" aria-label="Supplier details sections">
-      <a href="#supplier-profile"><Building2 size={16}/> Profile</a>
-      {canCreatePurchase && <a href="#supplier-purchase-form"><ShoppingBag size={16}/> Purchases</a>}
-      {canPaySupplier && <a href="#supplier-pay-now"><CreditCard size={16}/> Pay Credit</a>}
-      {canViewFinance && <a href="#supplier-returns"><Package size={16}/> Returns</a>}
-      {canViewFinance && <a href="#supplier-ledger"><Wallet size={16}/> Accounts &amp; Payments</a>}
+    {id && <nav className="cg-supplier-details-tabs" aria-label="Supplier detail tabs">
+      {availableSupplierTabs.map(({ key, label, icon: TabIcon }) => (
+        <button key={key} type="button"
+          className={activeSupplierTab === key ? 'is-active' : ''}
+          aria-current={activeSupplierTab === key ? 'page' : undefined}
+          onClick={() => chooseSupplierTab(key)}>
+          <TabIcon size={16} aria-hidden="true" /> {label}
+        </button>
+      ))}
     </nav>}
     {error&&<div className="cg-supplier-error cg-supplier-page-error" role="alert">
       <span>{error}</span>
@@ -761,7 +864,8 @@ export default function SuppliersPage({ section = 'all' }) {
     )}
 
     {id&&!detailsLoading&&supplier&&<>
-      <section className="cg-supplier-profile" id="supplier-profile">
+      {activeSupplierTab === 'overview' && (
+      <section className="cg-supplier-profile cg-supplier-tab-panel" id="supplier-profile">
         <div className="cg-supplier-profile-head"><Building2 size={20}/><h2>Supplier Information</h2>
           <span className={supplier.is_active===false?'cg-supplier-status inactive':'cg-supplier-status'}>{status(supplier)}</span>
         </div>
@@ -772,15 +876,21 @@ export default function SuppliersPage({ section = 'all' }) {
           <div><span>GSTIN</span><strong>{supplier.gstNo||'—'}</strong></div>
           <div className="full"><span>Address</span><strong>{supplier.address||'—'}</strong></div>
         </div>
-        {canViewFinance && <div className="cg-supplier-credit-highlight">
-          <div>
-            <span>Outstanding Supplier Credit</span>
-            <strong>{supplierFinancials ? money(supplierFinancials.outstanding) : 'Unavailable'}</strong>
-            <small>Unpaid balance on posted supplier bills only</small>
-          </div>
-          {canPaySupplier && <a href="#supplier-pay-now" className="cg-supplier-button primary">
-            <CreditCard size={16}/> Pay Supplier
-          </a>}
+        {canViewFinance && <div className="cg-supplier-summary-grid" aria-label="Supplier balance summary">
+          {[
+            ['Total Purchases', supplierFinancials?.totalPurchases],
+            ['Total Paid', supplierFinancials?.totalPaymentsApplied],
+            ['Balance Due', supplierFinancials?.outstanding],
+            ['Advance Available', supplierFinancials?.availableAdvance],
+          ].map(([label, amount]) =>
+            <div key={label} className="cg-supplier-summary-card">
+              <span>{label}</span><strong>{money(amount)}</strong>
+              {label === 'Advance Available' && canPaySupplier && supplier?.is_active !== false &&
+                <button type="button" className="cg-supplier-advance-card-action"
+                  onClick={() => setAdvanceOpen(true)}>
+                  <Plus size={15} aria-hidden="true"/> Add Money
+                </button>}
+            </div>)}
         </div>}
         <div className="cg-supplier-contacts">
           <SupplierContactActions supplier={supplier}/>
@@ -796,17 +906,8 @@ export default function SuppliersPage({ section = 'all' }) {
             onClick={() => setDeleteConfirmOpen(true)} className="cg-supplier-button">Delete Supplier</button>}
         </div>
       </section>
-      {(canCreatePurchase || canPaySupplier) && (
-        <SupplierPurchaseFlow
-          supplier={supplier}
-          initialPart={location.state?.purchasePrefill || null}
-          canPurchase={canCreatePurchase}
-          canPay={canPaySupplier}
-          bills={supplierBills}
-          onChanged={refreshSupplierDetails}
-        />
       )}
-      {canViewFinance && (
+      {canViewFinance && activeSupplierTab === 'returns' && (
         <div id="supplier-returns" className="cg-supplier-return-section">
         <SupplierReturnsPanel
           supplier={supplier}
@@ -818,28 +919,31 @@ export default function SuppliersPage({ section = 'all' }) {
         />
         </div>
       )}
-      {canViewFinance && (
-        <section className="cg-supplier-profile" id="supplier-ledger" aria-label="Supplier credit and settlement">
-          <div className="cg-supplier-profile-head">
-            <CreditCard size={20}/><h2>Supplier Credit, Balance & Transactions</h2>
-          </div>
-          {supplierFinanceError && <p className="cg-supplier-error" role="alert">{supplierFinanceError}</p>}
-          {supplierFinancials && (
-            <div className="cg-supplier-fields">
-              <div><span>Total Posted Purchases</span><strong>{money(supplierFinancials.totalPurchases)}</strong></div>
-              <div><span>Paid Against Bills</span><strong>{money(supplierFinancials.totalPaymentsApplied)}</strong></div>
-              <div><span>Remaining Credit</span><strong>{money(supplierFinancials.outstanding)}</strong></div>
-              <div><span>Overdue Payable</span><strong>{money(supplierFinancials.overdue)}</strong></div>
-              <div><span>Unapplied Advances</span><strong>{money(supplierFinancials.availableAdvance)}</strong></div>
-              <div><span>Purchase Returns</span><strong>{money(supplierFinancials.totalReturns)}</strong></div>
-              <div><span>Debit Note Credit Available</span><strong>{money(supplierFinancials.availableDebitCredit)}</strong></div>
-              <div><span>Net After Available Credits</span><strong>{money(supplierFinancials.netExposureAfterAvailableCredits)}</strong></div>
+      {canViewFinance && activeSupplierTab === 'accounts' && (
+        <section className="cg-supplier-profile cg-supplier-tab-panel cg-supplier-ledger-workspace"
+          id="supplier-ledger" aria-label="Supplier credit and transactions">
+          <header className="cg-supplier-ledger-header">
+            <div className="cg-supplier-ledger-heading">
+              <span className="cg-supplier-ledger-heading-icon"><CreditCard size={20} aria-hidden="true"/></span>
+              <div>
+                <h2>Supplier Account &amp; Transactions</h2>
+                <p>Purchase bills, payments, advances and credits in one ledger.</p>
+              </div>
             </div>
-          )}
-          <p className="cg-supplier-ledger-note" aria-label="Credit outstanding">
-            Credit outstanding is based on posted supplier bills. Use “Pay Supplier” above to settle a bill.
-            Advances, supplier payments and returns remain separate accounting entries.
-          </p>
+            <div className="cg-supplier-ledger-header-actions">
+              {supplierFinancials && <div className="cg-supplier-ledger-due">
+                <span>Balance Due</span>
+                <strong>{money(supplierFinancials.outstanding)}</strong>
+              </div>}
+              {canPaySupplier && <button type="button" className="cg-supplier-ledger-pay"
+                onClick={() => chooseSupplierTab('payments')}>
+                <CreditCard size={16} aria-hidden="true"/> Pay Supplier
+              </button>}
+            </div>
+          </header>
+          {supplierFinanceError && !supplierLedger &&
+            <p className="cg-supplier-error" role="alert">{supplierFinanceError}</p>}
+
           <SupplierAccountStatement
             supplier={supplier}
             ledger={supplierLedger}
@@ -847,58 +951,201 @@ export default function SuppliersPage({ section = 'all' }) {
             error={supplierFinanceError}
             onRefresh={() => refreshSupplierDetails().catch(cause =>
               setSupplierFinanceError(cause?.message || 'Unable to refresh supplier transactions.'))}
+            onAddAdvance={canPaySupplier && supplier?.is_active !== false
+              ? () => setAdvanceOpen(true) : undefined}
           />
-          <h3>Purchase Bills</h3>
-          {supplierBills.filter(b => b.postingStatus === 'Posted').map(bill => (
-            <div key={bill.id} className="cg-supplier-record">
-              <div><strong>{bill.invoiceNumber}</strong>
-                <small>{bill.postedAt
-                  ? new Date(bill.postedAt).toLocaleString('en-IN')
-                  : bill.invoiceDate} · Paid {money(bill.paid)} · {bill.status}</small>
-                <small>{bill.items?.map(item => item.description).join(', ') || 'Supplier purchase'} · Bought by {bill.purchasedBy || 'Workshop staff'}</small>
-              </div>
-              <b>Due {money(bill.outstanding)}</b>
-            </div>
-          ))}
-          {!supplierBills.length && <p className="cg-supplier-empty">No supplier purchase bills recorded.</p>}
 
+          <section className="cg-supplier-ledger-purchase-bills" aria-label="Posted purchase bills">
+            <div className="cg-supplier-ledger-bills-heading">
+              <div><ReceiptText size={18} aria-hidden="true"/><h3>Purchase Bills</h3></div>
+              <span>{supplierBills.filter(bill => bill.postingStatus === 'Posted').length} posted</span>
+            </div>
+            {supplierBills.filter(bill => bill.postingStatus === 'Posted').map(bill => (
+              <article key={bill.id} className="cg-supplier-ledger-bill">
+                <div className="cg-supplier-ledger-bill-main">
+                  <strong>{bill.invoiceNumber || 'Purchase Bill'}</strong>
+                  <span>{bill.postedAt
+                    ? new Date(bill.postedAt).toLocaleDateString('en-IN')
+                    : bill.invoiceDate || '—'} · {bill.status || 'Posted'}</span>
+                  <small>{bill.items?.map(item => item.description).filter(Boolean).join(', ') || 'Supplier purchase'}</small>
+                </div>
+                <div className="cg-supplier-ledger-bill-totals">
+                  <div><span>Paid</span><strong>{money(bill.paid)}</strong></div>
+                  <div><span>Due</span><strong>{money(bill.outstanding)}</strong></div>
+                </div>
+              </article>
+            ))}
+            {!supplierBills.some(bill => bill.postingStatus === 'Posted') &&
+              <p className="cg-supplier-ledger-bills-empty">No posted supplier purchase bills yet.</p>}
+          </section>
         </section>
       )}
       {(canCreatePurchase || canPaySupplier) && (
-        <SupplierPurchaseFlow
-          supplier={supplier}
-          initialPart={location.state?.purchasePrefill || null}
-          canPurchase={canCreatePurchase}
-          canPay={canPaySupplier}
-          bills={supplierBills}
-          onChanged={refreshSupplierDetails}
-        />
+        <div className="cg-supplier-tab-panel"
+          hidden={activeSupplierTab !== 'purchase' && activeSupplierTab !== 'payments'}>
+          <SupplierPurchaseFlow
+            supplier={supplier}
+            initialPart={location.state?.purchasePrefill || null}
+            canPurchase={canCreatePurchase}
+            canPay={canPaySupplier}
+            showPurchase={activeSupplierTab === 'purchase'}
+            showPayments={activeSupplierTab === 'payments'}
+            bills={supplierBills}
+            onChanged={refreshSupplierDetails}
+          />
+        </div>
       )}
-      <div className="cg-supplier-details-grid">
-        <section className="cg-supplier-profile">
-          <div className="cg-supplier-profile-head"><ShoppingBag size={20}/><h2>Purchase Orders</h2><span>{orders.length} loaded</span></div>
-          {orders.length? orders.map(order=><div className="cg-supplier-record" key={order.id}>
-            <div><strong>{order.purchaseNo||order.number||'Purchase Order'}</strong><small>{order.status||'—'}</small></div>
-            <b>{money(order.total)}</b>
-          </div>):<p className="cg-supplier-empty">No purchase orders found.</p>}
-        </section>
-        <section className="cg-supplier-profile">
-          <div className="cg-supplier-profile-head"><Package size={20}/><h2>Supplied Products</h2><span>{products.length} loaded</span></div>
-          {products.length? products.map(item=><div className="cg-supplier-record" key={item.id}>
-            <div>
-              <strong>{item.partName||item.name}</strong>
-              <small>{item.sku||'—'} · Purchase {money(item.costPrice ?? item.cost)} · Selling {money(item.sellingPrice ?? item.price)}</small>
-              <small>GST {item.tax ?? 0}% · {item.hsnCode || item.hsn_code || 'No HSN'}</small>
+      {activeSupplierTab === 'products' && (
+      <div className="cg-supplier-products-layout cg-supplier-tab-panel" id="supplier-products">
+        <section className="cg-supplier-profile cg-supplier-products-panel" aria-label="Products supplied by this supplier">
+          <div className="cg-supplier-products-heading">
+            <div className="cg-supplier-products-heading-title">
+              <span className="cg-supplier-products-heading-icon"><Package size={19} aria-hidden="true"/></span>
+              <div>
+                <h2>Supplied Products</h2>
+                <p>Product details, stock and prices in one place.</p>
+              </div>
             </div>
-            <span>{item.onHand??'—'} in stock</span>
-          </div>):<p className="cg-supplier-empty">No products linked yet.</p>}
+            <Link className="cg-supplier-products-inventory-link" to={'/stock?supplier=' + encodeURIComponent(supplier.id)}>
+              View Inventory <ChevronRight size={16} aria-hidden="true"/>
+            </Link>
+          </div>
+
+          <div className="cg-supplier-products-toolbar">
+            <label className="cg-supplier-products-search">
+              <Search size={18} aria-hidden="true"/>
+              <input type="search" aria-label="Search supplier products"
+                value={supplierProductSearch}
+                placeholder="Search product, SKU, part number, brand or HSN"
+                onChange={event => setSupplierProductSearch(event.target.value)}/>
+              {supplierProductSearch && <button type="button" className="cg-supplier-products-clear"
+                aria-label="Clear product search" onClick={() => setSupplierProductSearch('')}>Clear</button>}
+            </label>
+            <label className="cg-supplier-products-sort">
+              <span>Sort by</span>
+              <select value={supplierProductSort} onChange={event => setSupplierProductSort(event.target.value)}
+                aria-label="Sort supplier products">
+                <option value="name">Name A–Z</option>
+                <option value="stock">Lowest stock first</option>
+              </select>
+            </label>
+          </div>
+          <div className="cg-supplier-products-filters" role="group" aria-label="Filter products by stock status">
+            {[
+              { key:'all', label:'All products', count:supplierProductsFiltered.length },
+              { key:'in', label:'In stock', count:supplierProductStockCounts.in },
+              { key:'out', label:'Out of stock', count:supplierProductStockCounts.out },
+              ...(supplierProductStockCounts.unknown
+                ? [{ key:'unknown', label:'Stock unknown', count:supplierProductStockCounts.unknown }] : []),
+            ].map(option => (
+              <button type="button" key={option.key}
+                className={supplierProductAvailability === option.key ? 'is-active' : ''}
+                aria-pressed={supplierProductAvailability === option.key}
+                onClick={() => setSupplierProductAvailability(option.key)}>
+                {option.label} <span>{option.count}</span>
+              </button>
+            ))}
+          </div>
+          <div className="cg-supplier-products-result-info" role="status">
+            <span>{supplierProductRows.length} {supplierProductRows.length === 1 ? 'product' : 'products'} found</span>
+            {searchingSupplierProducts && <span>Searching catalogue…</span>}
+          </div>
+          {supplierProductSearchError && <p role="alert" className="cg-supplier-search-feedback">{supplierProductSearchError}</p>}
+
+          {visibleSupplierProducts.length ? (
+            <ul className="cg-supplier-product-list">
+              {visibleSupplierProducts.map(item => {
+                const quantity = supplierProductStockQuantity(item);
+                const availability = supplierProductStockStatus(item);
+                const partName = item.partName || item.name || 'Unnamed product';
+                return (
+                  <li className="cg-supplier-product-item" key={item.id}>
+                    <div className="cg-supplier-product-main">
+                      <span className="cg-supplier-product-avatar" aria-hidden="true"><Package size={19}/></span>
+                      <div className="cg-supplier-product-identity">
+                        <strong className="cg-supplier-product-name">{partName}</strong>
+                        <div className="cg-supplier-product-meta">
+                          {item.partNumber || item.part_number
+                            ? <span>Part No: {item.partNumber || item.part_number}</span> : null}
+                          {item.sku && <span>SKU: {item.sku}</span>}
+                          {item.brand && <span>{item.brand}</span>}
+                          {(item.hsnCode || item.hsn_code) && <span>HSN: {item.hsnCode || item.hsn_code}</span>}
+                          {item.tax !== null && item.tax !== undefined && item.tax !== '' &&
+                            <span>GST: {item.tax}%</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="cg-supplier-product-values">
+                      <div className="cg-supplier-product-price">
+                        <span>Purchase / unit</span>
+                        <strong>{money(item.costPrice ?? item.cost)}</strong>
+                      </div>
+                      <div className="cg-supplier-product-price">
+                        <span>Selling / unit</span>
+                        <strong>{money(item.sellingPrice ?? item.price)}</strong>
+                      </div>
+                      <div className={'cg-supplier-product-stock is-' + availability}>
+                        <span>{availability === 'in' ? 'In stock'
+                          : availability === 'out' ? 'Out of stock' : 'Stock unknown'}</span>
+                        <strong>{quantity === null ? '—'
+                          : new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 }).format(quantity)}</strong>
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <div className="cg-supplier-products-empty">
+              <Package size={28} aria-hidden="true"/>
+              <strong>{supplierProductsFiltered.length
+                ? 'No products in this stock filter'
+                : supplierProductSearch ? 'No matching products' : 'No supplier products yet'}</strong>
+              <p>{supplierProductsFiltered.length
+                ? 'Try All products to view the complete list.'
+                : supplierProductSearch ? 'Try another part name, SKU or brand.'
+                  : 'Products linked to this supplier will appear here.'}</p>
+              {(supplierProductSearch || supplierProductAvailability !== 'all') &&
+                <button type="button" onClick={() => {
+                  setSupplierProductSearch('');
+                  setSupplierProductAvailability('all');
+                }}>Reset filters</button>}
+            </div>
+          )}
+          {supplierProductRows.length > supplierProductVisibleLimit &&
+            <div className="cg-supplier-products-more">
+              <span>Showing {visibleSupplierProducts.length} of {supplierProductRows.length}</span>
+              <button type="button" onClick={() => setSupplierProductVisibleLimit(value => value + 24)}>
+                Show more products <ChevronRight size={16} aria-hidden="true"/>
+              </button>
+            </div>}
+        </section>
+
+        <section className="cg-supplier-profile cg-supplier-products-orders" aria-label="Supplier purchase orders">
+          <div className="cg-supplier-profile-head">
+            <ShoppingBag size={19} aria-hidden="true"/><h2>Purchase Orders</h2>
+            <span>{orders.length} loaded</span>
+          </div>
+          {orders.length ? orders.map(order => (
+            <div className="cg-supplier-record" key={order.id}>
+              <div><strong>{order.purchaseNo || order.number || 'Purchase Order'}</strong>
+                <small>{order.status || '—'}</small></div>
+              <b>{money(order.total)}</b>
+            </div>
+          )) : <p className="cg-supplier-empty">No purchase orders found.</p>}
         </section>
       </div>
+      )}
     </>}
     {id&&detailsLoading&&<p role="status" className="cg-supplier-empty">Loading supplier details…</p>}
     {id&&!detailsLoading&&!supplier&&!error&&<p className="cg-supplier-empty">Supplier not found.</p>}
     {editor&&<SupplierEditor key={editor.id||'new'} supplier={editor.create?null:editor}
       onClose={()=>setEditor(null)} onSaved={onSaved}/>}
+    {advanceOpen && supplier && canPaySupplier &&
+      <SupplierAdvanceAddModal supplier={supplier}
+        onClose={() => setAdvanceOpen(false)}
+        onSaved={() => refreshSupplierDetails()}/>}
+
     <ResponsiveModalSheet isOpen={deleteConfirmOpen}
       onClose={() => !actionBusy && setDeleteConfirmOpen(false)}
       title="Delete Supplier" maxWidth="440px">

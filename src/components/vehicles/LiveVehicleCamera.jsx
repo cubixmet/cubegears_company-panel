@@ -250,10 +250,12 @@ export function LiveVehicleCamera({ onCapture, disabled = false, count = 0 }) {
             <label className="live-camera-caption">Inspection Notes
               <input value={caption} maxLength={255} onChange={(e) => setCaption(e.target.value)} placeholder="Optional photo caption" />
             </label>
-            <div className="live-camera-action-row">
+          </div>
+          <div className="live-camera-footer">
+            <div className={`live-camera-action-row${file ? ' is-preview' : ' is-live'}`}>
               {!file && <>
-                <button type="button" onClick={switchCamera} disabled={loading} title={cameras.length > 1 ? 'Switch physical camera' : 'Toggle front/rear camera'}><SwitchCamera size={18}/> Switch</button>
-                <button type="button" className="live-camera-shutter" onClick={capture} disabled={loading || !!error} aria-label="Capture vehicle photo"><Camera size={25}/> <span>Capture</span></button>
+                <button type="button" className="live-camera-switch" onClick={switchCamera} disabled={loading} title={cameras.length > 1 ? 'Switch physical camera' : 'Toggle front/rear camera'}><SwitchCamera size={18} aria-hidden="true"/> <span>Switch</span></button>
+                <button type="button" className="live-camera-shutter" onClick={capture} disabled={loading || !!error} aria-label="Capture vehicle photo"><Camera size={25} aria-hidden="true"/> <span>Capture</span></button>
                 {error && <button type="button" onClick={() => startCamera(facing)}><RefreshCw size={17}/> Retry</button>}
               </>}
               {file && <>

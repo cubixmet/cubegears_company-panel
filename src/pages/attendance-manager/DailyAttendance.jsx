@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useMemo, useState } from "react";
 import { Edit3, MapPin, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -230,12 +231,12 @@ export const DailyAttendance = () => {
                       type="button"
                       className="am-employee-name-button"
                       onClick={() =>
-                        navigate(`/attendance-manager/team-review/${item.staffId}/${selectedDate}`)
+                        navigate(`/attendance-manager/team-review/${recordLabel(item.staffId)}/${selectedDate}`)
                       }
                     >
                       <strong>{item.name}</strong>
                       <span>
-                        {item.staffId} · {item.designation || 'Staff'}
+                        {recordLabel(item.staffId)} · {item.designation || 'Staff'}
                         {item.team ? ` · ${item.team}` : ''}
                       </span>
                     </button>
@@ -316,11 +317,11 @@ export const DailyAttendance = () => {
                           type="button"
                           className="am-employee-table-link"
                           onClick={() =>
-                            navigate(`/attendance-manager/team-review/${item.staffId}/${selectedDate}`)
+                            navigate(`/attendance-manager/team-review/${recordLabel(item.staffId)}/${selectedDate}`)
                           }
                         >
                           <strong>{item.name}</strong>
-                          <span className="am-table-subtext">{item.staffId}</span>
+                          <span className="am-table-subtext">{recordLabel(item.staffId)}</span>
                         </button>
                       </td>
                       <td>
@@ -374,7 +375,7 @@ export const DailyAttendance = () => {
         {editItem && (
           <form onSubmit={saveEdit} className="am-edit-form">
             <div className="am-edit-summary">
-              <strong>{editItem.name}</strong> · {editItem.staffId}<br/>
+              <strong>{editItem.name}</strong> · {recordLabel(editItem.staffId)}<br/>
               Date: {selectedDate} · Shift: {editItem.shift || 'Company Default'}
             </div>
 

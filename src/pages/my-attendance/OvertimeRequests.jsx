@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Clock3, Plus, X } from 'lucide-react';
 import { attendanceService } from '../../services/attendance.service';
+import { formatAttendanceTime } from '../../utils/attendanceTime';
+import { formatOvertimeDuration, splitOvertimeMinutes, toOvertimeMinutes } from '../../utils/overtimeDuration';
 
 const formatMoney = (value) =>
   new Intl.NumberFormat('en-IN', {
@@ -25,10 +27,12 @@ export const OvertimeRequests = () => {
   const [form, setForm] = useState({
     date: new Date().toISOString().slice(0, 10),
     overtimeHours: '',
+    overtimeMinutes: '',
     reason: '',
   });
   const [submitting, setSubmitting] = useState(false);
-  const [detectedOvertime, setDetectedOvertime] = useState(null);
+  const [detectedMinutes, setDetectedMinutes] = useState(null);
+  const [attendanceSessions, setAttendanceSessions] = useState([]);
   const [message, setMessage] = useState('');
 
   const load = async () => {
@@ -55,18 +59,24 @@ export const OvertimeRequests = () => {
         if (!active) return;
 
         const record = (logs || []).find((row) => row.date === form.date);
+        setAttendanceSessions(Array.isArray(record?.sessions) ? record.sessions : []);
         const minutes = Number(record?.overtimeMinutes || 0);
-        const hours = minutes > 0 ? Number((minutes / 60).toFixed(2)) : 0;
+        const wholeMinutes = Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : 0;
 
-        setDetectedOvertime(hours || null);
-        if (hours > 0) {
+        setDetectedMinutes(wholeMinutes || null);
+        if (wholeMinutes > 0) {
+          const duration = splitOvertimeMinutes(wholeMinutes);
           setForm((current) => ({
             ...current,
-            overtimeHours: String(hours),
+            overtimeHours: duration.hours,
+            overtimeMinutes: duration.minutes,
           }));
         }
       } catch {
-        if (active) setDetectedOvertime(null);
+        if (active) {
+          setDetectedMinutes(null);
+          setAttendanceSessions([]);
+        }
       }
     };
 
@@ -83,17 +93,22 @@ export const OvertimeRequests = () => {
 
   const submit = async (event) => {
     event.preventDefault();
-    if (!form.overtimeHours || Number(form.overtimeHours) <= 0) return;
+    const minutes = toOvertimeMinutes(form.overtimeHours, form.overtimeMinutes);
+    if (minutes === null) {
+      setMessage('Enter valid overtime Hours and Minutes (maximum 24:00).');
+      return;
+    }
 
     setSubmitting(true);
     setMessage('');
     try {
       await attendanceService.submitOvertimeRequest({
         date: form.date,
-        overtimeHours: Number(form.overtimeHours),
+        minutes,
+        overtimeHours: Number((minutes / 60).toFixed(4)),
         reason: form.reason.trim(),
       });
-      setForm((current) => ({ ...current, overtimeHours: '', reason: '' }));
+      setForm((current) => ({ ...current, reason: '' }));
       setMessage('Overtime request submitted.');
       await load();
     } catch (error) {
@@ -136,38 +151,90 @@ export const OvertimeRequests = () => {
               <input
                 type="date"
                 value={form.date}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, date: event.target.value }))
-                }
+                onChange={(event) => {
+                  setDetectedMinutes(null);
+                  setAttendanceSessions([]);
+                  setForm((current) => ({ ...current, date: event.target.value, overtimeHours: '', overtimeMinutes: '' }));
+                }}
                 required
               />
             </label>
 
-            <label>
-              <span>Overtime Hours</span>
-              <input
-                type="number"
-                min="0.25"
-                step="0.25"
-                value={form.overtimeHours}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, overtimeHours: event.target.value }))
-                }
-                placeholder="2.5"
-                readOnly={Boolean(detectedOvertime)}
-                required
-              />
-              {detectedOvertime ? (
+            <div className="my-overtime-duration-field">
+              <span id="overtime-duration-label">Overtime Duration</span>
+              <div className="my-overtime-duration-inputs" role="group" aria-labelledby="overtime-duration-label">
+                <label className="my-overtime-duration-unit">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{1,2}"
+                    maxLength={2}
+                    autoComplete="off"
+                    aria-label="Overtime hours"
+                    value={form.overtimeHours}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (/^\d{0,2}$/.test(value)) {
+                        setForm((current) => ({ ...current, overtimeHours: value }));
+                      }
+                    }}
+                    onBlur={() => setForm((current) => ({
+                      ...current,
+                      overtimeHours: current.overtimeHours ? current.overtimeHours.padStart(2, '0') : '',
+                    }))}
+                    placeholder="00"
+                    readOnly={detectedMinutes > 0}
+                  />
+                  <span>Hours</span>
+                </label>
+                <span className="my-overtime-duration-separator" aria-hidden="true">:</span>
+                <label className="my-overtime-duration-unit">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{1,2}"
+                    maxLength={2}
+                    autoComplete="off"
+                    aria-label="Overtime minutes"
+                    value={form.overtimeMinutes}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (/^\d{0,2}$/.test(value)) {
+                        setForm((current) => ({ ...current, overtimeMinutes: value }));
+                      }
+                    }}
+                    onBlur={() => setForm((current) => ({
+                      ...current,
+                      overtimeMinutes: current.overtimeMinutes ? current.overtimeMinutes.padStart(2, '0') : '',
+                    }))}
+                    placeholder="00"
+                    readOnly={detectedMinutes > 0}
+                  />
+                  <span>Minutes</span>
+                </label>
+              </div>
+              {detectedMinutes > 0 && (
                 <small className="my-overtime-auto-note">
-                  Auto-loaded from attendance: {detectedOvertime}h
-                </small>
-              ) : (
-                <small className="my-overtime-auto-note">
-                  No calculated overtime found for this date. Enter hours manually if needed.
+                  Auto-loaded from attendance: {formatOvertimeDuration(detectedMinutes)}
                 </small>
               )}
-            </label>
+            </div>
           </div>
+
+          {attendanceSessions.length > 0 && (
+            <section className="my-overtime-sessions" aria-label="Attendance sessions" style={{ display: 'grid', gap: '8px', minWidth: 0 }}>
+              <strong style={{ fontSize: '13px' }}>Attendance Sessions</strong>
+              {attendanceSessions.map((session, index) => (
+                <div key={session.id || index} style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '10px 12px', border: '1px solid var(--border)', borderRadius: '10px', background: 'var(--surface-2)', fontSize: '12px' }}>
+                  <span style={{ fontWeight: 600 }}>Session {session.sessionNumber || index + 1}</span>
+                  <span>{formatAttendanceTime(session.clockIn)} → {session.clockOut ? formatAttendanceTime(session.clockOut) : 'Missing clock out'}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>
+                    {session.clockOut ? `Worked: ${Math.floor(Math.max(0, Number(session.workedMinutes) || 0) / 60)}h ${Math.max(0, Number(session.workedMinutes) || 0) % 60}m` : 'Incomplete'}
+                  </span>
+                </div>
+              ))}
+            </section>
+          )}
 
           <label>
             <span>Reason</span>
@@ -202,7 +269,7 @@ export const OvertimeRequests = () => {
                 <div className="my-overtime-list-head">
                   <div>
                     <strong>{formatDate(row.date)}</strong>
-                    <span>{row.overtimeHours ?? ((row.minutes || 0) / 60)} hours</span>
+                    <span>{formatOvertimeDuration(row.minutes ?? Math.round(Number(row.overtimeHours || 0) * 60))}</span>
                   </div>
                   <b className={`is-${String(row.status || '').toLowerCase()}`}>
                     {row.status}

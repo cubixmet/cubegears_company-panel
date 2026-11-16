@@ -55,40 +55,52 @@ export function SupplierWorkspaceGuide({ purchaseView = false }) {
 }
 
 export function SupplierOverviewCards({ suppliers, balances, canViewFinance, purchaseBillsError }) {
-  // Directory balances are complete posted-bill summaries, not scalar amounts.
-  // Never coerce the supplier summary object with Number(object) (NaN).
-  const payableAmounts = balances ? [...balances.values()].map(row =>
-    Number(row?.outstanding ?? row)
-  ) : null;
-  const outstanding = payableAmounts?.every(Number.isFinite)
-    ? payableAmounts.reduce((total, value) => total + value, 0)
-    : null;
+  const money = value => new Intl.NumberFormat('en-IN', {
+    style: 'currency', currency: 'INR', maximumFractionDigits: 2,
+  }).format(value);
+  const values = balances instanceof Map ? [...balances.values()] : null;
+  const sum = key => {
+    if (!values) return null;
+    const amounts = values.map(row => Number(row?.[key]));
+    return amounts.every(Number.isFinite) ? amounts.reduce((a, b) => a + b, 0) : null;
+  };
+  // Reuse the backend's complete posted-bill balance aggregates. Do not
+  // double-count Purchase Orders, advances or unposted draft bills.
   const cards = [
-    { title: 'Total Suppliers', value: String(suppliers.length), help: 'Supplier contacts saved', icon: PackageCheck },
-    { title: 'Active Suppliers', value: String(suppliers.filter(s => s.is_active !== false).length), help: 'Currently active suppliers', icon: Landmark },
-    { title: 'Inactive Suppliers', value: String(suppliers.filter(s => s.is_active === false).length), help: 'Suppliers marked inactive', icon: CreditCard },
+    { title: 'Suppliers', value: String(suppliers.length),
+      help: 'Saved supplier contacts', icon: PackageCheck },
+    { title: 'Active', value: String(suppliers.filter(s => s.is_active !== false).length),
+      help: 'Available for purchases', icon: Landmark },
   ];
   if (canViewFinance) {
-    cards.push({
-      title: 'Supplier Dues',
-      value: outstanding !== null
-        ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(outstanding)
-        : 'Unavailable',
-      help: purchaseBillsError ? 'Could not load posted purchase bills' : 'Unpaid portion of posted supplier bills only',
-      icon: Wallet,
-    });
+    const moneyCards = [
+      { title: 'Purchased', field: 'totalPurchases',
+        help: 'Total posted supplier bills', icon: PackageCheck },
+      { title: 'Paid', field: 'totalPaymentsApplied',
+        help: 'Payments applied to posted bills', icon: CreditCard },
+      { title: 'To Pay', field: 'outstanding',
+        help: 'Remaining posted supplier balance', icon: Wallet },
+      { title: 'Advance', field: 'availableAdvance',
+        help: 'Unused supplier advance payments', icon: Wallet },
+    ];
+    for (const card of moneyCards) {
+      const amount = sum(card.field);
+      cards.push({
+        title: card.title, value: amount === null ? 'Unavailable' : money(amount),
+        help: purchaseBillsError ? 'Unable to load complete balances' : card.help,
+        icon: card.icon,
+      });
+    }
   }
-  return (
-    <section className="cg-supplier-overview" aria-label="Supplier summary">
-      {cards.map(({ title, value, help, icon: Icon }) => (
-        <article key={title} className="cg-supplier-overview-card">
-          <div className="cg-supplier-overview-card-top">
-            <span>{title}</span><Icon size={19} aria-hidden="true"/>
-          </div>
-          <strong>{value}</strong>
-          <small>{help}</small>
-        </article>
-      ))}
-    </section>
-  );
+  return <section className="cg-supplier-overview" aria-label="Supplier summary">
+    {cards.map(({ title, value, help, icon: Icon }) => (
+      <article key={title} className="cg-supplier-overview-card">
+        <div className="cg-supplier-overview-card-top">
+          <span>{title}</span><Icon size={19} aria-hidden="true"/>
+        </div>
+        <strong>{value}</strong>
+        <small>{help}</small>
+      </article>
+    ))}
+  </section>;
 }

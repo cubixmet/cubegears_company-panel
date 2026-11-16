@@ -20,8 +20,7 @@ const sections = [
   { id: 'attendance', label: 'Attendance Rules', icon: Clock3 },
   { id: 'payroll', label: 'Payroll', icon: WalletCards },
   { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'security', label: 'Roles & Security', icon: ShieldCheck },
-  { id: 'integrations', label: 'Integrations', icon: Plug }
+  { id: 'security', label: 'Roles & Security', icon: ShieldCheck }
 ];
 
 const SETTINGS_SECTION_PERMISSIONS = { operations: 'jobs.view', billing: 'invoices.view', inventory: 'stock.view', attendance: 'attendance.manage', payroll: 'payroll.view' };
@@ -55,14 +54,10 @@ const schemas = {
     ['overdueInvoice', 'Overdue Invoice Alerts', 'checkbox'],
     ['leaveDecision', 'Leave Decision Alerts', 'checkbox'],
     ['email', 'Email Channel', 'checkbox'],
-    ['whatsapp', 'WhatsApp Channel', 'checkbox'],
     ['browserPush', 'Browser Push', 'checkbox']
   ],
   security: [
     ['sessionHours', 'Session Lifetime (Hours)', 'number'], ['requireStrongPassword', 'Strong Password Required', 'checkbox'], ['auditExports', 'Audit Data Exports', 'checkbox'], ['twoFactor', 'Two-factor Authentication', 'checkbox']
-  ],
-  integrations: [
-    ['razorpayEnabled', 'Razorpay Enabled', 'checkbox'], ['whatsappEnabled', 'WhatsApp Integration Enabled', 'checkbox'], ['emailEnabled', 'Email Integration Enabled', 'checkbox'], ['webhookUrl', 'Webhook URL', 'url']
   ]
 };
 
@@ -192,7 +187,7 @@ export const Settings = () => {
         <button type="button" className="settings-primary-button"
           style={{ alignSelf: 'flex-start', minHeight: '44px', marginBottom: '12px' }}
           onClick={() => navigate('/settings/whatsapp')}>
-          <Plug size={16} aria-hidden="true"/> Connect WhatsApp Business
+          <Plug size={16} aria-hidden="true"/> Manual WhatsApp Sharing
         </button>
       )}
       <SettingsHeader

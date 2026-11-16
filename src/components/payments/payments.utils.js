@@ -1,7 +1,8 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 const display = (value, fallback = '') => {
-  if (typeof value === 'string') return value.trim() || fallback;
+  if (typeof value === 'string') return recordLabel(value, fallback);
   if (typeof value === 'number') return String(value);
-  if (value && typeof value === 'object') return String(value.name || value.number || value.id || fallback);
+  if (value && typeof value === 'object') return recordLabel(value.name || value.number || value.id, fallback);
   return fallback;
 };
 

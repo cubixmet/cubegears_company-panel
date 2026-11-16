@@ -17,6 +17,7 @@ import { jobService } from '../../services/job.service';
 import { billingService } from '../../services/billing.service';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { jobInvoiceFor } from '../../utils/jobGstFinance';
+import { isPostedInvoice } from '../../utils/invoiceFinanceLinks';
 import { USE_MOCK_API } from '../../api/apiConfig';
 import '../../styles/job-gst-finance.css';
 import '../../styles/jobs-dashboard.css';
@@ -27,6 +28,9 @@ import '../../styles/jobs-list-compact.css';
 export const JobList = () => {
   const navigate = useNavigate();
   const { can } = useFeatureAccess();
+  const canViewCustomers = can('customers.view');
+  const canViewVehicles = can('vehicles.view');
+  const canViewStaff = can('staff.view');
   const canViewInvoices = can('invoices.view');
   const canViewGST = can('gstr.view');
   const canViewPayments = can('payments.view');
@@ -226,13 +230,23 @@ export const JobList = () => {
       .map((item) => item.name || item.partName)
       .filter(Boolean);
 
-    const spending = sameVehicle.reduce((sum, job) => {
-      const total =
-        job.billing?.invoiceTotal ||
-        job.estimates?.at(-1)?.grandTotal ||
-        0;
-      return sum + Number(total || 0);
-    }, 0);
+    // Estimates are quotations, not money spent or paid by the customer.
+    // Count only finalized invoices, and only when this role may read invoices.
+    const spendingVerified = Boolean(canViewInvoices && !USE_MOCK_API &&
+      !invoicesLoading && !invoicesError);
+    const jobIds = new Set(sameVehicle.map(item => String(item.id)));
+    const jobNumbers = new Set(sameVehicle.map(item => String(item.jobNumber || '')).filter(Boolean));
+    const issuedInvoices = spendingVerified ? jobInvoiceRows.filter(invoice => {
+      if (!isPostedInvoice(invoice)) return false;
+      const invoiceJobId = String(
+        invoice.jobId || invoice.job_id || invoice.sourceJobId || invoice.source_job_id || invoice.job || '',
+      );
+      const invoiceJobNumber = String(invoice.jobCardNo || invoice.job_card_no || '');
+      return jobIds.has(invoiceJobId) || (invoiceJobNumber && jobNumbers.has(invoiceJobNumber));
+    }) : [];
+    const uniquePosted = new Map(issuedInvoices.map(invoice => [String(invoice.id), invoice]));
+    const spending = [...uniquePosted.values()].reduce((sum, invoice) =>
+      sum + Number(invoice.total || 0), 0);
 
     return {
       registration,
@@ -241,8 +255,9 @@ export const JobList = () => {
       currentOpen,
       lastParts,
       spending,
+      spendingVerified,
     };
-  }, [jobs, query]);
+  }, [jobs, query, canViewInvoices, jobInvoiceRows, invoicesLoading, invoicesError]);
 
   const counts = useMemo(
     () => ({
@@ -301,7 +316,7 @@ export const JobList = () => {
 
       <VehicleLookupPanel
         lookup={vehicleLookup}
-        canViewTotals={canViewPayments}
+        canViewTotals={canViewPayments && canViewInvoices}
         onOpenCurrentJob={() =>
           vehicleLookup?.currentOpen
             ? openJob(vehicleLookup.currentOpen.id)
@@ -333,6 +348,9 @@ export const JobList = () => {
         canViewGST={canViewGST}
         canViewPayments={canViewPayments}
         canCollectPayments={canCollectPayments}
+        canViewCustomers={canViewCustomers}
+        canViewVehicles={canViewVehicles}
+        canViewStaff={canViewStaff}
         totalCount={filteredJobs.length}
         loading={loading}
         status={status}

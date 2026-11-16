@@ -1,0 +1,57 @@
+/* Internal Job Card cost vs bill — never included in customer invoice/PDF. */
+.job-total-cost-panel .job-total-finance-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.job-total-cost-panel .job-total-finance-grid .job-total-cost-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border, #dbe2eb);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+}
+.job-total-cost-panel .job-total-finance-grid .job-total-cost-card span {
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--text-secondary, #53627b);
+}
+.job-total-cost-panel .job-total-finance-grid .job-total-cost-card strong {
+  font-size: 19px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary, #142034);
+  overflow-wrap: anywhere;
+}
+.job-total-cost-panel .job-total-finance-grid .job-total-cost-card small {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-secondary, #53627b);
+}
+.job-total-cost-panel .job-total-finance-grid .is-margin {
+  border-style: dashed;
+}
+@media (max-width: 750px) {
+  .job-total-cost-panel .job-total-finance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .job-total-cost-panel .job-total-finance-grid .is-margin {
+    grid-column: 1 / -1;
+  }
+  .job-total-cost-panel .job-total-finance-grid .job-total-cost-card strong {
+    font-size: 17px;
+  }
+}
+@media (max-width: 365px) {
+  .job-total-cost-panel .job-total-finance-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .job-total-cost-panel .job-total-finance-grid .is-margin {
+    grid-column: auto;
+  }
+}

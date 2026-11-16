@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Camera, RefreshCw, UploadCloud } from 'lucide-react';
+import { Camera, RefreshCw, UploadCloud, Eye, EyeOff } from 'lucide-react';
 import { vehiclePhotoService } from '../../services/vehiclePhoto.service';
 import { LiveVehicleCamera } from './LiveVehicleCamera';
 import '../../styles/vehicle-camera-queue.css';
@@ -39,6 +39,10 @@ function PrivateVehiclePhoto({ photo, canEdit, onVisibility }) {
 
   return (
     <figure className="vehicle-photo-card">
+      <span className={'vehicle-photo-visibility-badge ' + (photo.published ? 'is-published' : 'is-private')}>
+        {photo.published ? <Eye size={13} aria-hidden="true"/> : <EyeOff size={13} aria-hidden="true"/>}
+        {photo.published ? 'Published to Customer' : 'Private'}
+      </span>
       {url ? <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Open vehicle photo">
         <img src={url} alt={photo.caption || photo.category} loading="lazy" />
       </a> : <p role="status">{error || 'Loading photo…'}</p>}
@@ -49,8 +53,10 @@ function PrivateVehiclePhoto({ photo, canEdit, onVisibility }) {
       </figcaption>
       {canEdit && <label className="vehicle-photo-visibility">
         <input type="checkbox" checked={Boolean(photo.published)} disabled={saving}
-          onChange={updateVisibility}/>
-        {photo.published ? 'Published to customer' : 'Private — publish photo'}
+          onChange={updateVisibility} aria-label={photo.published
+            ? 'Unpublish photo from customer portal' : 'Publish photo to customer portal'}/>
+        {saving ? 'Updating visibility…' : photo.published
+          ? 'Published to Customer' : 'Publish to Customer'}
       </label>}
       {error && <p className="vehicle-photo-gallery-error" role="alert">{error}</p>}
     </figure>
@@ -69,9 +75,11 @@ export function VehiclePhotoGallery({ vehicleId, jobId, canEdit = false, canPubl
   const [category, setCategory] = useState('additional');
   const [phase, setPhase] = useState('before');
   const [caption, setCaption] = useState('');
-  // Inspection/job photos are published by default; general vehicle uploads
-  // remain private unless a staff member explicitly opts in.
-  const [publishNewPhotos, setPublishNewPhotos] = useState(Boolean(jobId && canPublish));
+  // The workshop has opted to publish new vehicle photos by default.
+  // Server-side permission checks still gate every published upload.
+  // Existing private photos are never published without a separate staff action.
+  const [publishNewPhotos, setPublishNewPhotos] = useState(Boolean(canPublish));
+  const [visibilityFilter, setVisibilityFilter] = useState('all');
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -150,11 +158,21 @@ export function VehiclePhotoGallery({ vehicleId, jobId, canEdit = false, canPubl
     setPhotos((current) => current.map((photo) => photo.id === id ? changed : photo));
   };
 
+  const publishedCount = photos.filter(photo => photo.published === true).length;
+  const privateCount = photos.length - publishedCount;
+  const visiblePhotos = visibilityFilter === 'published'
+    ? photos.filter(photo => photo.published === true)
+    : visibilityFilter === 'private'
+      ? photos.filter(photo => photo.published !== true)
+      : photos;
+
   return (
     <section className="vehicle-photo-gallery" aria-label="Vehicle inspection photos">
       <div className="vehicle-camera-heading">
         <div><h3><Camera size={18}/> Vehicle Photo Gallery</h3>
-          <p>{jobId && canPublish ? "New inspection photos are published by default. Switch off to keep them private." : "Only workshop staff can upload and publish photos. Vehicle photos remain private unless you choose to publish."}</p></div>
+          <p>{canPublish
+            ? 'New photos are published to this customer’s secure portal by default. Turn publishing off before uploading to save them privately.'
+            : 'Only authorized workshop staff can publish photos to the customer portal.'}</p></div>
         {canEdit && <div className="vehicle-photo-add-actions">
           <LiveVehicleCamera onCapture={capture} disabled={uploading} count={photos.length}/>
           <label className="vehicle-gallery-upload-label">
@@ -191,7 +209,7 @@ export function VehiclePhotoGallery({ vehicleId, jobId, canEdit = false, canPubl
         {canPublish && <label className="vehicle-photo-upload-publish">
           <input type="checkbox" checked={publishNewPhotos} disabled={uploading}
             onChange={event => setPublishNewPhotos(event.target.checked)}/>
-          Publish new photos to customer
+          <span>{publishNewPhotos ? 'Published to Customer' : 'Save privately'}</span>
         </label>}
       </div>}
       {uploadProgress && <p className="vehicle-photo-gallery-progress" role="status">{uploadProgress}</p>}
@@ -200,17 +218,34 @@ export function VehiclePhotoGallery({ vehicleId, jobId, canEdit = false, canPubl
         {error} <button type="button" onClick={load}>Retry loading</button>
       </div>}
       <div className="vehicle-photo-gallery-toolbar">
-        <span>{photos.length} photos</span>
-        <button type="button" onClick={load} disabled={loading}><RefreshCw size={16} aria-hidden="true"/> Refresh</button>
+        <div className="vehicle-photo-share-counts" aria-label="Photo publishing summary">
+          <span><strong>{photos.length}</strong> Photos</span>
+          <span className="is-published"><Eye size={14} aria-hidden="true"/> {publishedCount} Published to Customer</span>
+          <span><EyeOff size={14} aria-hidden="true"/> {privateCount} Private</span>
+        </div>
+        <div className="vehicle-photo-gallery-toolbar-actions">
+          <label htmlFor="vehicle-photo-visibility-filter">Show</label>
+          <select id="vehicle-photo-visibility-filter" value={visibilityFilter}
+            onChange={event => setVisibilityFilter(event.target.value)}>
+            <option value="all">All Photos</option>
+            <option value="published">Published to Customer</option>
+            <option value="private">Private Photos</option>
+          </select>
+          <button type="button" onClick={load} disabled={loading}>
+            <RefreshCw size={16} aria-hidden="true"/> Refresh
+          </button>
+        </div>
       </div>
-      {loading ? <p role="status">Loading private photos…</p> : photos.length ? (
+      {loading ? <p role="status">Loading vehicle photos…</p> : visiblePhotos.length ? (
         <div className="vehicle-photo-gallery-grid">
-          {photos.map((photo) => (
+          {visiblePhotos.map((photo) => (
             <PrivateVehiclePhoto key={photo.id} photo={photo} canEdit={canPublish}
               onVisibility={changeVisibility}/>
           ))}
         </div>
-      ) : <p className="vehicle-camera-empty">No inspection photos captured yet.</p>}
+      ) : <p className="vehicle-camera-empty">
+        {photos.length ? 'No photos match this filter.' : 'No vehicle photos captured yet.'}
+      </p>}
     </section>
   );
 }

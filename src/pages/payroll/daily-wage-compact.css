@@ -394,3 +394,812 @@
   }
 }
 
+
+/* Daily Wages overview v3: focused wage-account UI, no ledger math changes. */
+.dw-page.dashboard-page.dw-daily-wages {
+  gap: 13px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-header {
+  gap: 12px;
+  padding: 2px 0;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-header h1 {
+  font-size: 23px !important;
+  font-weight: 700 !important;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-header > button {
+  min-height: 43px;
+  padding: 9px 13px;
+  font-size: 13px !important;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-nav {
+  gap: 5px;
+  border-radius: 11px;
+  padding: 5px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-nav a {
+  min-height: 43px;
+  gap: 7px;
+  padding: 9px 12px;
+  font-size: 13px !important;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-metric {
+  min-width: 0;
+  min-height: 119px;
+  padding: 14px !important;
+  gap: 9px;
+  border-radius: 11px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-metric-top {
+  align-items: flex-start;
+  gap: 9px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-metric-top > span:first-child {
+  font-size: 13px !important;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-metric-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 9px;
+  background: var(--primary-soft);
+  border-color: transparent;
+  color: var(--primary);
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-metric > strong {
+  font-size: clamp(20px, 1.8vw, 26px) !important;
+  line-height: 1.2;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-metric > small {
+  font-size: 12px !important;
+  line-height: 1.4;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-attendance-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-attendance-summary > span {
+  min-height: 37px;
+  padding: 7px 11px;
+  border-radius: 9px;
+  background: var(--surface);
+  font-size: 12px !important;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-attendance-summary b {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-card {
+  border-radius: 12px;
+  box-shadow: none;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-card-head {
+  gap: 10px;
+  padding: 14px 16px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-card-head h2 {
+  font-size: 18px !important;
+  font-weight: 700;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-card-head > span {
+  flex: 0 0 auto;
+  font-size: 13px !important;
+  font-variant-numeric: tabular-nums;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-search {
+  min-width: 0;
+  min-height: 45px;
+  height: 45px;
+  flex: 1 1 270px;
+  max-width: 530px;
+  gap: 9px;
+  padding: 0 12px;
+  border-radius: 9px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-search input {
+  font-size: 16px !important;
+  min-height: 43px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-toolbar > select {
+  flex: 0 1 200px;
+  min-width: 150px;
+  min-height: 45px;
+  height: 45px;
+  font-size: 14px !important;
+  border-radius: 9px;
+  background: var(--field-bg, var(--surface-2));
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-clear-filters {
+  display: inline-flex;
+  flex: 0 0 auto;
+  min-height: 42px !important;
+  padding: 8px 11px !important;
+  font-size: 13px !important;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table-scroll {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table {
+  min-width: 1120px;
+  width: 100%;
+  table-layout: auto;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table th {
+  padding: 12px 13px;
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  font-size: 12px !important;
+  line-height: 1.35;
+  white-space: nowrap;
+  text-align: left;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table td {
+  min-width: 0;
+  padding: 13px;
+  font-size: 13px !important;
+  line-height: 1.45;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table td:first-child {
+  min-width: 175px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table td:first-child strong {
+  font-size: 14px !important;
+  font-weight: 700;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table td:first-child small {
+  font-size: 12px !important;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table td:nth-child(6) strong {
+  font-size: 14px !important;
+  font-weight: 750;
+  color: var(--text-primary);
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-table td:last-child {
+  min-width: 142px;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-account-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 8px 11px;
+  font-size: 12px !important;
+  white-space: nowrap;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-ok,
+.dw-page.dashboard-page.dw-daily-wages .dw-pending {
+  min-height: 29px;
+  padding: 5px 9px;
+  font-size: 12px !important;
+  line-height: 1.35;
+}
+.dw-page.dashboard-page.dw-daily-wages .dw-empty > .dw-clear-filters {
+  margin: 10px auto 0;
+}
+@media (max-width: 1100px) {
+  .dw-page.dashboard-page.dw-daily-wages .dw-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .dw-page.dashboard-page.dw-daily-wages .dw-header h1 {
+    font-size: 21px !important;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-metric {
+    min-height: 112px;
+    padding: 12px !important;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-metric > strong {
+    font-size: 20px !important;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-metric-top > span:first-child {
+    font-size: 12px !important;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-metric-icon {
+    width: 29px;
+    height: 29px;
+    flex-basis: 29px;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-metric > small {
+    font-size: 11px !important;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-toolbar {
+    padding: 11px;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-toolbar > select {
+    flex: 1 1 145px;
+    width: 100%;
+    min-width: 0;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-clear-filters {
+    flex: 0 0 auto;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table-scroll {
+    overflow-x: hidden;
+    padding: 10px;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table tbody {
+    display: grid;
+    width: 100%;
+    gap: 10px;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table tr {
+    display: block;
+    padding: 13px !important;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-width: 0 !important;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 12px;
+    text-align: right;
+    font-size: 13px !important;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td::before {
+    display: block;
+    flex: 0 0 42%;
+    max-width: 42%;
+    font-size: 12px !important;
+    line-height: 1.4;
+    color: var(--text-muted);
+    text-align: left;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td:first-child {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    padding-top: 0;
+    padding-bottom: 11px;
+    text-align: left;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td:first-child::before {
+    display: none;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td:first-child strong {
+    font-size: 16px !important;
+    line-height: 1.4;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td:first-child small {
+    text-align: left;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td:nth-last-child(2) {
+    border-bottom: 0;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td:last-child {
+    min-width: 0;
+    border-bottom: 0;
+    padding-bottom: 0;
+    padding-top: 11px;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-table td:last-child::before {
+    display: none;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-account-action {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+    font-size: 13px !important;
+  }
+}
+@media (max-width: 390px) {
+  .dw-page.dashboard-page.dw-daily-wages .dw-toolbar > select,
+  .dw-page.dashboard-page.dw-daily-wages .dw-clear-filters {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-metric {
+    padding: 10px !important;
+  }
+  .dw-page.dashboard-page.dw-daily-wages .dw-metric > strong {
+    font-size: 18px !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dw-page.dashboard-page.dw-daily-wages .dw-nav a,
+  .dw-page.dashboard-page.dw-daily-wages .dw-button {
+    transition: none;
+  }
+}
+
+
+/* Payroll shared UX v4: a unified four-tab navigation and responsive ledgers.
+   These styles affect presentation only, never payment/approval calculations. */
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) {
+  gap: 13px;
+  max-width: 100%;
+  min-width: 0;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 7px;
+  width: 100%;
+  padding: 6px;
+  overflow: visible !important;
+  border-radius: 12px;
+  background: var(--surface);
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav a {
+  display: flex;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  min-height: 45px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 8px 9px;
+  border-radius: 9px;
+  font-size: 13px !important;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav a.is-active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-header {
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-header h1 {
+  font-size: 23px !important;
+  font-weight: 700 !important;
+  line-height: 1.3;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-header .dw-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 13px;
+  font-size: 13px !important;
+  white-space: nowrap;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-card {
+  border-radius: 12px;
+  box-shadow: none;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-card-head {
+  padding: 14px 16px;
+  gap: 10px;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-card-head h2 {
+  font-size: 18px !important;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-card-head > span {
+  font-size: 13px !important;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-clear-filters {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 13px !important;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-clear-filters:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-empty > .dw-clear-filters {
+  display: flex;
+  margin: 12px auto 0;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav a:focus-visible,
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-clear-filters:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* Ledger history and payments: same readable desktop table and mobile row cards. */
+.dw-page.dashboard-page.dw-ledger-page .dw-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 15px;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-search {
+  flex: 1 1 250px;
+  max-width: 520px;
+  min-width: 0;
+  height: 46px;
+  min-height: 46px;
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--field-bg, var(--surface-2));
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-search input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  font-size: 16px !important;
+  color: var(--text-primary);
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-toolbar select,
+.dw-page.dashboard-page.dw-ledger-page .dw-toolbar input[type="date"] {
+  width: auto;
+  min-width: 145px;
+  min-height: 46px;
+  height: 46px;
+  padding: 8px 10px;
+  font-size: 16px !important;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--field-bg, var(--surface-2));
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-toolbar > label:not(.dw-search) {
+  gap: 8px;
+  font-size: 13px !important;
+  font-weight: 600;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table {
+  min-width: 980px;
+  width: 100%;
+  table-layout: auto;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table th {
+  padding: 12px 13px;
+  font-size: 12px !important;
+  font-weight: 650;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table td {
+  min-width: 0;
+  padding: 12px 13px;
+  font-size: 13px !important;
+  line-height: 1.45;
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table td strong {
+  font-size: 14px !important;
+  font-weight: 700;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table td small {
+  font-size: 12px !important;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table td :is(.dw-ok,.dw-pending) {
+  min-height: 28px;
+  padding: 5px 9px;
+  font-size: 12px !important;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table td .dw-text-link {
+  min-height: 38px;
+  font-size: 13px !important;
+  text-align: left;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table tr:last-child td {
+  border-bottom: 0;
+}
+/* Overtime: filters, request cards, and approval controls align with the ledgers. */
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-filters {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 11px;
+  padding: 13px 15px;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-filters > label {
+  min-width: 0;
+  font-size: 13px !important;
+  line-height: 1.4;
+  font-weight: 650;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-filters > label > select {
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  min-height: 46px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--field-bg, var(--surface-2));
+  font-size: 16px !important;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-filters .dw-overtime-search-label {
+  grid-column: 1 / -1;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-width: 0;
+  height: 46px;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--field-bg, var(--surface-2));
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-search input {
+  min-width: 0;
+  min-height: 44px;
+  width: 100%;
+  font-size: 16px !important;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-filter-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+  padding: 13px;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-card {
+  padding: 14px;
+  gap: 11px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+  box-shadow: none;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-card-head {
+  align-items: flex-start;
+  gap: 9px;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-card-head strong {
+  font-size: 15px !important;
+  font-weight: 700;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-card-head small {
+  font-size: 12px !important;
+  color: var(--text-secondary);
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-facts {
+  gap: 7px 12px;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-facts span {
+  font-size: 13px !important;
+  line-height: 1.45;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-reason {
+  font-size: 13px !important;
+  line-height: 1.5;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-actions {
+  gap: 8px;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-actions .dw-button {
+  flex: 1 1 130px;
+  min-height: 44px;
+  font-size: 13px !important;
+}
+.dw-page.dashboard-page.dw-overtime-page .dw-overtime-blocked {
+  min-width: 0;
+  font-size: 13px !important;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1080px) {
+  .dw-page.dashboard-page.dw-overtime-page .dw-overtime-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dw-page.dashboard-page.dw-overtime-page .dw-overtime-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  .dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px;
+    padding: 5px;
+  }
+  .dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav a {
+    font-size: 12px !important;
+    min-height: 44px;
+    padding: 9px 6px;
+  }
+  .dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-header h1 {
+    font-size: 21px !important;
+  }
+  .dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-header .dw-button {
+    font-size: 12px !important;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-toolbar {
+    padding: 11px;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-toolbar > select,
+  .dw-page.dashboard-page.dw-ledger-page .dw-toolbar > label:not(.dw-search) {
+    flex: 1 1 calc(50% - 6px);
+    min-width: 0;
+    width: auto;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-toolbar select,
+  .dw-page.dashboard-page.dw-ledger-page .dw-toolbar input[type="date"] {
+    width: 100%;
+    min-width: 0;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table-scroll {
+    overflow-x: hidden;
+    padding: 10px;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table tbody {
+    display: grid;
+    width: 100%;
+    min-width: 0;
+    gap: 10px;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table tr {
+    display: block;
+    min-width: 0;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    min-width: 0;
+    padding: 8px 0;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    font-size: 13px !important;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table td::before {
+    display: block;
+    flex: 0 0 39%;
+    max-width: 39%;
+    text-align: left;
+    color: var(--text-muted);
+    font-size: 12px !important;
+    line-height: 1.45;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table td:last-child {
+    border-bottom: 0;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table td .dw-text-link {
+    justify-content: flex-end;
+    text-align: right;
+  }
+  .dw-page.dashboard-page.dw-ledger-page .dw-table td .dw-ok,
+  .dw-page.dashboard-page.dw-ledger-page .dw-table td .dw-pending {
+    flex: 0 0 auto;
+  }
+  .dw-page.dashboard-page.dw-overtime-page .dw-overtime-filters {
+    gap: 9px;
+    padding: 11px;
+  }
+  .dw-page.dashboard-page.dw-overtime-page .dw-overtime-list {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 10px;
+    gap: 9px;
+  }
+  .dw-page.dashboard-page.dw-overtime-page .dw-overtime-card {
+    padding: 12px;
+  }
+  .dw-page.dashboard-page.dw-overtime-page .dw-overtime-filter-actions .dw-clear-filters {
+    min-height: 42px;
+  }
+}
+@media (max-width: 390px) {
+  .dw-page.dashboard-page.dw-ledger-page .dw-toolbar > select,
+  .dw-page.dashboard-page.dw-ledger-page .dw-toolbar > label:not(.dw-search),
+  .dw-page.dashboard-page.dw-ledger-page .dw-toolbar > .dw-clear-filters {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+  .dw-page.dashboard-page.dw-overtime-page .dw-overtime-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dw-page.dashboard-page.dw-overtime-page .dw-overtime-filter-actions .dw-clear-filters {
+    width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav a {
+    transition: none;
+  }
+}
+
+
+/* Payroll touch/readability contract for all four linked payroll screens. */
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav a {
+  font-size: 14px !important;
+}
+.dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-card-head > span {
+  font-size: 14px !important;
+}
+.dw-page.dashboard-page.dw-ledger-page .dw-table tbody td {
+  font-size: 14px !important;
+}
+@media (max-width: 767px) {
+  .dw-page.dashboard-page:is(.dw-daily-wages,.dw-ledger-page,.dw-overtime-page) .dw-nav a {
+    font-size: 14px !important;
+  }
+}

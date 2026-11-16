@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 
 import { Briefcase } from 'lucide-react';
 
@@ -17,7 +18,7 @@ export const StaffAssignmentsPanel = ({ assignments, staff }) => (
         return (
           <article key={job.id} className="staff-dashboard-assignment-card">
             <div className="staff-dashboard-assignment-head">
-              <strong>{job.id}</strong>
+              <strong>{recordLabel(job.id)}</strong>
               <span>{job.status}</span>
             </div>
             <h3>{job.vehicle}</h3>

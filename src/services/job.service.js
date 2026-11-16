@@ -29,6 +29,12 @@ export const getJobs = async (params) => {
   return Array.isArray(response) ? response : response?.results || [];
 };
 
+/** Read-only posted invoice totals for a Job Card, never a second payment ledger. */
+export const getJobBillingSummary = async (id) => {
+  if (USE_MOCK_API || !id) return null;
+  return apiClient.get(`${API_ENDPOINTS.JOBS}/${encodeURIComponent(id)}/billing-summary`);
+};
+
 export const getJobById = async (id) => {
   if (USE_MOCK_API) {
     await delay();
@@ -80,6 +86,7 @@ const mockWorkflow = (job) => {
   return {
     current,
     completed,
+    skipped: job?.workflow_progress?.skipped || [],
     locked: WORKFLOW_STAGES.slice(WORKFLOW_STAGES.indexOf(current) + 1),
     stages: WORKFLOW_STAGES,
     finished: completed.length === WORKFLOW_STAGES.length
@@ -192,6 +199,25 @@ export const getJobWorkflow = async (id) => {
 
 export const completeJobStage = async (id, stage, options = {}) => {
   if (USE_MOCK_API) {
+    if (stage === 'qc' && options.skipQC === true) {
+      const job = getMockJobById(id);
+      if (mockWorkflow(job).current !== 'qc') throw new Error('Quality Check stage is not active.');
+      const reason = String(options.reason || '').trim();
+      const qc = job.qualityCheck || {};
+      if (reason.length < 3 || reason.length > 160) throw new Error('Enter a skip reason between 3 and 160 characters.');
+      if (['Fail', 'Failed', 'Rework Required'].includes(qc.status) || qc.checklist?.some((item) => item.status === 'Fail')) {
+        throw new Error('Resolve failed checks before proceeding to billing.');
+      }
+      const updated = updateMockJob(id, {
+        status: NEXT_STATUS.qc,
+        qualityCheck: { ...qc, status: 'Skipped', skipReason: reason },
+        workflow_progress: {
+          ...job.workflow_progress,
+          skipped: [...mockWorkflow(job).skipped, 'qc'],
+        },
+      });
+      return { ...mockWorkflow(updated), job: updated };
+    }
     const updated = await updateJobStatus(id, NEXT_STATUS[stage]);
     return { ...mockWorkflow(updated), job: updated };
   }
@@ -338,6 +364,7 @@ export const getVehicleHistory = async (registration) => {
 export const jobService = {
   getJobs,
   getJobById,
+  getJobBillingSummary,
   getJobCostSummary,
   issueJobStockPart,
   uploadJobWorkPhoto,

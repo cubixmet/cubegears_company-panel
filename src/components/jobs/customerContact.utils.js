@@ -13,7 +13,11 @@ export const cleanPhone = (raw) => {
 
 export const customerContactLinks = (job = {}) => {
   const telephone = cleanPhone(job.customerPhone || job.customer_phone);
-  const whatsappRaw = cleanPhone(job.customerWhatsapp || job.customer_whatsapp) || telephone;
+  // One saved customer contact is authoritative for calls and optional manual
+  // WhatsApp links. Older records without a phone may still use their legacy
+  // WhatsApp value; a different historical WhatsApp number never overrides
+  // the current phone number.
+  const whatsappRaw = telephone || cleanPhone(job.customerWhatsapp || job.customer_whatsapp);
   let whatsapp = whatsappRaw.replace(/^\+/, '');
 
   if (/^0\d{10}$/.test(whatsapp)) whatsapp = '91' + whatsapp.slice(1);

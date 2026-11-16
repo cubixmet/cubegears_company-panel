@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, RefreshCcw, Search, ShieldCheck, UserCheck, Users, UserX } from 'lucide-react';
+import { ChevronRight, Plus, RefreshCcw, Search, ShieldCheck, UserCheck, Users, UserX } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
@@ -69,6 +69,9 @@ export const SimpleStaffOverview = () => {
     <div className="staff-simple-overview">
       <header className="staff-simple-toolbar">
         <div className="staff-simple-toolbar-actions">
+          <button type="button" className="staff-simple-secondary" onClick={() => setReload(value => value + 1)} disabled={loading}>
+            <RefreshCcw size={16} aria-hidden="true" /> Refresh
+          </button>
           {canManageRoles && (
             <button type="button" className="staff-simple-secondary" onClick={() => navigate('/staff-management/roles')}>
               <ShieldCheck size={17} /> Roles & Permissions
@@ -92,25 +95,30 @@ export const SimpleStaffOverview = () => {
       )}
 
       <section className="staff-simple-metrics" aria-label="Staff totals">
-        <article><span><Users size={18} /> Total Staff</span><strong>{loading ? '—' : stats.total}</strong></article>
-        <article><span><UserCheck size={18} /> Active Staff</span><strong>{loading ? '—' : stats.active}</strong></article>
-        <article><span><UserX size={18} /> Inactive / Other</span><strong>{loading ? '—' : stats.other}</strong></article>
-        <article><span><ShieldCheck size={18}/> Pending Password Setup</span><strong>{loading ? '—' : stats.pendingSetup}</strong></article>
-        <article><span><Users size={18}/> Teams</span><strong>{loading ? '—' : stats.teams}</strong></article>
-        <article><span><ShieldCheck size={18}/> Roles</span><strong>{loading ? '—' : stats.roles}</strong></article>
+        <article><span><Users size={18} aria-hidden="true" /> Total Staff</span><strong>{loading || error ? '—' : stats.total}</strong></article>
+        <article><span><UserCheck size={18} aria-hidden="true" /> Active Staff</span><strong>{loading || error ? '—' : stats.active}</strong></article>
+        <article><span><UserX size={18} aria-hidden="true" /> Other Status</span><strong>{loading || error ? '—' : stats.other}</strong></article>
+        <article><span><ShieldCheck size={18} aria-hidden="true" /> Pending Password Setup</span><strong>{loading || error ? '—' : stats.pendingSetup}</strong></article>
+        <article><span><Users size={18} aria-hidden="true" /> Teams</span><strong>{loading || error ? '—' : stats.teams}</strong></article>
+        <article><span><ShieldCheck size={18} aria-hidden="true" /> Roles</span><strong>{loading || error ? '—' : stats.roles}</strong></article>
       </section>
 
       <section className="staff-simple-list" aria-label="Staff directory preview">
         <div className="staff-simple-list-head">
-          <div><h3>Employees</h3></div>
+          <div>
+            <h3>Employees</h3>
+            <p role="status" aria-live="polite">
+              {loading ? 'Loading staff…' : error ? 'Unable to load staff' : `${matchingStaff.length} of ${staff.length} staff`}
+            </p>
+          </div>
           <button type="button" onClick={() => navigate('/staff-management/staff')}>
-            View All Staff 
+            View All Staff <ChevronRight size={17} aria-hidden="true" />
           </button>
         </div>
         <label className="staff-simple-search">
           <Search size={18} aria-hidden="true" />
           <input type="search" value={query} onChange={event => setQuery(event.target.value)}
-            placeholder="Search by name, employee ID or department"
+            placeholder="Search name, ID, role or branch"
             aria-label="Search staff" />
         </label>
         {loading ? (
@@ -126,15 +134,18 @@ export const SimpleStaffOverview = () => {
           <div className="staff-simple-rows">
             {matchingStaff.slice(0, 8).map(person => (
               <button type="button" className="staff-simple-person" key={person.id}
-                onClick={() => navigate(`/staff-management/staff/${person.id}`)}>
+                onClick={() => navigate(`/staff-management/staff/${person.id}`)}
+                aria-label={`View ${readable(person.name)} profile`}>
                 <span className="staff-simple-avatar" aria-hidden="true">{String(person.name || '?').trim().charAt(0).toUpperCase()}</span>
                 <span className="staff-simple-person-details">
                   <strong>{readable(person.name)}</strong>
                   <small>{readable(person.displayEmployeeNo || person.employeeId)} · {readable(person.role)}</small>
                 </span>
-                <span className="staff-simple-person-branch">{readable(person.branch)}</span>
-                <span className="staff-simple-status">{readable(person.employmentStatus)}</span>
-                
+                <span className="staff-simple-person-branch" title={readable(person.branch)}>{readable(person.branch)}</span>
+                <span className={`staff-simple-status${ACTIVE_STATUSES.has(normalizedStatus(person.employmentStatus)) ? ' is-active' : ''}`} title={readable(person.employmentStatus)}>
+                  {readable(person.employmentStatus)}
+                </span>
+                <ChevronRight className="staff-simple-person-arrow" size={18} aria-hidden="true" />
               </button>
             ))}
             {matchingStaff.length > 8 && <p className="staff-simple-more">Showing 8 of {matchingStaff.length} matching staff. Use View All Staff for the full list.</p>}

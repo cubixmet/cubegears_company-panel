@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 const moneyNumber = (value) => {
   if (value === null || value === undefined || value === '') return null;
   const num = Number(value);
@@ -68,7 +69,7 @@ export const isWithinReportPeriod = (date, from, to) =>
 export const reportBranch = (row) => {
   const branch = row.branchName ?? row.branch_name ?? row.branch;
   return typeof branch === 'object' && branch !== null
-    ? String(branch.name || branch.id || '')
+    ? recordLabel(branch.name || branch.id, '')
     : String(branch || '').trim();
 };
 

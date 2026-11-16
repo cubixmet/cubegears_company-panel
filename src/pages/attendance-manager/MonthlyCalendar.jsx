@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { attendanceManagerService } from '../../services/attendanceManager.service';
@@ -65,6 +66,8 @@ export const MonthlyAttendanceCalendar = () => {
     [data.days],
   );
   const blocks = [days.slice(0, 15), days.slice(15)];
+  const weekday = (day) => new Date(year, month - 1, day).toLocaleDateString('en-US', { weekday: 'short' });
+  const isToday = (day) => day === now.getDate() && month === now.getMonth() + 1 && year === now.getFullYear();
 
   const isFutureMonth = (nextYear, nextMonth) => nextYear > now.getFullYear() || (nextYear === now.getFullYear() && nextMonth > now.getMonth() + 1);
   const changeMonth = (offset) => {
@@ -124,7 +127,13 @@ export const MonthlyAttendanceCalendar = () => {
         </select>
       </section>
 
-      <div className="am-calendar-legend">
+      <div className="am-calendar-info-row">
+        <span className="am-calendar-result-count" aria-live="polite">
+          {employees.length} {employees.length === 1 ? 'employee' : 'employees'} · {monthNames[month - 1]} {year}
+        </span>
+      </div>
+
+      <div className="am-calendar-legend" aria-label="Attendance status colors">
         <span><i className="am-day am-day--present">P</i> Present</span>
         <span><i className="am-day am-day--absent">A</i> Absent</span>
         <span><i className="am-day am-day--late">LT</i> Late</span>
@@ -157,17 +166,20 @@ export const MonthlyAttendanceCalendar = () => {
               </div>
 
               <div className="am-calendar-scroll">
-                <div className="am-calendar-grid" style={{ '--am-days': blockDays.length }}>
+                <div className="am-calendar-grid" style={{ '--am-days': blockDays.length }} aria-label={`Attendance from ${blockDays[0]} to ${blockDays[blockDays.length - 1]} ${monthNames[month - 1]}`}>
                   <div className="am-calendar-employee-head">Employee</div>
                   {blockDays.map((day) => (
-                    <div key={day} className="am-calendar-day-head">{day}</div>
+                    <div key={day} className={`am-calendar-day-head${isToday(day) ? ' is-today' : ''}${[0, 6].includes(new Date(year, month - 1, day).getDay()) ? ' is-weekend' : ''}`} title={`${day} ${monthNames[month - 1]} ${year} (${weekday(day)})`}>
+                      <strong>{day}</strong>
+                      <small>{weekday(day)}</small>
+                    </div>
                   ))}
 
                   {employees.map((staff) => (
                     <React.Fragment key={staff.employeeId || staff.staffId}>
-                      <div className="am-calendar-employee">
+                      <div className="am-calendar-employee" title={`${staff.name} · ${recordLabel(staff.staffId)}`}>
                         <strong>{staff.name}</strong>
-                        <span>{staff.staffId}</span>
+                        <span>{recordLabel(staff.staffId)}</span>
                       </div>
 
                       {blockDays.map((day) => {
@@ -177,7 +189,8 @@ export const MonthlyAttendanceCalendar = () => {
                           <div
                             key={day}
                             title={`${staff.name} · ${day} ${monthNames[month - 1]} · ${detail.status || 'No record'}`}
-                            className={`am-day ${tone[code] || tone['']}`}
+                            aria-label={`${staff.name}, ${day} ${monthNames[month - 1]}: ${detail.status || 'No record'}`}
+                            className={`am-day ${tone[code] || tone['']}${isToday(day) ? ' is-today' : ''}`}
                           >
                             {code || '·'}
                           </div>

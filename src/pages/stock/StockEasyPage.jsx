@@ -8,6 +8,8 @@ import { stockCatalogService } from '../../services/stockCatalog.service';
 import InventoryBranchOperations from '../../components/stock/InventoryBranchOperations';
 import InventoryCategories from '../../components/stock/InventoryCategories';
 import { supplierService } from '../../services/supplier.service';
+import { CountryPhoneField } from '../../components/common/CountryPhoneField';
+import { validInternationalPhone } from '../../utils/jobCreateAdapters';
 import { supplierFinanceService } from '../../services/supplierFinance.service';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import StockFinanceConnections from '../../components/stock/StockFinanceConnections';
@@ -281,6 +283,10 @@ export default function StockEasyPage() {
       setQuickSupplierError('Supplier Name is required.');
       return;
     }
+    if (quickSupplier.phone.trim() && !validInternationalPhone(quickSupplier.phone)) {
+      setQuickSupplierError('Enter the supplier phone with the correct country-code length.');
+      return;
+    }
     setQuickSupplierSaving(true);
     setQuickSupplierError('');
     try {
@@ -326,7 +332,7 @@ export default function StockEasyPage() {
   const continueStockPurchase = ({ itemId, supplierId: selectedSupplierId, quantity, purchaseRate }) => {
     setReceiveOpen(false);
     setReceiveItem(null);
-    navigate('/suppliers/' + encodeURIComponent(selectedSupplierId), {
+    navigate('/suppliers/' + encodeURIComponent(selectedSupplierId) + '#supplier-purchase-form', {
       state: {
         purchasePrefill: {
           itemId, quantity, purchaseRate, supplierId: selectedSupplierId,
@@ -379,8 +385,12 @@ export default function StockEasyPage() {
     // When quantity was supplied, the supplier detail page will create the
     // invoice, stock receipt, cash/bank payment and remaining credit together.
     if (openingQuantity > 0 && !part.supplier) {
-      setError('Choose the supplier before receiving purchased stock. For historical opening balances, use audited stock adjustments.');
+      setError('Select or add a supplier before receiving purchased stock.');
       partFormRef.current?.querySelector('select[name="supplier"]')?.focus();
+      return;
+    }
+    if (openingQuantity > 0 && !canPurchaseStock) {
+      setError('Receiving a purchase needs Stock Edit and Payments permissions. You may save the product with quantity 0.');
       return;
     }
     setSaving(true);
@@ -398,9 +408,11 @@ export default function StockEasyPage() {
       setPart(initialPart);
       setPartLookup('');
       setPartMode('find');
-      setSuccess('Part saved to catalogue without adding stock or supplier debt.');
-      if (part.supplier && created?.id) {
-        navigate('/suppliers/' + encodeURIComponent(part.supplier), {
+      setSuccess(openingQuantity > 0
+        ? 'Part saved. Continue to the supplier purchase form and Post the bill to receive stock.'
+        : 'Part saved to catalogue with zero stock. No purchase or supplier debt was recorded.');
+      if (openingQuantity > 0 && part.supplier && created?.id) {
+        navigate('/suppliers/' + encodeURIComponent(part.supplier) + '#supplier-purchase-form', {
           state: {
             purchasePrefill: {
               itemId: String(created.id), quantity: String(openingQuantity || 1),
@@ -665,7 +677,7 @@ export default function StockEasyPage() {
               <strong>New Supplier</strong>
               <OutlinedInput label="Supplier Name *" maxLength={180} value={quickSupplier.name} onChange={e => setQuickSupplier({ ...quickSupplier, name: e.target.value })}/>
               <div className="cg-easy-fields">
-                <OutlinedInput label="Phone" type="tel" maxLength={30} value={quickSupplier.phone} onChange={e => setQuickSupplier({ ...quickSupplier, phone: e.target.value })}/>
+                <CountryPhoneField label="Phone" value={quickSupplier.phone} onChange={value => setQuickSupplier(old => ({ ...old, phone: value }))}/>
                 <OutlinedInput label="GSTIN" maxLength={20} value={quickSupplier.gstNo} onChange={e => setQuickSupplier({ ...quickSupplier, gstNo: e.target.value })}/>
               </div>
               <OutlinedInput label="Address" value={quickSupplier.address} onChange={e => setQuickSupplier({ ...quickSupplier, address: e.target.value })}/>
@@ -772,7 +784,7 @@ export default function StockEasyPage() {
               You will go straight to that Supplier page to confirm the purchase quantity,
               GST, Cash/Bank payment and remaining credit. No separate purchase screen.
             </p>
-            <div className="cg-easy-form-actions"><button type="button" onClick={() => setPartOpen(false)}>Cancel</button><button type="submit" disabled={saving}>{saving ? 'Saving...' : (part.supplier ? 'Save Part & Continue to Supplier' : 'Save Part')}</button></div>
+            <div className="cg-easy-form-actions"><button type="button" onClick={() => setPartOpen(false)}>Cancel</button><button type="submit" disabled={saving}>{saving ? 'Saving...' : (Number(part.stockQuantity) > 0 ? 'Continue to Receive Stock' : 'Save Part')}</button></div>
           </form>
         )}
       </ResponsiveModalSheet>

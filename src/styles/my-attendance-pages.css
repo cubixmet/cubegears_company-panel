@@ -341,3 +341,67 @@
   .my-salary-card-heading .my-salary-refetch { width: 100%; }
   .my-salary-card-stats { grid-template-columns: 1fr; }
 }
+
+/* Compact Hours : Minutes control for personal overtime requests. */
+.my-overtime-form .my-overtime-duration-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  margin-top: 9px;
+}
+.my-overtime-duration-field > span:first-child {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.my-overtime-form .my-overtime-duration-inputs {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.my-overtime-form .my-overtime-duration-unit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  min-width: 0;
+}
+.my-overtime-form .my-overtime-duration-unit input {
+  width: 68px;
+  max-width: 100%;
+  height: 52px;
+  padding: 0 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-primary);
+  text-align: center;
+  font-size: 23px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .03em;
+  box-shadow: none;
+}
+.my-overtime-form .my-overtime-duration-unit input::placeholder { color: var(--text-muted); opacity: 1; }
+.my-overtime-form .my-overtime-duration-unit input:focus {
+  border-color: var(--primary);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.my-overtime-form .my-overtime-duration-unit input[readonly] { opacity: 1; cursor: default; }
+.my-overtime-form .my-overtime-duration-unit > span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 650;
+}
+.my-overtime-form .my-overtime-duration-separator {
+  align-self: flex-start;
+  padding-top: 12px;
+  font-size: 23px;
+  font-weight: 800;
+  color: var(--text-primary);
+}

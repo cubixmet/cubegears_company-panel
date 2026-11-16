@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Download, Search, RefreshCw } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Download, Search, RefreshCw, Plus } from 'lucide-react';
 import '../../styles/supplier-account-statement.css';
 
 const currency = value => value == null || value === '' || !Number.isFinite(Number(value))
@@ -35,7 +35,7 @@ const categoryOf = entry => {
 };
 
 export default function SupplierAccountStatement({
-  supplier, ledger, loading = false, error = '', onRefresh,
+  supplier, ledger, loading = false, error = '', onRefresh, onAddAdvance,
 }) {
   const [type, setType] = useState('all');
   const [query, setQuery] = useState('');
@@ -108,7 +108,14 @@ export default function SupplierAccountStatement({
     </header>
     {ledger && <div className="cg-supplier-statement-metrics">
       <div><span>Supplier Credit Outstanding</span><strong>{currency(ledger.outstanding)}</strong></div>
-      <div><span>Advance Available</span><strong>{currency(ledger.availableAdvance)}</strong></div>
+      <div className="cg-supplier-advance-metric">
+        <span>Advance Available</span>
+        <strong>{currency(ledger.availableAdvance)}</strong>
+        {onAddAdvance && <button type="button" onClick={onAddAdvance}
+          className="cg-supplier-advance-metric-action">
+          <Plus size={15} aria-hidden="true"/> Add Money
+        </button>}
+      </div>
       <div><span>Debit Credit Available</span><strong>{currency(ledger.availableDebitCredit)}</strong></div>
       <div><span>Net Exposure After Credits</span><strong>{currency(ledger.netExposureAfterAvailableCredits)}</strong></div>
     </div>}

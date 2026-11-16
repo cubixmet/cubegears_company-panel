@@ -36,7 +36,11 @@ export const jobInvoiceFor = (invoices, job) => {
       || (job.jobNumber && String(invoice.jobCardNo || invoice.job_card_no || '') === String(job.jobNumber))
     ).sort((left, right) => String(right.createdAt || right.created_at || right.date || '')
       .localeCompare(String(left.createdAt || left.created_at || left.date || '')));
-  return related.find(invoice => invoice.status !== 'Cancelled') || null;
+  // Prefer issued invoices over drafts. A newer draft must not hide a
+  // posted bill with real receipts/outstanding.
+  const valid = related.filter(invoice =>
+    !['Cancelled', 'Canceled', 'Void', 'Voided'].includes(invoice.status));
+  return valid.find(isPostedInvoice) || valid[0] || null;
 };
 
 export const jobInvoiceFinance = invoice => {

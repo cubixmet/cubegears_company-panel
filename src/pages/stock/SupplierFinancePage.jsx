@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { CheckCircle2, CreditCard, Plus, RefreshCw, Wallet } from 'lucide-react';
@@ -645,7 +646,7 @@ export default function SupplierFinancePage({ section = '' }) {
             <div className="mt-3 grid gap-2">
               {(ledger?.entries || []).map((entry, index) => (
                 <div key={entry.sourceId + '-' + index} className="grid grid-cols-2 gap-2 border-b border-line py-2 text-sm md:grid-cols-4">
-                  <span><strong>{entry.type}</strong><small className="block text-muted">{entry.reference}</small></span>
+                  <span><strong>{entry.type}</strong><small className="block text-muted">{recordLabel(entry.reference || entry.id)}</small></span>
                   <span className="text-muted">{new Date(entry.date).toLocaleDateString()}</span>
                   <span>+{money(entry.payableIncrease)} / −{money(entry.payableDecrease)}</span>
                   <strong>Due {money(entry.runningPayable)}</strong>
@@ -985,7 +986,7 @@ export default function SupplierFinancePage({ section = '' }) {
               <article key={row.id} className="flex min-w-0 flex-wrap items-start justify-between gap-3 rounded-xl border border-line p-3">
                 <div className="min-w-0">
                   <strong className="text-sm">{row.kind} · {row.method}</strong>
-                  <p className="text-xs text-muted">{row.paidOn} · {row.reference || 'No reference'}</p>
+                  <p className="text-xs text-muted">{row.paidOn} · {recordLabel(row.reference || row.id, 'No reference')}</p>
                   <p className="text-xs text-muted">Allocated {money(row.applied)} · Unallocated {money(row.unapplied)}</p>
                 </div>
                 <strong className="text-sm">{money(row.amount)}</strong>

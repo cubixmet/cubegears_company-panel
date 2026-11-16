@@ -5,32 +5,28 @@ const modes = [
   {
     value: 'single',
     title: 'Single Punch',
-    description: 'One session per day.',
     icon: LogIn,
   },
   {
     value: 'multi',
     title: 'Multi Punch',
-    description: 'Multiple sessions per day.',
     icon: Repeat2,
   },
   {
     value: 'auto_checkout',
     title: 'Auto Checkout',
-    description: 'Checkout at shift end.',
     icon: Clock3,
   },
   {
     value: 'hybrid',
     title: 'Hybrid',
-    description: 'Manual or automatic checkout.',
     icon: TimerReset,
   },
 ];
 
 export const AttendanceModeSelector = ({ value, onChange }) => (
   <div className="attendance-mode-grid">
-    {modes.map(({ value: modeValue, title, description, icon: Icon }) => {
+    {modes.map(({ value: modeValue, title, icon: Icon }) => {
       const selected = value === modeValue;
       return (
         <button
@@ -43,7 +39,6 @@ export const AttendanceModeSelector = ({ value, onChange }) => (
           <span className="attendance-mode-icon"><Icon size={17} /></span>
           <span className="attendance-mode-copy">
             <strong>{title}</strong>
-            <span className="am-mode-description">{description}</span>
           </span>
           <span className="attendance-mode-radio" aria-hidden="true" />
         </button>

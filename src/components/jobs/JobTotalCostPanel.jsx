@@ -3,12 +3,18 @@ import { Calculator } from 'lucide-react';
 import { jobService } from '../../services/job.service';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
+import '../../styles/job-cost-margin.css';
 
 const money = (value) => new Intl.NumberFormat('en-IN', {
   style: 'currency', currency: 'INR', maximumFractionDigits: 2
 }).format(Number(value) || 0);
 
-export function JobTotalCostPanel({ jobId, refreshVersion = 0, refreshOnTab = '', customerServiceCharges = 0 }) {
+export function JobTotalCostPanel({
+  jobId, refreshVersion = 0, refreshOnTab = '', customerServiceCharges = 0,
+  billedTotal = null, netSellingValue = null, salesSource = 'none',
+  receivedTotal = null, outstandingTotal = null, paymentVisible = false,
+  postedInvoiceCount = 0,
+}) {
   const { user } = useAuth();
   const permitted = ['jobs.view', 'payroll.view', 'expenses.view', 'stock.view']
     .every((code) => hasPermission(user, code));
@@ -17,6 +23,20 @@ export function JobTotalCostPanel({ jobId, refreshVersion = 0, refreshOnTab = ''
   const summary = costState.jobId === jobId ? costState.data : null;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const hasBill = billedTotal !== null && billedTotal !== undefined && Number.isFinite(Number(billedTotal));
+  const showBill = refreshOnTab !== 'work' && hasBill;
+  const hasNetSales = netSellingValue !== null && netSellingValue !== undefined
+    && Number.isFinite(Number(netSellingValue));
+  const showCollections = refreshOnTab !== 'work' && paymentVisible && postedInvoiceCount > 0 &&
+    receivedTotal !== null && outstandingTotal !== null &&
+    Number.isFinite(Number(receivedTotal)) && Number.isFinite(Number(outstandingTotal));
+  const incompleteCosts = Boolean(summary?.unallocatedDailyWages || summary?.unapprovedMechanicWork
+    || summary?.partsAtCurrentCost);
+  // Show only the difference between known pre-tax selling and recorded direct
+  // costs. It is never a final profit (overheads/daily wages may be missing).
+  const recordedCost = summary ? Number(summary.totalCost) : NaN;
+  const grossMargin = hasNetSales && Number.isFinite(recordedCost)
+    ? Number(netSellingValue) - recordedCost : null;
 
   useEffect(() => {
     if (!jobId || !permitted) {
@@ -81,8 +101,8 @@ export function JobTotalCostPanel({ jobId, refreshVersion = 0, refreshOnTab = ''
     <section className="job-total-cost-panel is-global" aria-label="Job Card total cost">
       <header className="job-total-cost-heading">
         <div>
-          <h3><Calculator size={18} aria-hidden="true" /> Total Cost</h3>
-          <p>Recorded direct costs for this Job Card, not customer charges or invoice totals.</p>
+          <h3><Calculator size={18} aria-hidden="true" /> Job Cost, Selling &amp; Profit</h3>
+          <p>Workshop-only cost, customer bill and indicative margin. These figures never appear on the customer invoice.</p>
         </div>
       </header>
 
@@ -94,9 +114,10 @@ export function JobTotalCostPanel({ jobId, refreshVersion = 0, refreshOnTab = ''
         <p role="alert" className="job-total-cost-notice">{error}</p>
       ) : (
         <>
-          <div className="job-total-cost-grid" aria-busy={loading}>
+          <details className="cg-job-cost-breakdown">
+            <summary>Show direct cost breakdown (mechanic, outside labour and parts)</summary>
+            <div className="job-total-cost-grid" aria-busy={loading}>
             {[
-              { label: 'Total Cost', value: summary?.totalCost, desc: 'Direct recorded cost', primary: true },
               { label: 'Mechanic Cost', value: summary?.mechanicCost, desc: 'Approved worker charges' },
               { label: 'Outside Staff Cost', value: summary?.outsideStaffCost, desc: 'Agreed worker charges' },
               { label: 'Parts Cost', value: summary?.partsCost, desc: 'Issued stock + outside purchases' }
@@ -107,12 +128,55 @@ export function JobTotalCostPanel({ jobId, refreshVersion = 0, refreshOnTab = ''
                 <small>{desc}</small>
               </div>
             ))}
+            </div>
+          </details>
+          <div className={'job-total-cost-grid job-total-finance-grid' + (showBill ? ' has-bill' : '')} aria-label="Internal billing and margin">
+            {showBill && <div className="job-total-cost-card">
+              <span>{salesSource === 'final_invoice' ? postedInvoiceCount > 1 ? 'All Posted Invoice Bills' : 'Posted Invoice Bill'
+                : salesSource === 'draft_invoice' ? 'Draft Invoice Total'
+                  : salesSource === 'estimate' ? 'Estimated Bill' : 'Invoice Total'}</span>
+              <strong>{money(billedTotal)}</strong>
+              <small>Includes GST when applicable</small>
+            </div>}
+            <div className="job-total-cost-card">
+              <span>Customer Selling (before GST)</span>
+              <strong>{hasNetSales ? money(netSellingValue) : 'Not available'}</strong>
+              <small>{salesSource === 'work' ? 'Provisional · recorded billable work and parts'
+                : salesSource === 'estimate' ? 'From the saved estimate' : 'Tax-exclusive value'}</small>
+            </div>
+            <div className="job-total-cost-card is-primary">
+              <span>Workshop Direct Cost</span>
+              <strong>{summary ? money(summary.totalCost) : loading ? 'Loading…' : 'Unavailable'}</strong>
+              <small>Mechanic + outside labour + parts purchase cost</small>
+            </div>
+            <div className="job-total-cost-card is-margin">
+              <span>Indicative Gross Profit (before GST)</span>
+              <strong>{grossMargin !== null ? money(grossMargin) : 'Not ready'}</strong>
+              <small>{grossMargin === null
+                ? 'A verified pre-tax selling figure and recorded costs are required'
+                : incompleteCosts ? 'Indicative only: some wages or costs are missing'
+                  : salesSource === 'final_invoice' ? 'Excludes overhead and unallocated wages'
+                    : 'Provisional; bill not yet finalized'}</small>
+            </div>
           </div>
+          {showCollections && (
+            <div className="job-total-cost-grid job-customer-payment-grid"
+              aria-label="Customer invoice settlement">
+              <div className="job-total-cost-card">
+                <span>Customer Paid</span>
+                <strong>{money(receivedTotal)}</strong>
+              </div>
+              <div className="job-total-cost-card is-due">
+                <span>Customer Balance Due</span>
+                <strong>{money(outstandingTotal)}</strong>
+              </div>
+            </div>
+          )}
           {refreshOnTab === 'work' && (
             <div className="job-total-customer-service" aria-label="Recorded customer service charges">
               <div>
                 <strong>Customer Service Charges</strong>
-                <small>Added services selling value — not included in Total Cost, invoice or payment.</small>
+                <small>Saved billable services carry into the Job Card invoice draft.</small>
               </div>
               <strong>{money(customerServiceCharges)}</strong>
             </div>

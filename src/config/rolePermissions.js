@@ -17,6 +17,38 @@ export const ROLE_PERMISSION_MODULES = [
   { key: 'storage', label: 'Storage', actions: ['view', 'manage'] },
 ];
 
+// Conservative role-editor presets: never grant payment, payroll, delete,
+// approval, settings management, or attendance manager permissions by default.
+const VIEWER_PRESET = Object.freeze({
+  dashboard: ['view'],
+  customers: ['view'],
+  vehicles: ['view'],
+  services: ['view'],
+  jobs: ['view'],
+  stock: ['view'],
+});
+
+const STANDARD_PRESET = Object.freeze({
+  ...VIEWER_PRESET,
+  customers: ['view', 'create', 'edit'],
+  vehicles: ['view', 'create', 'edit'],
+  jobs: ['view', 'create', 'edit'],
+  attendance: ['self'],
+});
+
+// Apply only actions present in the authorized, visible modules supplied by
+// companyPermissionModules(). Keep any hidden role permissions untouched.
+export const buildRoleAccessPreset = (modules, mode) => {
+  const allow = mode === 'standard' ? STANDARD_PRESET : VIEWER_PRESET;
+  return Object.fromEntries(modules.map((module) => [
+    module.key,
+    Object.fromEntries(module.actions.map((action) => [
+      action,
+      Boolean(allow[module.key]?.includes(action)),
+    ])),
+  ]));
+};
+
 export const createPermissionMatrix = (enabled = false) =>
   Object.fromEntries(
     ROLE_PERMISSION_MODULES.map((module) => [

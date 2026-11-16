@@ -12,6 +12,20 @@ export const financeAccountsForChannel = (accounts, channel) =>
     isFinanceAccount(account) && accountChannel(account.kind) === channel
   );
 
+/** Default source for a supplier payment channel.
+ * Finance's explicit preferred account wins; a sole active account is safe
+ * to infer. Never guess among several Bank/UPI accounts.
+ */
+export const defaultFinanceAccountId = (accounts, channel) => {
+  const matching = financeAccountsForChannel(accounts, channel);
+  const preferred = matching.filter(account => account.isDefaultPayment === true);
+  if (preferred.length === 1) return String(preferred[0].id);
+  if (preferred.length > 1) return '';
+  if (matching.length === 1) return String(matching[0].id);
+  return '';
+
+};
+
 export const assertFinanceAccount = (accounts, accountId, channel) => {
   if (!FINANCE_CHANNELS.includes(channel)) throw new Error('Choose Cash or Bank.');
   const match = (Array.isArray(accounts) ? accounts : []).find(

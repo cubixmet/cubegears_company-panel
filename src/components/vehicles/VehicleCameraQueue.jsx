@@ -83,7 +83,7 @@ function QueuedPhoto({ item, onRemove, disabled, uploadingPhotoId }) {
   );
 }
 
-export function VehicleCameraQueue({ photos = [], onChange, disabled = false, uploading = 0, uploadTotal = 0, uploadingPhotoId = null }) {
+export function VehicleCameraQueue({ photos = [], onChange, disabled = false, uploading = 0, uploadTotal = 0, uploadingPhotoId = null, hideDescription = false, hideHeading = false }) {
   const [category, setCategory] = useState('additional');
   const [phase, setPhase] = useState('before');
   const [caption, setCaption] = useState('');
@@ -116,9 +116,9 @@ export function VehicleCameraQueue({ photos = [], onChange, disabled = false, up
   const remove = (id) => onChange((current) => current.filter((item) => item.id !== id));
   return (
     <section className="vehicle-camera-queue" aria-label="Vehicle camera photos">
-      <div className="vehicle-camera-heading">
-        <div><h3><Camera size={18}/> Vehicle Inspection Photos</h3>
-          <p>Capture photos using the mobile camera. All uploads stay private until published.</p></div>
+      <div className={`vehicle-camera-heading${hideHeading ? ' is-heading-hidden' : ''}`}>
+        {!hideHeading && <div><h3><Camera size={18}/> Vehicle Inspection Photos</h3>
+          {!hideDescription && <p>Capture photos using the mobile camera. All uploads stay private until published.</p>}</div>}
         <div className="vehicle-photo-add-actions">
           <LiveVehicleCamera onCapture={add} disabled={disabled} count={photos.length}/>
           <label className="vehicle-gallery-upload-label">

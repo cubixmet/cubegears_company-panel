@@ -1,5 +1,5 @@
 // Only a human-readable name/registration should be shown for record routes.
-// UUIDs remain in internal navigation and API URLs, never as visible labels.
+// Use the identity of the record as the breadcrumb label when available.
 const staticRoutes = {
   customers: new Set(['new', 'add', 'all', 'overview', 'edit', 'vehicles', 'service-history', 'outstanding', 'reminders', 'reports']),
   vehicles: new Set(['new', 'add']),

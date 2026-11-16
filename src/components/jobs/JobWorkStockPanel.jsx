@@ -54,6 +54,7 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
   const [categories, setCategories] = useState([]);
   const [createNotice, setCreateNotice] = useState('');
   const [createdSupplierId, setCreatedSupplierId] = useState('');
+  const [createdPurchasePrefill, setCreatedPurchasePrefill] = useState(null);
 
   const refresh = async () => {
     if (!canView) return;
@@ -80,6 +81,7 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
     setCreateError('');
     setCreateNotice('');
     setCreatedSupplierId('');
+    setCreatedPurchasePrefill(null);
     refresh();
   }, [jobId, canView]);
 
@@ -195,7 +197,11 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
       setNewPartGstChoice('');
       setShowCreate(false);
       setCreatedSupplierId(newPart.supplier || '');
-      setCreateNotice('Part saved in inventory catalogue with zero stock. Receive stock before issuing it to this job.');
+      setCreatedPurchasePrefill({
+        itemId: String(created.id), quantity: '1', purchaseRate: String(purchase),
+        supplierId: newPart.supplier || '',
+      });
+      setCreateNotice('Part saved with 0 stock. Open Supplier Purchase, add the part, then Post Purchase to receive it.');
     } catch (cause) {
       const response = cause?.response?.data;
       const message = response && typeof response === 'object'
@@ -236,7 +242,13 @@ export function JobWorkStockPanel({ jobId, issuedParts = [], canEdit = true, onC
 
       {error && <p className="job-work-stock-error" role="alert">{error}</p>}
       {success && <p className="job-work-stock-success" role="status"><CheckCircle2 size={16} aria-hidden="true"/>{success}</p>}
-      {createNotice && <p className="job-work-stock-success" role="status">{createNotice} <Link to={createdSupplierId ? '/suppliers/' + encodeURIComponent(createdSupplierId) : '/stock'}>Receive Stock</Link></p>}
+      {createNotice && <p className="job-work-stock-success" role="status">{createNotice} <Link
+        to={createdSupplierId
+          ? '/suppliers/' + encodeURIComponent(createdSupplierId) + '#supplier-purchase-form'
+          : '/stock'}
+        state={createdSupplierId && createdPurchasePrefill
+          ? { purchasePrefill: createdPurchasePrefill } : undefined}
+      >Buy / Receive Stock</Link></p>}
 
       {canIssue && showCreate && (
         <form id="job-work-new-part-form" className="job-work-new-part-form" onSubmit={createPart}>

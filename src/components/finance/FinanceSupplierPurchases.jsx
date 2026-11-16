@@ -58,8 +58,8 @@ export default function FinanceSupplierPurchases({
   return <section className="finance-supplier-purchases" aria-label="Supplier purchase GST and credit">
     <div className="finance-supplier-purchases-head">
       <div>
-        <h2>Supplier Purchases · GST &amp; Credit</h2>
-        <p>Recent posted supplier bills. GST, payments and dues come from the original purchase ledger.</p>
+        <h2>Recent supplier bills</h2>
+        <p>Purchase GST, payments and remaining credit for the latest five posted bills.</p>
       </div>
       <button type="button" className="finance-supplier-purchases-reload" disabled={loading}
         onClick={() => setRetry(value => value + 1)} aria-label="Refresh supplier purchase bills">
@@ -67,26 +67,16 @@ export default function FinanceSupplierPurchases({
       </button>
     </div>
     <div className="finance-supplier-purchases-actions">
-      {canPurchase && <Link className="finance-supplier-action primary" to="/suppliers/purchases">
-        <PackagePlus size={17} aria-hidden="true" /> Receive Stock / Purchase GST
-      </Link>}
+      <Link className="finance-supplier-action" to="/suppliers/purchases">
+        <PackagePlus size={17} aria-hidden="true" /> {canPurchase ? 'Receive Stock / View Bills' : 'View Supplier Bills'}
+      </Link>
       {canPaySupplier && <Link className="finance-supplier-action" to="/suppliers">
         <Wallet size={17} aria-hidden="true" /> Pay Supplier Credit
       </Link>}
-      <Link className="finance-supplier-action" to="/suppliers/purchases">
-        <FileText size={17} aria-hidden="true" /> All Supplier Bills
-      </Link>
       {canReviewGST && <Link className="finance-supplier-action" to="/gstr?tab=gstr2b">
         <FileText size={17} aria-hidden="true" /> GSTR-2B Review
       </Link>}
     </div>
-    <p className="finance-supplier-purchases-info">
-      Select a supplier to receive stock and enter purchase GST. Choose Cash in Hand,
-      Bank / UPI, split payment or full credit there. Posting creates one supplier bill,
-      its stock movements and the selected financial entries atomically.
-      Paying an existing bill changes its outstanding amount, not its original purchase GST.
-      Recorded purchase GST is not automatically eligible ITC.
-    </p>
     {loading && <p className="finance-supplier-purchases-state" role="status">Loading posted supplier bills…</p>}
     {error && <div className="finance-supplier-purchases-error" role="alert">
       {error}
@@ -119,9 +109,6 @@ export default function FinanceSupplierPurchases({
     ) : <p className="finance-supplier-purchases-state">
       No posted supplier purchases in the recent bill list. Start from Supplier Purchases to receive stock.
     </p>)}
-    <small className="finance-supplier-purchases-foot">
-      Showing up to five recent posted bills, not a complete GST return or month-end statement.
-      Supplier due values are current and may include later settlements and returns.
-    </small>
+    {canReviewGST && <small className="finance-supplier-purchases-foot">Review ITC eligibility in GSTR-2B. Balances include later settlements and returns.</small>}
   </section>;
 }

@@ -1,0 +1,227 @@
+/* Shared customer create/edit form: directory modal and standalone pages. */
+.cg-customer-standard-form {
+  display:grid;gap:16px;min-width:0;width:100%;
+}
+.cg-customer-unified-fields {min-width:0;width:100%}
+.cg-customer-unified-fields {
+  display:grid;gap:14px;
+  font-family:inherit;
+}
+.cg-customer-unified-section {
+  display:grid;gap:13px;min-width:0;
+  padding:clamp(12px,1.8vw,18px);
+  border:1px solid var(--border,#dfe5ec);
+  border-radius:13px;background:var(--surface,#fff);
+}
+.cg-customer-unified-section-heading {
+  display:flex;justify-content:space-between;
+  align-items:baseline;gap:6px 14px;flex-wrap:wrap;
+}
+.cg-customer-unified-section-heading strong {
+  color:var(--text-primary,#172033);font-size:14px;font-weight:760;
+}
+.cg-customer-unified-section-heading span {
+  color:var(--text-secondary,#64748b);font-size:12px;line-height:1.45;
+}
+.cg-customer-unified-grid,
+.cg-customer-unified-location {
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0;
+}
+.cg-customer-unified-location {grid-template-columns:repeat(3,minmax(0,1fr))}
+.cg-customer-unified-fields :is(.ui-field,[data-cg-input-wrapper]),
+.cg-customer-unified-fields .cg-customer-unified-phone {min-width:0;width:100%}
+.cg-customer-unified-phone .ui-phone__label {
+  font-size:13px;font-weight:650;color:var(--text-primary,#172033);
+}
+/* The country selector must never be stretched like a normal input. */
+:is(#root,body) .cg-customer-standard-form .ui-phone.ui-input-shell {
+  display:flex!important;align-items:stretch!important;
+  gap:0!important;padding:0!important;min-height:50px!important;
+  background:var(--surface-2,#f8fafc)!important;
+  overflow:hidden;
+}
+:is(#root,body) .cg-customer-standard-form .ui-phone.ui-input-shell > select.ui-phone__country {
+  flex:0 0 103px!important;width:103px!important;min-width:103px!important;
+  max-width:103px!important;padding:0 18px 0 8px!important;
+  border:0!important;border-right:1px solid var(--border,#dce3ea)!important;
+  border-radius:0!important;background:transparent!important;
+  font-size:13px!important;line-height:1.3!important;
+}
+:is(#root,body) .cg-customer-standard-form .ui-phone.ui-input-shell > input.ui-input {
+  display:block!important;flex:1 1 0%!important;min-width:0!important;
+  width:0!important;height:48px!important;padding:0 10px!important;
+  font-size:16px!important;border:0!important;background:transparent!important;
+}
+.cg-customer-unified-fields .cg-floating-field [data-cg-input-shell="true"] {
+  min-height:48px;
+  border-radius:10px;
+}
+.cg-customer-unified-fields textarea {font-size:16px;min-width:0}
+.cg-customer-unified-error {
+  color:var(--danger,#b42318);font-size:13px;line-height:1.4;margin:0;
+}
+.cg-customer-standard-form .customer-directory-form-actions {
+  margin-top:12px;
+}
+.cg-customer-standard-form .customer-directory-form-actions>button {min-height:46px}
+.cg-customer-standard-form :is(input,select,textarea):focus-visible {
+  outline-offset:1px;
+}
+@media(max-width:600px) {
+  .cg-customer-unified-section {gap:12px;padding:12px}
+  .cg-customer-unified-section-heading {display:grid;gap:3px}
+  .cg-customer-unified-grid {grid-template-columns:minmax(0,1fr);gap:11px}
+  .cg-customer-unified-location {grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .cg-customer-unified-location>:last-child {grid-column:1/-1}
+}
+@media(max-width:380px) {
+  .cg-customer-unified-location {grid-template-columns:minmax(0,1fr)}
+  .cg-customer-unified-location>:last-child {grid-column:auto}
+  :is(#root,body) .cg-customer-standard-form .ui-phone.ui-input-shell > select.ui-phone__country {
+    flex-basis:91px!important;width:91px!important;min-width:91px!important;max-width:91px!important;
+  }
+}
+
+/* Consistent customer create / edit on directory, profile and standalone forms. */
+.cg-customer-standard-form .cg-customer-unified-section {
+  border-color:var(--border,#e1e7ef);
+  background:var(--surface,#fff);
+}
+.cg-customer-standard-form .cg-customer-unified-section-heading {
+  gap:4px 12px;
+}
+.cg-customer-standard-form .cg-customer-unified-section-heading strong {
+  font-size:14px;line-height:1.4;
+}
+.cg-customer-standard-form .cg-customer-unified-section-heading span {
+  font-size:12px;line-height:1.5;
+}
+.cg-customer-unified-phone .cg-customer-contact-hint {
+  margin:5px 0 0;padding:0;
+  font-size:12px;line-height:1.5;
+  font-weight:450;color:var(--text-secondary,#64748b);
+}
+.cg-customer-standard-form .cg-customer-unified-fields [data-cg-input-wrapper] {
+  min-width:0;
+}
+.cg-customer-standard-form .cg-customer-unified-fields :is(input,select,textarea) {
+  font-size:16px;
+}
+.cg-customer-standard-form .cg-customer-unified-fields textarea {
+  min-height:82px;
+}
+@media(max-width:600px) {
+  .cg-customer-standard-form .cg-customer-unified-section {padding:12px;gap:12px}
+  .cg-customer-standard-form .cg-customer-unified-fields {gap:11px}
+  .cg-customer-standard-form .cg-customer-unified-section-heading {display:grid}
+}
+
+/* Shared customer contact row used by all customer create/edit flows. */
+.cg-customer-unified-fields .cg-customer-contact-row {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  align-items:start;
+  gap:12px;
+  min-width:0;
+}
+.cg-customer-unified-fields .cg-customer-contact-row > * {min-width:0;}
+@media(max-width:600px) {
+  .cg-customer-unified-fields .cg-customer-contact-row {
+    grid-template-columns:minmax(0,1fr);
+    gap:11px;
+  }
+}
+
+/* A single optional PIN field replaces the old City/State/PIN row. */
+.cg-customer-pin-only {max-width:220px;min-width:0;}
+.cg-customer-pin-only > * {min-width:0;}
+.cg-customer-branch-locked {
+  min-height:48px;display:grid;align-content:center;gap:3px;
+  padding:8px 12px;border-radius:10px;
+  border:1px solid var(--border,#e1e7ef);
+  background:var(--surface-2,#f6f8fb);min-width:0;
+}
+.cg-customer-branch-locked > span {
+  font-size:13px;font-weight:600;color:var(--text-secondary,#64748b);
+}
+.cg-customer-branch-locked > strong {
+  font-size:14px;font-weight:700;color:var(--text-primary,#172033);
+  overflow-wrap:anywhere;
+}
+.cg-customer-branch-locked > small {
+  font-size:11px;line-height:1.4;color:var(--text-secondary,#64748b);
+}
+@media(max-width:600px) {
+  .cg-customer-pin-only {max-width:none;width:100%;}
+}
+
+/* Top-aligned customer labels make phone, email, type and branch scan alike. */
+.cg-customer-unified-fields .cg-stacked-field {
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  gap:7px;
+}
+.cg-customer-unified-fields .cg-stacked-label {
+  display:block;
+  margin:0;
+  color:var(--text-primary,#172033);
+  font-size:14px;
+  font-weight:620;
+  line-height:1.45;
+  white-space:normal;
+}
+.cg-customer-unified-fields .cg-customer-branch-assignment {
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  gap:7px;
+}
+.cg-customer-unified-fields .cg-customer-branch-assignment .cg-customer-branch-locked {
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:9px;
+  box-sizing:border-box;
+  height:48px;
+  min-height:48px;
+  padding:0 13px;
+  border:1px solid var(--border,#e1e7ef);
+  border-radius:9px;
+  background:var(--surface-2,#f6f8fb);
+}
+.cg-customer-unified-fields .cg-customer-branch-locked strong {
+  flex:1;
+  min-width:0;
+  font-size:15px;
+  font-weight:620;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.cg-customer-unified-fields .cg-customer-branch-locked > svg {
+  color:var(--text-secondary,#64748b);
+  flex:0 0 auto;
+}
+.cg-customer-unified-fields .cg-customer-branch-locked > svg:last-child {
+  color:var(--primary,#2563eb);
+}
+.cg-customer-unified-fields .cg-customer-address-row {
+  display:grid;
+  grid-template-columns:minmax(0,1.6fr) minmax(155px,.7fr);
+  gap:11px;
+  align-items:start;
+}
+.cg-customer-unified-fields .cg-customer-address-row > * {
+  min-width:0;
+}
+.cg-customer-unified-fields .cg-customer-address-row .cg-customer-pin-only {
+  width:100%;
+  max-width:none;
+}
+@media(max-width:600px) {
+  .cg-customer-unified-fields .cg-customer-address-row {
+    grid-template-columns:minmax(0,1fr);
+    gap:11px;
+  }
+}

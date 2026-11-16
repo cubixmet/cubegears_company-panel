@@ -1,6 +1,7 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { ArrowLeft, ArrowLeftRight, Plus } from 'lucide-react';
+import { ArrowLeft, ArrowLeftRight, ArrowRight, Plus } from 'lucide-react';
 import { financeService } from '../../services/finance.service';
 import { isFinanceAccount, assertFinanceAccount, accountChannel } from '../../utils/financeCashBank';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
@@ -146,9 +147,8 @@ export function TransfersPage() {
     <div className="finance-page">
       <header className="finance-page-header">
         <div>
-          <span className="finance-dash-kicker">FINANCE</span>
           <h1>Account Transfers</h1>
-          <p>See money moved between the workshop's cash and bank accounts. These movements are not sales or expenses.</p>
+          <p>Move money between workshop cash and bank accounts.</p>
         </div>
         {canManage && <button className="finance-primary-btn" onClick={() => navigate('/finance/transfers/new')}>
           <Plus size={16} /> New Transfer
@@ -161,20 +161,20 @@ export function TransfersPage() {
         transfers.length === 0 ? (
           <div className="finance-empty">
             <ArrowLeftRight size={40} />
-            <h3>No account transfers yet</h3>
-            <p>Use New Transfer to move money from one workshop account to another.</p>
+            <h2>No transfers yet</h2>
+            <p>Completed transfers will appear here.</p>
           </div>
         ) : (
           <div className="finance-transfers-list">
             {transfers.map(t => (
               <div key={t.id} className="finance-transfer-row">
                 <div className="finance-transfer-flow">
-                  <span className="finance-transfer-from">{t.fromAccount}</span>
-                  <ArrowLeftRight size={16} className="finance-transfer-arrow" />
-                  <span className="finance-transfer-to">{t.toAccount}</span>
+                  <span className="finance-transfer-from"><small>From</small>{t.fromAccount}</span>
+                  <ArrowRight size={16} className="finance-transfer-arrow" aria-hidden="true" />
+                  <span className="finance-transfer-to"><small>To</small>{t.toAccount}</span>
                 </div>
                 <div className="finance-transfer-meta">
-                  {t.reference && <span>{t.reference}</span>}
+                  <span>{recordLabel(t.reference || t.id)}</span>
                   <span>{t.date}</span>
                   <span className="finance-transfer-by">by {t.createdBy || 'System'}</span>
                 </div>

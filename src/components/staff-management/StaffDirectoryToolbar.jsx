@@ -31,15 +31,17 @@ export const StaffDirectoryToolbar = ({
   return (
     <section className="staff-directory-toolbar">
       <label className="staff-directory-search">
-        <Search size={14} />
+        <Search size={18} aria-hidden="true" />
         <input
+          type="search"
+          aria-label="Search employees"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Search staff name, employee number or designation"
+          placeholder="Search name, ID, role or mobile number"
         />
       </label>
 
-      <select value={branch} onChange={(event) => onBranchChange(event.target.value)}>
+      <select aria-label="Filter staff by branch" value={branch} onChange={(event) => onBranchChange(event.target.value)}>
         <option value="All">All Branches</option>
         {branches.map((item) => (
           <option key={item.id} value={item.name}>
@@ -48,7 +50,7 @@ export const StaffDirectoryToolbar = ({
         ))}
       </select>
 
-      <select value={status} onChange={(event) => onStatusChange(event.target.value)}>
+      <select aria-label="Filter staff by status" value={status} onChange={(event) => onStatusChange(event.target.value)}>
         <option value="All">All Status</option>
         <option value="Active">Active</option>
         <option value="Probation">Probation</option>
@@ -61,7 +63,7 @@ export const StaffDirectoryToolbar = ({
 
       {hasPermission(user, 'staff.create') && (
         <button type="button" className="staff-add-button" onClick={onAdd}>
-          <Plus size={14} />
+          <Plus size={16} aria-hidden="true" />
           Add Staff
         </button>
       )}

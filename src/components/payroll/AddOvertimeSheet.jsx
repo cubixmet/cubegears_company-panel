@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useMemo, useState } from "react";
 import { ResponsiveModalSheet } from '../common/ResponsiveModalSheet';
 import { staffService } from '../../services/staff.service';
@@ -152,7 +153,7 @@ export const AddOvertimeSheet = ({ isOpen, onClose, onSave, prefillStaff }) => {
               <option value="">Select staff</option>
               {staffOptions.map((row) => (
                 <option key={row.id} value={row.employeeId || row.id}>
-                  {row.name} ({row.employeeId || row.id}{row.role ? ` · ${row.role}` : ''})
+                  {row.name} ({recordLabel(row.employeeId || row.id)}{row.role ? ` · ${row.role}` : ''})
                 </option>
               ))}
             </select>

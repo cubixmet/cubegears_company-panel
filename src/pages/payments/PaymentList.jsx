@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, ShieldCheck } from "lucide-react";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -185,7 +186,7 @@ export function PaymentList() {
       financePeriod === 'month' ? dateLocal().slice(0, 8) + '01' : '';
     return payments.filter((row) =>
       (!fromDate || String(row.date || '').slice(0, 10) >= fromDate) &&
-      (!q || [row.receiptNo, row.customer, row.invoice, row.method, row.reference, row.status, row.category, row.account]
+      (!q || [row.receiptNo, row.customer, row.invoice, row.method, row.reference, row.status, row.category, row.account, row.id]
         .some((value) => String(value || '').toLowerCase().includes(q))) &&
       (statusFilter === 'All' || row.status === statusFilter) &&
       (methodFilter === 'All' || row.method === methodFilter)
@@ -359,7 +360,7 @@ export function PaymentList() {
                   <option value="">Select invoice</option>
                   {eligibleInvoices.map((invoice) => (
                     <option key={invoice.id} value={invoice.id}>
-                      {invoice.number || invoice.id} · {invoiceCustomer(invoice)} · Due {money.format(invoiceOutstanding(invoice, calculateDocumentTotals))}
+                      {recordLabel(invoice.number || invoice.id)} · {invoiceCustomer(invoice)} · Due {money.format(invoiceOutstanding(invoice, calculateDocumentTotals))}
                     </option>
                   ))}
                 </select>
@@ -489,30 +490,7 @@ export function PaymentList() {
   return (
     <div className="payments-page payments-dashboard">
       <PaymentsHeader onRecordPayment={() => navigate('/finance/payments/new')} />
-      {!USE_MOCK_API ? (
-        <PaymentFinanceOverview
-          summary={financeSummary}
-          ledger={financeLedger}
-          loading={financeLoading}
-          error={financeError}
-          period={financePeriod}
-          onPeriodChange={value => { setFinancePeriod(value); setLedgerPage(1); }}
-          onRefresh={refreshFinance}
-          ledgerPage={ledgerPage}
-          ledgerCount={ledgerCount}
-          ledgerTotalPages={ledgerTotalPages}
-          ledgerAccount={ledgerAccount}
-          ledgerQuery={ledgerQuery}
-          onLedgerPageChange={setLedgerPage}
-          onLedgerAccountChange={value => { setLedgerAccount(value); setLedgerPage(1); }}
-          onLedgerQueryChange={value => { setLedgerQuery(value); setLedgerPage(1); }}
-          canManage={canManageAccounts}
-          onRecord={() => navigate('/finance/payments/new')}
-          onExpense={() => navigate('/finance/expenses/new')}
-        />
-      ) : (
-        <PaymentOverviewStats payments={payments} formatMoney={(value) => money.format(value || 0)} />
-      )}
+      {USE_MOCK_API && <PaymentOverviewStats payments={payments} formatMoney={(value) => money.format(value || 0)} />}
       {payments.some(row => row.source === 'payment' && row.direction === 'IN' && row.ledgerPosted === false) && (
         <div className="payments-error" role="note">
           Some historical customer receipts updated invoice balances but have no linked bank/cash ledger posting.
@@ -523,28 +501,15 @@ export function PaymentList() {
           </button>
         </div>
       )}
-      {supplierSummary && can('stock.view') && (
-        <section className="payments-dashboard-records" aria-label="Supplier purchase accounting">
-          <header className="payments-dashboard-section-title">
-            <div>
-              <h2>Supplier Purchases &amp; Money Due</h2>
-              <p>Confirmed purchases create a supplier payable. Only money actually paid appears as an outgoing payment.</p>
-            </div>
-          </header>
-          <div className="payments-dashboard-stats">
-            <article className="payments-dashboard-stat-card"><div className="payments-dashboard-stat-top">
-              <div><span>Total Parts Purchased</span><strong>{money.format(Number(supplierSummary.supplierPurchases || 0))}</strong></div>
-            </div></article>
-            <article className="payments-dashboard-stat-card"><div className="payments-dashboard-stat-top">
-              <div><span>Supplier Payments Made</span><strong>{money.format(Number(supplierSummary.supplierPayments || 0))}</strong></div>
-            </div></article>
-            <article className="payments-dashboard-stat-card"><div className="payments-dashboard-stat-top">
-              <div><span>Supplier Credit Outstanding</span><strong>{money.format(Number(supplierSummary.supplierOutstanding || 0))}</strong></div>
-            </div></article>
-          </div>
-          <p>Purchase stock and settle Supplier Credit from the supplier’s own detail page under Suppliers.</p>
-        </section>
-      )}
+      {!USE_MOCK_API && <label className="finance-period-picker">
+        Period
+        <select value={financePeriod} aria-label="Finance reporting period"
+          onChange={event => { setFinancePeriod(event.target.value); setLedgerPage(1); }}>
+          <option value="today">Today</option>
+          <option value="month">This Month</option>
+          <option value="all">All Time</option>
+        </select>
+      </label>}
       <PaymentFilterToolbar
         query={query} onQueryChange={setQuery}
         status={statusFilter} onStatusChange={setStatusFilter}
@@ -559,6 +524,42 @@ export function PaymentList() {
       <PaymentRecordsPanel payments={filtered} loading={loading}
         formatMoney={(value) => money.format(value || 0)}
         onView={(row) => navigate(row.detailPath || `/finance/payments/${row.id}`)} />
+      {!USE_MOCK_API && <details className="finance-disclosure finance-payment-activity">
+        <summary>Cash flow &amp; account ledger</summary>
+        <PaymentFinanceOverview
+          summary={financeSummary}
+          ledger={financeLedger}
+          loading={financeLoading}
+          error={financeError}
+          period={financePeriod}
+          onRefresh={refreshFinance}
+          ledgerPage={ledgerPage}
+          ledgerCount={ledgerCount}
+          ledgerTotalPages={ledgerTotalPages}
+          ledgerAccount={ledgerAccount}
+          ledgerQuery={ledgerQuery}
+          onLedgerPageChange={setLedgerPage}
+          onLedgerAccountChange={value => { setLedgerAccount(value); setLedgerPage(1); }}
+          onLedgerQueryChange={value => { setLedgerQuery(value); setLedgerPage(1); }}
+          canManage={canManageAccounts}
+        />
+      </details>}
+      {supplierSummary && can('stock.view') && (
+        <details className="payments-dashboard-records finance-disclosure">
+          <summary>Supplier payments &amp; credit</summary>
+          <div className="payments-dashboard-stats">
+            <article className="payments-dashboard-stat-card"><div className="payments-dashboard-stat-top">
+              <div><span>Total Parts Purchased</span><strong>{money.format(Number(supplierSummary.supplierPurchases || 0))}</strong></div>
+            </div></article>
+            <article className="payments-dashboard-stat-card"><div className="payments-dashboard-stat-top">
+              <div><span>Supplier Payments Made</span><strong>{money.format(Number(supplierSummary.supplierPayments || 0))}</strong></div>
+            </div></article>
+            <article className="payments-dashboard-stat-card"><div className="payments-dashboard-stat-top">
+              <div><span>Supplier Credit Outstanding</span><strong>{money.format(Number(supplierSummary.supplierOutstanding || 0))}</strong></div>
+            </div></article>
+          </div>
+        </details>
+      )}
     </div>
   );
 }

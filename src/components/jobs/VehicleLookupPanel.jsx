@@ -31,7 +31,8 @@ export const VehicleLookupPanel = ({ lookup, onOpenCurrentJob, canViewTotals = f
       <div className="jobs-vehicle-stats">
         <LookupStat icon={History} label="Recorded Visits" value={lookup.sameVehicle.length} />
         <LookupStat icon={Wrench} label="Last Status" value={lookup.latest.status} />
-        {canViewTotals && <LookupStat icon={WalletCards} label="Recorded Job Totals" value={jobMoney.format(lookup.spending)} />}
+        {canViewTotals && <LookupStat icon={WalletCards} label="Issued Invoice Value"
+          value={lookup.spendingVerified ? jobMoney.format(lookup.spending) : 'Unavailable'} />}
         <LookupStat icon={Car} label="Last Service" value={lookup.latest.createdDate || '—'} />
       </div>
 

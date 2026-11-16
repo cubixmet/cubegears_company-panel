@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from 'react-router-dom';
 import { Clock, Plus, ChevronLeft, ChevronRight, MapPin } from "lucide-react";
@@ -88,7 +89,7 @@ export const StaffAttendanceDetails = () => {
   if (!details) {
     return (
       <div style={{ padding: '30px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>
-        Attendance record not found for {staffId} on {selectedDateStr}.
+        Attendance record not found for {recordLabel(staffId)} on {selectedDateStr}.
       </div>
     );
   }
@@ -179,7 +180,7 @@ export const StaffAttendanceDetails = () => {
               {staffInfo.name}
             </h2>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              {staffInfo.id} • {staffInfo.designation} • {staffInfo.branch}
+              {recordLabel(staffInfo.id)} • {staffInfo.designation} • {staffInfo.branch}
             </div>
           </div>
           <span style={{

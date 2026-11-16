@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { appConfirm } from '../../components/common/appDialogs';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -109,7 +110,7 @@ function BillingView({ billing, storage, onOpenTemplates }) {
           <div className="saas-table-wrap"><table className="saas-table">
             <thead><tr><th>Invoice</th><th>Period</th><th>Amount</th><th>Status</th><th>Paid</th></tr></thead>
             <tbody>{billing.invoices.map((item) => <tr key={item.id}>
-              <td>{item.id}</td><td>{item.period || '—'}</td><td>{money.format(item.amount)}</td>
+              <td>{recordLabel(item.number || item.id)}</td><td>{item.period || '—'}</td><td>{money.format(item.amount)}</td>
               <td>{item.status || '—'}</td>
               <td>{item.paidAt ? date.format(new Date(item.paidAt)) : '—'}</td>
             </tr>)}</tbody>

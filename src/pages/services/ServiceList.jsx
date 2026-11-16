@@ -20,6 +20,7 @@ import '../../styles/service-borderless-forms.css';
 import '../../styles/service-hierarchy.css';
 import '../../styles/services-modal-workspace.css';
 import '../../styles/services-directory-refined.css';
+import '../../styles/service-editor-refined.css';
 
 const money = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -28,6 +29,9 @@ const money = new Intl.NumberFormat('en-IN', {
 });
 
 const pricingTypes = ['Fixed', 'Starting', 'Inspection Based'];
+const serviceRateMoney = new Intl.NumberFormat('en-IN', {
+  style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2
+});
 
 const emptyService = {
   code: '',
@@ -69,10 +73,11 @@ const Metric = ({ label, value, icon: Icon, tone = 'primary' }) => (
   </article>
 );
 
-const Field = ({ label, children, wide = false }) => (
+const Field = ({ label, children, wide = false, required = false, hint = '' }) => (
   <label className={wide ? 'service-field is-wide' : 'service-field'}>
-    <span>{label}</span>
+    <span>{label}{required && <span className="cg-service-required" aria-hidden="true"> *</span>}</span>
     {children}
+    {hint && <small className="cg-service-field-hint">{hint}</small>}
   </label>
 );
 
@@ -86,159 +91,178 @@ const ServiceForm = ({
   title,
   error,
   onAddCategory
-}) => (
-  <div className="service-form-page cg-services">
-    <header className="service-form-header">
-      <div>
-        <h1>{title}</h1>
-        <p>Enter the service details below. Fields marked required must be filled.</p>
-      </div>
-    </header>
+}) => {
+  const selectedCategory = categories.find(item => String(item.id) === String(values.categoryId));
+  const price = String(values.price ?? '').trim();
+  const isTaxable = (values.taxTreatment || 'taxable') === 'taxable';
+  const ready = Boolean(values.name.trim() && values.code.trim() && values.categoryId);
 
-    <form className="service-form" onSubmit={onSubmit}>
-      {error && <div className="service-form-error" role="alert"><AlertCircle size={17}/>{error}</div>}
-      <section className="service-form-section">
-        <div className="service-section-header">
-          <div>
-            <h2>Service Information</h2>
-            
+  return (
+    <div className="service-form-page cg-services cg-service-editor">
+      <p className="cg-service-editor-intro">
+        Create a reusable workshop service with its labour charge, tax details and technician checklist.
+        <span> Fields marked * are required.</span>
+      </p>
+
+      <form className="service-form" onSubmit={onSubmit}>
+        {error && <div className="service-form-error" role="alert"><AlertCircle size={17}/>{error}</div>}
+
+        <section className="service-form-section" aria-labelledby="service-info-title">
+          <div className="service-section-header">
+            <span className="cg-service-section-icon"><Layers3 size={18} aria-hidden="true"/></span>
+            <div>
+              <h2 id="service-info-title">Basic Details</h2>
+              <p>Name, code and catalog organization.</p>
+            </div>
           </div>
-        </div>
-
-        <div className="service-form-grid">
-          <Field label="Service Code">
-            <input
-              required
-              value={values.code}
-              onChange={(e)=>setValues({...values,code:e.target.value.toUpperCase()})}
-              placeholder="e.g. BRAKE-001"
-            />
-          </Field>
-
-          <Field label="Service Name">
-            <input
-              required
-              value={values.name}
-              onChange={(e)=>setValues({...values,name:e.target.value})}
-              placeholder="Front Brake Pad Replacement"
-            />
-          </Field>
-
-          <div className="service-category-select-field">
-            <Field label="Category">
-              <select
-                required
-                value={values.categoryId}
-                onChange={(e)=>{
-                  const category=categories.find((item)=>String(item.id)===String(e.target.value));
-                  setValues({
-                    ...values,
-                    categoryId:e.target.value,
-                    category:category?.name || ''
-                  });
-                }}
-              >
-                <option value="">Select category</option>
-                {categories.map((category)=><option key={category.id} value={category.id}>{'— '.repeat(Math.min(category.depth || 0, 10)) + category.name}</option>)}
+          <div className="service-form-grid cg-service-editor-basics">
+            <Field label="Service Name" wide required>
+              <input type="text" required maxLength={180} autoComplete="off"
+                value={values.name}
+                onChange={event => setValues({...values, name:event.target.value})}
+                placeholder="e.g. Front Brake Pad Replacement"/>
+            </Field>
+            <Field label="Service Code" required hint="Unique code for finding this service.">
+              <input type="text" required maxLength={50} autoCapitalize="characters" autoComplete="off"
+                value={values.code}
+                onChange={event => setValues({...values, code:event.target.value.toUpperCase()})}
+                placeholder="e.g. BRAKE-001"/>
+            </Field>
+            <div className="service-category-select-field">
+              <Field label="Category" required>
+                <select required value={values.categoryId}
+                  onChange={event => {
+                    const category = categories.find(item => String(item.id) === String(event.target.value));
+                    setValues({...values, categoryId:event.target.value, category:category?.name || ''});
+                  }}>
+                  <option value="">Select category</option>
+                  {categories.map(category =>
+                    <option key={category.id} value={category.id}>
+                      {'— '.repeat(Math.min(category.depth || 0, 10)) + category.name}
+                    </option>)}
+                </select>
+              </Field>
+              {onAddCategory && <button type="button" className="service-add-category-inline"
+                onClick={onAddCategory}><Plus size={15} aria-hidden="true"/> Add Category</button>}
+            </div>
+            <Field label="Status" hint="Inactive services stay saved but are not offered for new jobs.">
+              <select value={values.status} onChange={event => setValues({...values, status:event.target.value})}>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
               </select>
             </Field>
-            {onAddCategory && <button type="button" className="service-add-category-inline"
-              onClick={onAddCategory}><Plus size={15}/> Add a new category</button>}
+          </div>
+        </section>
+
+        <section className="service-form-section" aria-labelledby="service-pricing-title">
+          <div className="service-section-header">
+            <span className="cg-service-section-icon"><IndianRupee size={18} aria-hidden="true"/></span>
+            <div>
+              <h2 id="service-pricing-title">Pricing & Duration</h2>
+              <p>Set the default labour charge and expected time.</p>
+            </div>
+          </div>
+          <div className="service-form-grid cg-service-editor-pricing">
+            <Field label="Default Selling Rate (₹)" hint="Base rate before any applicable GST.">
+              <input type="number" min="0" max="10000000" step="0.01" inputMode="decimal"
+                value={values.price} placeholder="0.00"
+                onChange={event => setValues({...values, price:event.target.value})}/>
+            </Field>
+            <Field label="Pricing Type">
+              <select value={values.pricingType}
+                onChange={event => setValues({...values, pricingType:event.target.value})}>
+                {pricingTypes.map(type => <option key={type} value={type}>{type}</option>)}
+              </select>
+            </Field>
+            <Field label="Estimated Duration (minutes)">
+              <input type="number" min="0" step="1" inputMode="numeric"
+                value={values.durationMinutes} placeholder="60"
+                onChange={event => setValues({...values, durationMinutes:event.target.value})}/>
+            </Field>
+            <Field label="Unit">
+              <input type="text" maxLength={30} value={values.unit || 'Job'}
+                placeholder="e.g. Job" onChange={event => setValues({...values, unit:event.target.value})}/>
+            </Field>
           </div>
 
-          <Field label="Status">
-            <select value={values.status} onChange={(e)=>setValues({...values,status:e.target.value})}>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </Field>
-        </div>
-      </section>
+          <div className="cg-service-editor-tax-heading">
+            <h3>GST & Classification</h3>
+            <p>Use the verified SAC / HSN and GST treatment for the service.</p>
+          </div>
+          <div className="service-form-grid cg-service-editor-tax">
+            <Field label="SAC / HSN" hint="Optional. Enter the correct alphanumeric classification if known.">
+              <input type="text" maxLength={20} autoCapitalize="characters" value={values.hsnSac || ''}
+                onChange={event => setValues({...values, hsnSac:event.target.value.toUpperCase()})}
+                placeholder="SAC / HSN code"/>
+            </Field>
+            <Field label="GST Treatment">
+              <select value={values.taxTreatment || 'taxable'}
+                onChange={event => setValues({...values, taxTreatment:event.target.value})}>
+                <option value="taxable">Taxable</option>
+                <option value="exempt">Exempt</option>
+                <option value="nil_rated">Nil-rated</option>
+                <option value="non_gst">Non-GST</option>
+                <option value="out_of_scope">Out of scope</option>
+              </select>
+            </Field>
+            <div className="cg-service-editor-gst-field">
+              <Field label="GST Rate (%)" hint="The selected rate is the total GST percentage, not an extra component.">
+                <GstRateDropdown value={values.taxRate ?? ''} selectLabel="Service GST Rate (%)"
+                  disabled={!isTaxable}
+                  onChange={rate => setValues({...values, taxRate:rate })}/>
+              </Field>
+            </div>
+            {!isTaxable && <p className="cg-service-editor-tax-message" role="status">
+              This service is marked {values.taxTreatment?.replaceAll('_', ' ')}. The GST rate is
+              retained for future edits but is not selectable for this treatment.
+            </p>}
+          </div>
+        </section>
 
-      <section className="service-form-section">
-        <div className="service-section-header">
+        <section className="service-form-section" aria-labelledby="service-notes-title">
+          <div className="service-section-header">
+            <span className="cg-service-section-icon"><FolderTree size={18} aria-hidden="true"/></span>
+            <div>
+              <h2 id="service-notes-title">Description & Technician Checklist</h2>
+              <p>Optional work instructions for mechanics and service advisors.</p>
+            </div>
+          </div>
+          <div className="service-form-grid cg-service-editor-notes">
+            <Field label="Description">
+              <textarea rows={4} maxLength={2000}
+                value={values.description}
+                onChange={event => setValues({...values, description:event.target.value})}
+                placeholder="Describe the labour and work included…"/>
+            </Field>
+            <Field label="Checklist — one item per line">
+              <textarea rows={4}
+                value={values.checklistText}
+                onChange={event => setValues({...values, checklistText:event.target.value})}
+                placeholder={'Inspect condition\nPerform labour work\nFinal quality check'}/>
+            </Field>
+          </div>
+        </section>
+
+        <div className="cg-service-editor-summary" aria-label="Service details preview">
           <div>
-            <h2>Pricing & Time</h2>
-            
+            <span>Service</span>
+            <strong>{values.name.trim() || 'Not named yet'}</strong>
+            <small>{selectedCategory?.name || 'Category not selected'}</small>
           </div>
+          <div><span>Default rate</span><strong>{price && Number.isFinite(Number(price)) ? serviceRateMoney.format(Number(price)) : 'Not set'}</strong></div>
+          <div><span>Time</span><strong>{durationLabel(values.durationMinutes)}</strong></div>
         </div>
 
-        <div className="service-form-grid">
-          <Field label="Pricing Type">
-            <select value={values.pricingType} onChange={(e)=>setValues({...values,pricingType:e.target.value})}>
-              {pricingTypes.map((type)=><option key={type}>{type}</option>)}
-            </select>
-          </Field>
-
-          <Field label="Default Selling Rate (₹)">
-            <input type="number" min="0" max="10000000" step="0.01" value={values.price}
-              onChange={(e)=>setValues({...values,price:e.target.value})}/>
-          </Field>
-          <Field label="Unit">
-            <input maxLength={30} value={values.unit || 'Job'}
-              onChange={(e)=>setValues({...values,unit:e.target.value})}/>
-          </Field>
-          <Field label="SAC / HSN">
-            <input maxLength={20} inputMode="numeric" value={values.hsnSac || ''}
-              onChange={(e)=>setValues({...values,hsnSac:e.target.value})} placeholder="Verified code if known"/>
-          </Field>
-          <Field label="GST Rate (%)">
-            <GstRateDropdown value={values.taxRate ?? ''} selectLabel="Service GST Rate (%)"
-              onChange={rate => setValues({ ...values, taxRate: rate })}/>
-          </Field>
-          <Field label="GST Treatment">
-            <select value={values.taxTreatment || 'taxable'}
-              onChange={(e)=>setValues({...values,taxTreatment:e.target.value})}>
-              <option value="taxable">Taxable</option><option value="exempt">Exempt</option>
-              <option value="nil_rated">Nil-rated</option><option value="non_gst">Non-GST</option>
-              <option value="out_of_scope">Out of scope</option>
-            </select>
-          </Field>
-
-          <Field label="Estimated Duration (minutes)">
-            <input type="number" min="0" value={values.durationMinutes} onChange={(e)=>setValues({...values,durationMinutes:e.target.value})}/>
-          </Field>
+        <div className="service-form-actions cg-service-editor-actions">
+          <button type="button" onClick={onCancel} disabled={submitting}>Cancel</button>
+          <button type="submit" className="is-primary" disabled={submitting || !ready}>
+            {submitting ? 'Saving…' : title === 'Edit Service' ? 'Save Changes' : 'Create Service'}
+          </button>
         </div>
-      </section>
-
-      <section className="service-form-section">
-        <div className="service-section-header">
-          <div>
-            <h2>Description & Checklist</h2>
-            
-          </div>
-        </div>
-
-        <div className="service-form-grid">
-          <Field label="Description" wide>
-            <textarea
-              rows="4"
-              value={values.description}
-              onChange={(e)=>setValues({...values,description:e.target.value})}
-              placeholder="Describe what this service includes..."
-            />
-          </Field>
-
-          <Field label="Checklist — one item per line" wide>
-            <textarea
-              rows="6"
-              value={values.checklistText}
-              onChange={(e)=>setValues({...values,checklistText:e.target.value})}
-              placeholder={'Inspect condition\nPerform labour work\nFinal quality check'}
-            />
-          </Field>
-        </div>
-      </section>
-
-      <div className="service-form-actions">
-        <button type="button" onClick={onCancel} disabled={submitting}>Cancel</button>
-        <button type="submit" className="is-primary" disabled={submitting}>
-          {submitting ? 'Saving...' : title === 'Edit Service' ? 'Save Changes' : 'Add Service'}
-        </button>
-      </div>
-    </form>
-  </div>
-);
+      </form>
+    </div>
+  );
+};
 
 export const ServiceList = () => {
   const location = useLocation();

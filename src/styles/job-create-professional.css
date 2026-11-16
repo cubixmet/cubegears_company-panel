@@ -2,9 +2,6 @@
 .job-create-page .job-create-header>div{display:flex;align-items:flex-start;flex-wrap:wrap;justify-content:space-between;gap:12px}
 .job-create-page .job-create-header>div>h1,.job-create-page .job-create-header>div>p,.job-create-page .job-create-steps{flex-basis:100%}
 .job-create-page .job-create-steps .is-current{border-color:var(--primary);color:var(--primary);background:var(--primary-soft)}
-.job-create-page .job-create-mode-switch{display:flex;gap:4px;padding:4px;background:var(--surface-2);border:1px solid var(--border);border-radius:11px}
-.job-create-page .job-create-mode-switch button{min-height:40px;padding:7px 14px;border:0;border-radius:8px;font-size:14px;font-weight:700;color:var(--text-primary);background:transparent}
-.job-create-page .job-create-mode-switch button.is-active{background:var(--primary);color:#fff}
 .job-create-page .job-create-fields-grid :is(input,select,textarea){font-size:16px!important}
 .job-create-page .job-create-fields-grid>label{font-size:13px!important}
 .job-create-page .job-create-phone{display:grid;align-content:start;gap:6px;min-width:0}
@@ -44,7 +41,6 @@
 .job-create-page .job-complaint-row textarea{min-height:80px;resize:vertical}
 .job-create-page .job-create-field-error{font-size:13px;color:#b91c1c;font-weight:650}
 .job-create-page .job-complaint-row [aria-invalid="true"]{border-color:#dc2626}
-.job-create-page .job-create-advanced-notice{margin:14px 0 0;padding:12px;border-radius:10px;background:var(--surface-2);color:var(--text-secondary);font-size:14px;line-height:1.55}
 .job-create-page .job-create-review-wrap{scroll-margin-block:125px}
 .job-create-page .job-create-review-label{display:flex;gap:10px;align-items:center;font-size:16px;font-weight:750;color:var(--text-primary);margin:8px 0 12px}
 .job-create-page .job-create-review-slip{display:grid;gap:15px;padding:20px;border:1px solid var(--border);border-radius:13px;background:var(--surface);color:var(--text-primary);min-width:0}

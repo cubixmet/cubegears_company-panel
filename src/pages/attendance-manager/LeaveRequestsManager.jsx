@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, Check, Clock3, X } from 'lucide-react';
 import { LeaveApprovalSheet } from '../../components/attendance-manager/LeaveApprovalSheet';
@@ -179,7 +180,7 @@ export const LeaveRequestsManager = () => {
                   </div>
                   <div>
                     <strong>{item.staffName || 'Staff'}</strong>
-                    <span>{item.staffId || 'Employee'}</span>
+                    <span>{recordLabel(item.staffId, 'Employee')}</span>
                   </div>
                 </div>
 

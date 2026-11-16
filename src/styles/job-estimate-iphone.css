@@ -157,3 +157,48 @@
 .job-estimate-history-feedback p{font-size:12px;line-height:1.55;margin:0;white-space:pre-wrap}
 .job-estimate-history-feedback small{font-size:11px;opacity:.8}
 @media(max-width:600px){.job-estimate-customer-feedback{padding:12px}.job-estimate-customer-feedback h3{font-size:15px}}
+
+
+/* After quick-adding an estimate part, proceed to the canonical supplier receipt. */
+.cg-job-detail .job-estimate-purchase-shortcut {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+  min-width: 0;
+  padding: 12px 14px;
+  margin: 9px 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+.cg-job-detail .job-estimate-purchase-shortcut p {
+  flex: 1 1 230px;
+  min-width: 0;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.cg-job-detail .job-estimate-purchase-shortcut a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 9px 13px;
+  border-radius: 9px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.cg-job-detail .job-estimate-purchase-shortcut a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+@media (max-width: 600px) {
+  .cg-job-detail .job-estimate-purchase-shortcut a {
+    width: 100%;
+  }
+}

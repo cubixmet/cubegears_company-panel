@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Save } from 'lucide-react';
+import '../../styles/staff-branch-access.css';
 import { branchService } from '../../services/branch.service';
 import { ResponsiveModalSheet } from '../common/ResponsiveModalSheet';
 import { clearFieldValidation, showFormFieldError, showServerFormErrors } from '../../utils/formValidation';
@@ -31,6 +32,9 @@ export const StaffProfileEditSheet = ({
       phone: staff.phone || '',
       role: staff.role || '',
       branchId: staff.branchId || '',
+      allowedBranchIds: Array.isArray(staff.assignedBranchIds) && staff.assignedBranchIds.length
+        ? staff.assignedBranchIds.map(String)
+        : staff.branchId ? [String(staff.branchId)] : [],
       roleId: staff.roleId || (roles.filter(role => role.name === staff.role).length === 1 ? roles.find(role => role.name === staff.role).id : ''),
       teamId: staff.teamId || '',
       shiftId: staff.shiftId || '',
@@ -88,6 +92,11 @@ export const StaffProfileEditSheet = ({
       showFormFieldError(formRef.current, 'role', 'Choose an active company role.');
       return;
     }
+    if (canAssignRole && staff?.user && form.branchId &&
+      (!form.allowedBranchIds.includes(String(form.branchId)) || form.allowedBranchIds.length > 3)) {
+      showFormFieldError(formRef.current, 'branchId', 'Include the primary branch and choose at most three.');
+      return;
+    }
     if (canAssignRole && form.whatsappConsent && !form.whatsappConsentSource?.trim()) {
       showFormFieldError(formRef.current, 'whatsappConsentSource', 'Select how WhatsApp consent was recorded.');
       return;
@@ -97,7 +106,7 @@ export const StaffProfileEditSheet = ({
     try {
       await onSave({
         ...Object.fromEntries(Object.entries(form).filter(([key]) =>
-          (canAssignRole || !['role', 'roleId', 'whatsappConsent', 'whatsappConsentSource'].includes(key))
+          (canAssignRole || !['role', 'roleId', 'allowedBranchIds', 'whatsappConsent', 'whatsappConsentSource'].includes(key))
           && !['email', 'designation', 'emergencyContact', 'address', 'notes'].includes(key)
         )),
         branchId: form.branchId || null,
@@ -153,6 +162,10 @@ export const StaffProfileEditSheet = ({
               setForm((current) => ({
                 ...current,
                 branchId,
+                allowedBranchIds: branchId
+                  ? [branchId, ...(current.allowedBranchIds || []).filter(
+                      id => id !== current.branchId && id !== branchId)].slice(0, 3)
+                  : [],
                 teamId: teams.some((team) => String(team.id) === String(current.teamId) &&
                   (!team.branchId || String(team.branchId) === String(branchId))) ? current.teamId : '',
                 shiftId: shifts.some((shift) => String(shift.id) === String(current.shiftId) &&
@@ -163,6 +176,27 @@ export const StaffProfileEditSheet = ({
               {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
             </select>
           </label>
+          {canAssignRole && staff?.user && form.branchId && branches.length > 1 &&
+            <fieldset className="staff-branch-access is-wide">
+              <legend>Staff Branch Access (up to 3)</legend>
+              <p>Only these branches are available when creating or editing customers.</p>
+              <div>
+                {branches.map(branch => {
+                  const current = (form.allowedBranchIds || []).includes(String(branch.id));
+                  const primary = String(form.branchId) === String(branch.id);
+                  return <label key={branch.id}>
+                    <input type="checkbox" checked={current}
+                      disabled={primary || (!current && form.allowedBranchIds.length >= 3)}
+                      onChange={event => setForm(previous => ({
+                        ...previous, allowedBranchIds: event.target.checked
+                          ? [...previous.allowedBranchIds, String(branch.id)]
+                          : previous.allowedBranchIds.filter(item => item !== String(branch.id)),
+                      }))}/>
+                    {branch.name}{primary ? ' (Primary)' : ''}
+                  </label>;
+                })}
+              </div>
+            </fieldset>}
           <label>
             Team
             <select name="teamId" value={form.teamId || ''} onChange={(e) => set('teamId', e.target.value)}>

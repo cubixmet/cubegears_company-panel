@@ -125,6 +125,8 @@ export const staffService = {
         teamId: staffData.teamId || null,
         shiftId: staffData.shiftId || null,
         branchId: staffData.branchId || null,
+        ...(staffData.loginAccessEnabled && Array.isArray(staffData.allowedBranchIds)
+          ? { allowedBranchIds: staffData.allowedBranchIds } : {}),
       };
       const created = await apiClient.post('/employees', payload);
 
@@ -203,6 +205,7 @@ export const staffService = {
         'teamId',
         'shiftId',
         'branchId',
+        'allowedBranchIds',
       ];
       const payload = Object.fromEntries(
         allowedKeys

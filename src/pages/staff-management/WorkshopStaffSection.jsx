@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useMemo, useState } from "react";
 import { staffService } from '../../services/staff.service';
 import { staffManagementService } from '../../services/staffManagement.service';
@@ -140,7 +141,7 @@ export const WorkshopStaffSection = ({ section }) => {
       .filter((job) => job.assignedEmployeeId)
       .slice(0, 12)
       .map((job) => ({
-        id: job.jobNumber || job.id,
+        id: recordLabel(job.jobNumber || job.id),
         jobId: job.id,
         staffId: job.assignedEmployeeId,
         vehicle: job.vehicleReg || job.vehicleInfo || 'Vehicle',

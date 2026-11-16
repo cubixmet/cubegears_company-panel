@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { appConfirm } from '../../components/common/appDialogs';
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from 'react-dom';
@@ -173,7 +174,7 @@ export function JobPartsWorkflow({ jobId, assignedTo = '', initialPanel = null }
       const url = URL.createObjectURL(file);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `supplier-bill-${purchase.invoiceNo || purchase.id}.pdf`;
+      link.download = `supplier-bill-${recordLabel(purchase.invoiceNo || purchase.id)}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -1089,7 +1090,7 @@ function TransactionHistory({ transactions }) {
               <strong className="text-sm text-cg-text">{row.type} · {row.partName}</strong>
               <span className="text-xs font-semibold text-cg-text">Qty {row.qty}</span>
             </div>
-            <p className="mt-1 text-xs text-cg-muted">{row.reference || row.id} · {row.createdBy || 'User'} {row.createdAt ? ` · ${new Date(row.createdAt).toLocaleString('en-IN')}` : ''}</p>
+            <p className="mt-1 text-xs text-cg-muted">{recordLabel(row.reference || row.id)} · {row.createdBy || 'User'} {row.createdAt ? ` · ${new Date(row.createdAt).toLocaleString('en-IN')}` : ''}</p>
           </div>
         </div>
       ))}

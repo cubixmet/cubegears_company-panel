@@ -1,5 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { Label } from './Label';
+import '../../styles/phone-input-layout.css';
 
 const DEFAULT_COUNTRIES = [
   { code: '+91', label: 'IN', flag: '🇮🇳' }, { code: '+971', label: 'AE', flag: '🇦🇪' },
@@ -37,8 +38,8 @@ export const PhoneInput = ({
           }}
           aria-label="Country calling code">
           {countries.map((country) =>
-            <option key={country.code} value={country.code}>
-              {country.flag} {country.label} {country.code}
+            <option key={country.code} value={country.code} title={country.label}>
+              {country.flag} {country.code}
             </option>)}
         </select>
         {label && !labelAbove && <Label htmlFor={inputId} required={required} className="cg-floating-label">{label}</Label>}

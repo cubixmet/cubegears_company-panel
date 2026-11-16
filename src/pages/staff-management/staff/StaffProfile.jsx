@@ -1,3 +1,4 @@
+import { recordLabel } from '../../../utils/recordReferences.js';
 import '../../../styles/staff-payment-settings.css';
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -122,7 +123,7 @@ const TABS = [
 
 const InfoItem = ({ label, value, icon: Icon }) => (
   <div className="staff360-info-item">
-    {Icon ? <Icon size={14} /> : null}
+    {Icon ? <Icon size={16} aria-hidden="true" /> : null}
     <div>
       <span>{label}</span>
       <strong>{displayText(value)}</strong>
@@ -589,7 +590,7 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
             <div className="staff360-name-row">
               <h3>{staff.name}</h3>
               <span className={'staff360-status is-' + String(staff.employmentStatus || '').toLowerCase().replaceAll(' ', '-')}>
-                {staff.employmentStatus}
+                {staff.employmentStatus || "Unknown"}
               </span>
             </div>
             <p>
@@ -662,9 +663,10 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
               type="button"
               key={tab}
               className={activeTab === tab ? 'is-active' : ''}
+              aria-current={activeTab === tab ? 'page' : undefined}
               onClick={() => setActiveTab(tab)}
             >
-              <Icon size={12} />
+              <Icon size={16} aria-hidden="true" />
               {tab}
             </button>
           ))}
@@ -767,7 +769,7 @@ export const StaffProfile = ({ staffId: staffIdProp }) => {
               {jobs.map((job) => (
                 <article key={job.id} className="staff360-job-card">
                   <div>
-                    <span>{job.jobNumber || job.id}</span>
+                    <span>{recordLabel(job.jobNumber || job.id)}</span>
                     <strong>{displayText(job.vehicle || job.vehicleReg || job.vehicleInfo, 'Vehicle')}</strong>
                     <p>{displayText(job.work || job.notes, 'Assigned workshop work')}</p>
                   </div>

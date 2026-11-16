@@ -15,6 +15,7 @@ import '../../styles/vehicle-polish.css';
 import '../../styles/vehicle-readable.css';
 import '../../styles/vehicle-compact-cleanup.css';
 import '../../styles/vehicle-directory-refined.css';
+import '../../styles/vehicle-profile-refresh.css';
 
 export const VehicleList = () => {
   const navigate = useNavigate();

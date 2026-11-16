@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from 'react-router-dom';
 import { FormPage } from '../../components/common/forms/FormPage';
@@ -192,7 +193,7 @@ export const EditVehicle = () => {
           </FormSection>
 
           <StickyFormFooter
-            statusText={`Editing ${formData.regNo || id}`}
+            statusText={`Editing ${recordLabel(formData.regNo || id)}`}
             cancelLabel="Cancel"
             saveLabel="Update Vehicle"
             isSubmitting={submitting}

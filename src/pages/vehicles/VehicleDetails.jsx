@@ -1,10 +1,13 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { appConfirm } from '../../components/common/appDialogs';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft,
+  Home,
+  ChevronRight,
+  Image,
   CalendarClock,
   Car,
   ClipboardList,
@@ -26,6 +29,7 @@ import '../../styles/vehicle-management.css';
 import '../../styles/vehicle-polish.css';
 import '../../styles/vehicle-readable.css';
 import '../../styles/vehicle-compact-cleanup.css';
+import '../../styles/vehicle-profile-refresh.css';
 import { knownVehicleMoney, vehicleInvoiceRows, vehicleTotalPaid, latestFirstVehicleJobs } from './vehicleProfileFinancials';
 
 const money = new Intl.NumberFormat('en-IN', {
@@ -51,6 +55,7 @@ const OPEN_JOB_STATUSES = new Set([
 
 const tabs = [
   { id: 'overview', label: 'Overview' },
+  { id: 'photos', label: 'Photos & Customer Sharing' },
   { id: 'service-history', label: 'Service History' },
   { id: 'parts', label: 'Parts Replaced' },
   { id: 'invoices', label: 'Invoices & Payments' },
@@ -129,7 +134,7 @@ export const VehicleDetails = () => {
         ...part,
         key: `${job.id}-${part.id || index}`,
         jobId: job.id,
-        jobNumber: job.jobNumber || job.id,
+        jobNumber: recordLabel(job.jobNumber || job.id),
         date: job.createdDate
       }))
     ),
@@ -170,26 +175,37 @@ export const VehicleDetails = () => {
     <div className="vehicle-dashboard-error" role="alert">
       <p>{error}</p>
       <button type="button" onClick={() => setReloadKey((key) => key + 1)}>Retry</button>
-      <button type="button" onClick={() => navigate('/vehicles')}>Back to Vehicles</button>
+      <Link to="/vehicles" className="vehicle-recovery-link">View Vehicle Directory</Link>
     </div>
   );
   if (!vehicle) return (
     <div className="vehicle-dashboard-error">
       <p>Vehicle not found.</p>
-      <button type="button" onClick={() => navigate('/vehicles')}>Back to Vehicles</button>
+      <Link to="/vehicles" className="vehicle-recovery-link">View Vehicle Directory</Link>
     </div>
   );
 
   return (
     <div className="vehicle-management-page vehicle-profile-page cg-vehicles">
-      <button type="button" className="vehicle-back-link" onClick={() => navigate('/vehicles')}>
-        <ArrowLeft size={16} /> Back to Vehicles
-      </button>
+      <nav className="cg-vehicle-breadcrumbs" aria-label="Breadcrumb">
+        <Link to="/"><Home size={14} aria-hidden="true"/> Home</Link>
+        <ChevronRight size={13} aria-hidden="true"/>
+        <Link to="/vehicles">Vehicles</Link>
+        <ChevronRight size={13} aria-hidden="true"/>
+        <span aria-current="page">{vehicle.registration}</span>
+      </nav>
       {error ? <div className="vehicle-dashboard-error" role="alert">{error}</div> : null}
       <header className="vehicle-profile-header">
         <div>
-          <h1>{vehicle.registration}</h1>
-          <p>{vehicle.make} {vehicle.model}{vehicle.variant ? ` · ${vehicle.variant}` : ''} · {vehicle.year || 'Year —'}</p>
+          <div className="cg-vehicle-profile-title">
+            <h1>{vehicle.registration}</h1>
+            <span className={'cg-vehicle-status ' + (archived ? 'is-archived' : 'is-active')}>
+              <span aria-hidden="true"/> {archived ? 'Archived' : 'Active'}
+            </span>
+          </div>
+          <p>{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle'}
+            {vehicle.variant ? ` · ${vehicle.variant}` : ''}
+            {vehicle.year ? ` · ${vehicle.year}` : ''}</p>
         </div>
 
         <div className="vehicle-profile-actions">
@@ -210,7 +226,7 @@ export const VehicleDetails = () => {
         <button type="button" className="vehicle-current-job" onClick={() => navigate(`/jobs/${openJob.id}/overview`)}>
           <ClipboardList size={16}/>
           <div>
-            <strong>{openJob.jobNumber || openJob.id}</strong>
+            <strong>{recordLabel(openJob.jobNumber || openJob.id)}</strong>
             <span>Current Job Card · {openJob.status}</span>
           </div>
           <b>Open Job</b>
@@ -220,24 +236,40 @@ export const VehicleDetails = () => {
       <div className="vehicle-profile-kpis">
         <div><Gauge size={15}/><span>Odometer</span><strong>{latestJob?.kilometre || vehicle.odometer || '—'}</strong></div>
         <div><Wrench size={15}/><span>Service Visits</span><strong>{history.length}</strong></div>
-        <div><ClipboardList size={15}/><span>Current Job</span><strong>{openJob ? (openJob.jobNumber || openJob.id) : '—'}</strong></div>
+        <div><ClipboardList size={15}/><span>Current Job</span><strong>{openJob ? recordLabel(openJob.jobNumber || openJob.id) : '—'}</strong></div>
         <div><IndianRupee size={15}/><span>Total Paid</span><strong>{displayMoney(totalSpend)}</strong></div>
       </div>
 
-      <nav className="vehicle-profile-tabs scroll-hidden" aria-label="Vehicle information sections">
-        {tabs.map((tab) => (
+      <nav className="vehicle-profile-tabs scroll-hidden" aria-label="Vehicle information sections"
+        role="tablist">
+        {tabs.map((tab, index) => (
           <button
             type="button"
             key={tab.id}
+            id={'vehicle-tab-' + tab.id}
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls="vehicle-profile-tab-content"
+            tabIndex={activeTab === tab.id ? 0 : -1}
             className={activeTab === tab.id ? 'is-active' : ''}
-            aria-current={activeTab === tab.id ? 'page' : undefined}
             onClick={() => setActiveTab(tab.id)}
+            onKeyDown={event => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+              event.preventDefault();
+              const next = event.key === 'Home' ? 0
+                : event.key === 'End' ? tabs.length - 1
+                  : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+              setActiveTab(tabs[next].id);
+              event.currentTarget.parentElement?.querySelectorAll('[role="tab"]')[next]?.focus();
+            }}
           >
             {tab.label}
           </button>
         ))}
       </nav>
 
+      <div id="vehicle-profile-tab-content" className="cg-vehicle-tab-content"
+        role="tabpanel" aria-labelledby={'vehicle-tab-' + activeTab}>
       {activeTab === 'overview' ? (
         <div className="vehicle-two-column">
           <section className="vehicle-panel">
@@ -311,7 +343,22 @@ export const VehicleDetails = () => {
       ) : null}
 
       {activeTab === 'overview' && (
-        <VehiclePhotoGallery vehicleId={vehicle.id} canEdit={canEdit}/>
+        <section className="cg-vehicle-share-navigation">
+          <div>
+            <Image size={19} aria-hidden="true"/>
+            <div>
+              <h2>Vehicle Photos & Customer Sharing</h2>
+              <p>Manage inspection photos and choose which images customers can view.</p>
+            </div>
+          </div>
+          <button type="button" onClick={() => setActiveTab('photos')}>
+            Manage Photos <ChevronRight size={16} aria-hidden="true"/>
+          </button>
+        </section>
+      )}
+
+      {activeTab === 'photos' && (
+        <VehiclePhotoGallery vehicleId={vehicle.id} canEdit={canEdit} canPublish={canEdit}/>
       )}
 
       {activeTab === 'service-history' ? (
@@ -327,7 +374,7 @@ export const VehicleDetails = () => {
               <button type="button" key={job.id} className="vehicle-history-card" onClick={() => navigate(`/jobs/${job.id}/overview`)}>
                 <div className="vehicle-history-card__head">
                   <div>
-                    <strong>{job.jobNumber || job.id}</strong>
+                    <strong>{recordLabel(job.jobNumber || job.id)}</strong>
                     <span>{job.createdDate} · {job.status}</span>
                   </div>
                   <b>{job.kilometre || 'KM —'}</b>
@@ -422,6 +469,8 @@ export const VehicleDetails = () => {
 
         </div>
       ) : null}
+
+      </div>
 
       {canDelete && !archived ? (
         <button type="button" className="vehicle-delete-button" onClick={removeVehicle}>

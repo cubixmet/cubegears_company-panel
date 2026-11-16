@@ -138,7 +138,7 @@ export function CreditWorkspace({ section = 'overview' }) {
   // which independently fetches the payment from Razorpay before adding credits.
   useEffect(() => {
     if (section !== 'buy') return undefined;
-    const purchaseId = new URLSearchParams(window.location.search).get('credit_purchase');
+    const purchaseId = new URLSearchParams(location.search).get('credit_purchase');
     if (!purchaseId) return undefined;
     if (!/^[a-f0-9-]{36}$/i.test(purchaseId)) {
       setError('Invalid payment return reference.');
@@ -154,14 +154,14 @@ export function CreditWorkspace({ section = 'overview' }) {
         if (payment.credited === true && payment.status === 'credited') {
           setNotice(`Payment verified. ${credits(payment.credits)} credits added to your wallet.`);
           setError('');
-          window.history.replaceState({}, '', window.location.pathname);
+          navigate(location.pathname, { replace: true });
           await load();
           notifyCreditChange();
           return;
         }
         if (payment.status === 'refunded') {
           setError('This payment was refunded. No credits are available from it.');
-          window.history.replaceState({}, '', window.location.pathname);
+          navigate(location.pathname, { replace: true });
           return;
         }
         attempts += 1;
@@ -176,7 +176,7 @@ export function CreditWorkspace({ section = 'overview' }) {
       cancelled = true;
       if (pendingTimer !== null) window.clearTimeout(pendingTimer);
     };
-  }, [section, load]);
+  }, [section, load, location.pathname, location.search, navigate]);
 
   const buy = async (pack) => {
     setBusy(`package:${pack.id}`); setError(''); setNotice('');

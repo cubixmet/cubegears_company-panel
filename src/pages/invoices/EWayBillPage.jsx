@@ -1,3 +1,4 @@
+import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle2, Edit3, Eye, Plus, Printer, Download, Trash2, Truck, Search, IndianRupee, FileClock } from "lucide-react";
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
@@ -176,7 +177,7 @@ export function EWayBillPage() {
               ...base,
               from: previous.from?.tradeName ? previous.from : base.from,
               documentType: invoice.invoiceType === 'gst' ? 'Tax Invoice' : 'Bill of Supply',
-              documentNo: invoice.number || invoice.id || '',
+              documentNo: invoice.number || '',
               documentDate: invoice.date || base.documentDate,
               invoiceId: invoice.id || '',
               jobCardNo: invoice.jobCardNo || '',
@@ -447,7 +448,7 @@ export function EWayBillPage() {
                 return (
                   <article className="billing-doc-row" key={row.id}>
                     <button type="button" className="billing-doc-main" onClick={() => navigate(`/invoices/e-way-bills/${row.id}`)}>
-                      <strong>{row.documentNo || row.id}</strong>
+                      <strong>{recordLabel(row.documentNo || row.id)}</strong>
                       <span>{row.supplyType || 'Movement'} · {row.from?.tradeName || 'From'} → {row.to?.tradeName || 'To'}</span>
                     </button>
                     <div className="billing-doc-meta">
@@ -456,11 +457,11 @@ export function EWayBillPage() {
                     </div>
                     <span className="billing-status">{row.status || 'Draft'}</span>
                     <div className="billing-list-actions">
-                      <button type="button" aria-label={`View ${row.documentNo || row.id}`} title="View" onClick={() => navigate(`/invoices/e-way-bills/${row.id}`)}><Eye size={16}/></button>
+                      <button type="button" aria-label={`View ${recordLabel(row.documentNo || row.id)}`} title="View" onClick={() => navigate(`/invoices/e-way-bills/${row.id}`)}><Eye size={16}/></button>
                       {row.status === 'Draft' && (
-                        <button type="button" aria-label={`Edit ${row.documentNo || row.id}`} title="Edit" onClick={() => navigate(`/invoices/e-way-bills/${row.id}/edit`)}><Edit3 size={16}/></button>
+                        <button type="button" aria-label={`Edit ${recordLabel(row.documentNo || row.id)}`} title="Edit" onClick={() => navigate(`/invoices/e-way-bills/${row.id}/edit`)}><Edit3 size={16}/></button>
                       )}
-                      {row.status === 'Draft' && <button type="button" aria-label={`Delete ${row.documentNo || row.id}`} title="Delete Draft" className="danger" onClick={() => navigate(`/invoices/e-way-bills/${row.id}/delete`)}><Trash2 size={16}/></button>}
+                      {row.status === 'Draft' && <button type="button" aria-label={`Delete ${recordLabel(row.documentNo || row.id)}`} title="Delete Draft" className="danger" onClick={() => navigate(`/invoices/e-way-bills/${row.id}/delete`)}><Trash2 size={16}/></button>}
                     </div>
                   </article>
                 );
@@ -499,7 +500,7 @@ export function EWayBillPage() {
           <div className="eway-title-block">
             <div className="eway-title-copy">
               <span className="billing-kicker">E-WAY BILL</span>
-              <h1>{form.documentNo || form.id}</h1>
+              <h1>{recordLabel(form.documentNo || form.id)}</h1>
               <p>{form.supplyType} · {form.status}</p>
             </div>
           </div>
