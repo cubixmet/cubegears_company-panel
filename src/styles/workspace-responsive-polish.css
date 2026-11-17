@@ -623,11 +623,11 @@
     align-items:flex-start;overflow:hidden;
   }
   #root .app-shell .mobile-dual-identity .workshop-company-name {
-    display:block;min-width:0;max-width:100%;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+    min-width:0;max-width:100%;
     font-size:15px;line-height:1.25;font-weight:600;
     letter-spacing:-.025em;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    overflow-wrap:normal;
+    white-space:normal;overflow:hidden;overflow-wrap:anywhere;
   }
   #root .app-shell .mobile-dual-identity .mobile-company-logo {
     display:flex;align-items:center;justify-content:center;

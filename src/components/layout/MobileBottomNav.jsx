@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { NavLink, useLocation } from 'react-router-dom';
 import { routeConfig, mobilePrimaryRoutes } from '../../routes/routeConfig';
 import { MoreHorizontal } from 'lucide-react';
@@ -34,6 +34,7 @@ export const MobileBottomNav = () => {
     && (route.id !== 'credits' || featureAccess.isCompanyOwner)
   );
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const closeSidebar = useCallback(() => setIsSidebarOpen(false), []);
   const isMoreActive = visibleMoreRoutes.some((route) =>
     location.pathname === route.path || location.pathname.startsWith(`${route.path}/`)
   ) || location.pathname === '/profile' || location.pathname === '/account/company';
@@ -65,6 +66,8 @@ export const MobileBottomNav = () => {
           onClick={() => setIsSidebarOpen(true)}
           aria-label="Open all authorized pages"
           aria-expanded={isSidebarOpen}
+          aria-haspopup="dialog"
+          aria-controls="workspace-mobile-drawer"
           className={`mobile-bottom-item mobile-more-button ${isMoreActive ? 'is-active' : ''}`}
         >
           <span className="mobile-bottom-icon">
@@ -74,7 +77,7 @@ export const MobileBottomNav = () => {
         </button>
       </nav>
 
-      <MobileSlideSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+      <MobileSlideSidebar isOpen={isSidebarOpen} onClose={closeSidebar} />
     </>
   );
 };

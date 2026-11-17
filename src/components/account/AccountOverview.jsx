@@ -3,6 +3,7 @@ import { Building2, CheckCircle2, CreditCard, HardDrive, Mail, MapPin, Phone, Re
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { creditWalletService } from '../../services/creditWallet.service';
+import { formatStorageBytes, storageBytes } from '../../utils/storageUnits';
 import { validateCompanyDraft, formatCompanyApiError } from './companyAccountValidation';
 
 const display = (value) => value === null || value === undefined || value === '' ? '—' : String(value);
@@ -70,7 +71,7 @@ export function AccountOverview({
     { label: 'Available Credits', value: display(creditOverview?.balance), icon: CreditCard },
     { label: 'Active Modules', value: featureAccess.unavailable || !Array.isArray(activeModules)
       ? '—' : new Set(activeModules.map(item => typeof item === 'string' ? item : item?.key || item?.id)).size, icon: Zap },
-    { label: 'Storage Used', value: storage?.usedGb == null ? '—' : storage.usedGb + ' GB', icon: HardDrive },
+    { label: 'Storage Used', value: storage ? formatStorageBytes(storageBytes(storage)) : '—', icon: HardDrive },
   ];
   const actions = [
     { title: 'Buy Credits', href: '/account/credits/buy', icon: CreditCard, permission: 'billing.view' },

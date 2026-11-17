@@ -144,7 +144,8 @@
 .storage-overview-grid>div strong{overflow-wrap:anywhere;font-size:clamp(16px,1.9vw,21px);line-height:1.3;font-weight:800;color:var(--text-primary);font-variant-numeric:tabular-nums}
 .storage-overview-grid>div.storage-primary-usage{border-color:color-mix(in srgb,var(--primary) 30%,var(--border));background:color-mix(in srgb,var(--primary) 5%,var(--surface))}
 .storage-overview-grid>div.storage-primary-usage strong{color:var(--primary);font-size:clamp(21px,2.5vw,30px)}
-.storage-overview-grid>div small{font-size:11px;line-height:1.4;color:var(--text-muted)}
+.storage-usage-amount{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.storage-usage-amount small{font-size:13px;font-weight:650;line-height:1.4;color:var(--text-secondary)}
 .storage-control-card .saas-storage-actions{margin-top:0}
 .storage-control-card .saas-storage-actions select,.storage-control-card .saas-storage-actions .saas-button{font-size:13px;min-height:42px}
 .storage-control-card .saas-storage-actions .saas-button.is-disabled{opacity:.55;cursor:not-allowed;pointer-events:none}

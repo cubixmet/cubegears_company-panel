@@ -63,3 +63,29 @@
   .backend-connection-copy strong { font-size: 13px; }
   .backend-connection-copy span { font-size: 12px; }
 }
+
+/* On short workshop screens the status and Retry need their own space. */
+@media (max-width: 900px) and (max-height: 420px) {
+  #root:has(> .backend-connection-banner):has(> .app-shell) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  #root:has(> .app-shell) > .backend-connection-banner {
+    position: relative;
+    inset: auto;
+    transform: none;
+    flex: none;
+    margin: 4px auto;
+    box-shadow: none;
+  }
+
+  #root:has(> .backend-connection-banner) > .app-shell {
+    flex: 1 1 0;
+    min-height: 0;
+  }
+
+  #root:has(> .backend-connection-banner) > .app-shell .app-main-column {
+    height: 100%;
+  }
+}

@@ -51,6 +51,7 @@ export default function FinanceWorkspace() {
     </div>;
   }
   const visibleWorkflows = workflows.filter(item => access.can(item.access));
+  const isExpenseForm = /^\/finance\/expenses\/(?:new|[^/]+\/edit)\/?$/.test(location.pathname);
   return <div className="finance-workspace cg-finance-refined">
     <nav ref={tabsRef} className="finance-workspace-tabs" aria-label="Finance sections">
       {sections.filter(item => access.can(item.access)).map(({ label, to, icon: Icon, end }) =>
@@ -62,7 +63,7 @@ export default function FinanceWorkspace() {
       )}
     </nav>
     <Outlet />
-    {visibleWorkflows.length > 0 && <details className="finance-workspace-related finance-disclosure">
+    {!isExpenseForm && visibleWorkflows.length > 0 && <details className="finance-workspace-related finance-disclosure">
       <summary>Related workshop records</summary>
       <div className="finance-workspace-links">
         {visibleWorkflows.map(({ label, to, icon: Icon }) =>

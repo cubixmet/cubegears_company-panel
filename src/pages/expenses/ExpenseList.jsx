@@ -2,11 +2,12 @@ import { recordLabel } from '../../utils/recordReferences.js';
 import { appConfirm, appPrompt } from '../../components/common/appDialogs';
 import { useAuth } from '../../hooks/useAuth';
 import { hasPermission } from '../../utils/permissions';
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { BarChart3, Calendar, CheckCircle2, CircleDollarSign, Edit3, FileText, IndianRupee, Layers3, Receipt, Trash2, Link2, WalletCards } from "lucide-react";
 import { expenseService } from '../../services/expense.service';
 import { ExpenseBudgetPanel } from '../../components/expenses/ExpenseBudgetPanel';
+import { AddExpenseBudgetDialog } from '../../components/expenses/AddExpenseBudgetDialog';
 import { financeService } from '../../services/finance.service';
 import { FINANCE_CHANNELS, financeAccountsForChannel, assertFinanceAccount } from '../../utils/financeCashBank';
 import GstRateDropdown from '../../components/common/GstRateDropdown';
@@ -87,12 +88,14 @@ const Metric = ({ label, value, icon: Icon, tone = 'primary', note }) => (
   </article>
 );
 
-const Field = ({ label, children, wide = false }) => (
+const Field = ({ label, labelId, children, wide = false }) => (
   <label className={wide ? 'expense-field is-wide' : 'expense-field'}>
-    <span>{label}</span>
+    <span id={labelId}>{label}</span>
     {children}
   </label>
 );
+
+const expenseInlineErrorKeys = ['amount', 'tax', 'account', 'budget_item'];
 
 const ExpenseForm = ({
   title,
@@ -102,30 +105,34 @@ const ExpenseForm = ({
   onCancel,
   submitting,
   error,
+  fieldErrors,
   accounts = [],
   budgetItems = [],
-  budgetError = ''
-}) => (
+  budgetError = '',
+  onBudgetCreated,
+}) => {
+  const formRef = useRef(null);
+  const [budgetContext, setBudgetContext] = useState(null);
+  const budgetMonth = values.expenseDate.slice(0, 7);
+
+  useEffect(() => {
+    if (error || Object.keys(fieldErrors).length) {
+      const form = formRef.current;
+      (form?.querySelector('[aria-invalid="true"]') || form?.querySelector('.expense-alert[role="alert"]'))?.focus();
+    }
+  }, [error, fieldErrors]);
+
+  return (
   <div className="expense-form-page cg-expenses">
     <header className="expense-form-header">
-      <div>
-        <h1>{title}</h1>
-        <p>Enter workshop running costs such as utilities, rent or maintenance. Record parts purchased from suppliers in the Supplier Purchase workflow instead.</p>
-      </div>
+      <h1>{title}</h1>
     </header>
 
-    <form className="expense-form" onSubmit={onSubmit}>
-      {error ? <div className="expense-alert" role="alert">{error}</div> : null}
-      <div className="expense-alert" role="note">
-        Spare parts purchases and supplier payments belong on each Supplier Details page, not as duplicate expenses.
-        A supplier bill must never be recorded again as an operational expense.
-      </div>
+    <form className="expense-form" onSubmit={onSubmit} ref={formRef}>
+      {error ? <div className="expense-alert" role="alert" tabIndex={-1}>{error}</div> : null}
       <section className="expense-form-section">
         <div className="expense-section-header">
-          <div>
-            <h2>Expense Information</h2>
-            <p>Date, category, vendor and expense title.</p>
-          </div>
+          <h2>Expense Information</h2>
         </div>
 
         <div className="expense-form-grid">
@@ -139,23 +146,34 @@ const ExpenseForm = ({
             </select>
           </Field>
 
-          <Field label="Monthly Budget Item (optional)">
-            <select value={values.budgetItemId || ''}
-              onChange={e => setValues({ ...values, budgetItemId: e.target.value })}>
-              <option value="">Unbudgeted expense</option>
-              {budgetItems.filter(item => item.isActive && item.category === values.category &&
-                item.month === values.expenseDate.slice(0, 7)).map(item => (
-                <option value={item.id} key={item.id}>
-                  {item.name} (₹{Number(item.remainingAmount).toLocaleString('en-IN')} remaining)
-                </option>
-              ))}
-            </select>
-            <small>Budget use increases when the expense is approved. Paying it later only reduces the chosen Cash/Bank balance.</small>
-            {budgetError && <small role="alert">{budgetError}</small>}
-          </Field>
+          <div className="expense-budget-field">
+            <Field label="Monthly Budget Item (optional)" labelId="expense-budget-label">
+              <select value={values.budgetItemId || ''} aria-labelledby="expense-budget-label"
+                aria-invalid={Boolean(fieldErrors.budget_item)}
+                aria-describedby={fieldErrors.budget_item ? 'expense-budget-error' : undefined}
+                onChange={e => setValues({ ...values, budgetItemId: e.target.value })}>
+                <option value="">Unbudgeted expense</option>
+                {budgetItems.filter(item => item.isActive && item.category === values.category &&
+                  item.month === budgetMonth).map(item => (
+                  <option value={item.id} key={item.id}>
+                    {item.name} (₹{Number(item.remainingAmount).toLocaleString('en-IN')} remaining)
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.budget_item && <small id="expense-budget-error" role="alert">{fieldErrors.budget_item}</small>}
+              {budgetError && <small role="alert">{budgetError}</small>}
+            </Field>
+            {onBudgetCreated && (
+              <button type="button" className="expense-budget-add" aria-haspopup="dialog"
+                disabled={submitting || !/^20\d{2}-(0[1-9]|1[0-2])$/.test(budgetMonth)}
+                onClick={() => setBudgetContext({ month: budgetMonth, category: values.category })}>
+                Add Budget Item
+              </button>
+            )}
+          </div>
 
           <Field label="Expense Title" wide>
-            <input required value={values.title} onChange={(e)=>setValues({...values,title:e.target.value})} placeholder="e.g. Monthly workshop electricity bill"/>
+            <input required value={values.title} onChange={(e)=>setValues({...values,title:e.target.value})} placeholder="e.g. Electricity bill"/>
           </Field>
 
           <Field label="Vendor / Payable To">
@@ -176,31 +194,33 @@ const ExpenseForm = ({
 
       <section className="expense-form-section">
         <div className="expense-section-header">
-          <div>
-            <h2>Amount &amp; Payment</h2>
-            <p>Expense value, tax, payment method and bill reference.</p>
-          </div>
+          <h2>Amount &amp; Payment</h2>
         </div>
 
         <div className="expense-form-grid">
-          <Field label="Expense Amount">
+          <Field label="Expense Amount (₹)">
             <input type="number" min="0.01" step="0.01" required value={values.amount}
+              aria-invalid={Boolean(fieldErrors.amount)}
+              aria-describedby={fieldErrors.amount ? 'expense-amount-error' : undefined}
               onChange={(e)=>setValues({...values,amount:e.target.value,
                 taxAmount: values.gstRate !== '' ? expenseIncludedGst(e.target.value, values.gstRate) : values.taxAmount})}/>
+            {fieldErrors.amount && <small id="expense-amount-error" role="alert">{fieldErrors.amount}</small>}
           </Field>
 
           <Field label="GST Rate (included in amount)">
             <GstRateDropdown selectLabel="Expense GST percentage" value={values.gstRate ?? ''}
-              blankLabel="Previously saved / enter GST amount"
+              blankLabel="Enter GST amount manually" showTotal={false}
               onChange={rate => setValues({ ...values, gstRate: rate,
                 taxAmount: rate === '' ? values.taxAmount :
                   expenseIncludedGst(values.amount, rate) })}/>
           </Field>
-          <Field label="Tax / GST Amount (included)">
+          <Field label="GST Included (₹)">
             <input type="number" min="0" step="0.01" value={values.taxAmount}
+              aria-invalid={Boolean(fieldErrors.tax)}
+              aria-describedby={fieldErrors.tax ? 'expense-tax-error' : undefined}
               readOnly={values.gstRate !== ''}
               onChange={(e)=>setValues({...values,taxAmount:e.target.value})}/>
-            <small>The GST component is included, not charged twice. Input tax credit must follow the supplier tax invoice.</small>
+            {fieldErrors.tax && <small id="expense-tax-error" role="alert">{fieldErrors.tax}</small>}
           </Field>
 
           <Field label="Payment Method">
@@ -209,18 +229,20 @@ const ExpenseForm = ({
             </select>
           </Field>
 
-          <Field label="Pay from Bank / Cash Account">
+          <Field label={values.status === 'paid' ? 'Pay From Account' : 'Payment Account (optional)'}>
             <select value={values.accountId || ''} required={values.status === 'paid'}
+              aria-invalid={Boolean(fieldErrors.account)}
+              aria-describedby={fieldErrors.account ? 'expense-account-error' : undefined}
               onChange={(e) => setValues({ ...values, accountId: e.target.value })}
               disabled={submitting}>
-              <option value="">Select account {values.status === 'paid' ? '*' : '(optional until paid)'}</option>
+              <option value="">Select account</option>
               {financeAccountsForChannel(accounts, values.paymentMethod).map((account) => (
                 <option key={account.id} value={account.id}>
                   {account.name} ({account.kind}) — {money.format(Number(account.currentBalance || 0))}
                 </option>
               ))}
             </select>
-            <small>Unpaid or approved expenses will not debit this account.</small>
+            {fieldErrors.account && <small id="expense-account-error" role="alert">{fieldErrors.account}</small>}
           </Field>
 
           <Field label="Reference / Bill Number">
@@ -231,10 +253,7 @@ const ExpenseForm = ({
 
       <section className="expense-form-section">
         <div className="expense-section-header">
-          <div>
-            <h2>Bill / Receipt &amp; Notes</h2>
-            <p>Attach bill metadata and store additional accounting notes.</p>
-          </div>
+          <h2>Bill / Receipt &amp; Notes</h2>
         </div>
 
         <div className="expense-form-grid">
@@ -245,17 +264,13 @@ const ExpenseForm = ({
                 type="url"
                 value={values.receiptUrl}
                 onChange={(e) => setValues({ ...values, receiptUrl: e.target.value })}
-                placeholder="https://example.com/workshop-bill.pdf"
-                aria-describedby="expense-receipt-help"
+                placeholder="https://"
               />
             </div>
-            <small id="expense-receipt-help" className="expense-field-help">
-              Paste a secure link to an existing receipt. Direct file upload is not yet supported.
-            </small>
           </Field>
 
           <Field label="Notes" wide>
-            <textarea rows="4" value={values.notes} onChange={(e)=>setValues({...values,notes:e.target.value})} placeholder="Expense purpose, approval notes, recurring details..."/>
+            <textarea rows="3" value={values.notes} onChange={(e)=>setValues({...values,notes:e.target.value})}/>
           </Field>
         </div>
       </section>
@@ -265,8 +280,16 @@ const ExpenseForm = ({
         <button type="submit" className="is-primary" disabled={submitting}>{submitting ? 'Saving...' : 'Save Expense'}</button>
       </div>
     </form>
+    {budgetContext && onBudgetCreated && (
+      <AddExpenseBudgetDialog {...budgetContext} onClose={() => setBudgetContext(null)}
+        onSave={item => {
+          onBudgetCreated(item);
+          setBudgetContext(null);
+        }} />
+    )}
   </div>
-);
+  );
+};
 
 export const ExpenseList = () => {
   const location = useLocation();
@@ -274,6 +297,7 @@ export const ExpenseList = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const canEdit = hasPermission(user, 'expenses.edit');
+  const canCreate = hasPermission(user, 'expenses.create');
   const canDelete = hasPermission(user, 'expenses.delete');
 
   const isNew = location.pathname.endsWith('/new');
@@ -283,6 +307,8 @@ export const ExpenseList = () => {
   const [expenses, setExpenses] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [budgetItems, setBudgetItems] = useState([]);
+  const [budgetRevision, setBudgetRevision] = useState(0);
+  const budgetRequest = useRef(0);
   const [budgetError, setBudgetError] = useState('');
   const [linkedSupplierTotals, setLinkedSupplierTotals] = useState(null);
   const [linkedSupplierError, setLinkedSupplierError] = useState('');
@@ -308,12 +334,14 @@ export const ExpenseList = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [actionError, setActionError] = useState('');
+  const [formErrors, setFormErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [activeView, setActiveView] = useState('overview');
   const [query, setQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
   const [form, setForm] = useState(freshExpenseForm);
+  const canLoadAccounts = canEdit || (isNew && canCreate);
 
   const load = async () => {
     setLoading(true);
@@ -334,26 +362,27 @@ export const ExpenseList = () => {
   }, []);
 
   useEffect(() => {
-    if (!canEdit) return;
+    if (!canLoadAccounts) return;
     financeService.listAccounts()
       .then((list) => setAccounts(Array.isArray(list) ? list : []))
       .catch(() => setAccounts([]));
-  }, [canEdit]);
+  }, [canLoadAccounts]);
 
   useEffect(() => {
     if (!isNew && !isEdit) return undefined;
     let alive = true;
+    const request = ++budgetRequest.current;
     const month = String(form.expenseDate || today()).slice(0, 7);
     expenseService.getExpenseBudgets(month).then(rows => {
-      if (alive) { setBudgetItems(rows); setBudgetError(''); }
+      if (alive && request === budgetRequest.current) { setBudgetItems(rows); setBudgetError(''); }
     }).catch(err => {
-      if (alive) {
-        setBudgetItems([]);
+      if (alive && request === budgetRequest.current) {
+        setBudgetItems(current => current.filter(item => item.month === month));
         setBudgetError(err?.message || 'Unable to load monthly budget items.');
       }
     });
     return () => { alive = false; };
-  }, [isNew, isEdit, form.expenseDate]);
+  }, [isNew, isEdit, form.expenseDate, budgetRevision]);
 
   useEffect(() => {
     if (!isEdit || !id || !expenses.length) return;
@@ -426,13 +455,37 @@ export const ExpenseList = () => {
       .sort((a,b)=>b.total-a.total);
   }, [expenses]);
 
+  const updateExpenseForm = (values) => {
+    setForm(values);
+    setActionError('');
+    if (Object.keys(formErrors).length) setFormErrors({});
+  };
+
+  const selectCreatedBudget = item => {
+    ++budgetRequest.current;
+    setBudgetItems(items => [...items.filter(existing => existing.id !== item.id), item]);
+    setBudgetRevision(revision => revision + 1);
+    setBudgetError('');
+    setForm(current => current.category === item.category && current.expenseDate.slice(0, 7) === item.month
+      ? { ...current, budgetItemId: item.id }
+      : current);
+    setFormErrors(({ budget_item: _budgetError, ...remaining }) => remaining);
+  };
+
   const saveExpense = async (event) => {
     event.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
     setActionError('');
+    setFormErrors({});
     try {
       if (form.status === 'paid') {
-        assertFinanceAccount(accounts, form.accountId, form.paymentMethod);
+        try {
+          assertFinanceAccount(accounts, form.accountId, form.paymentMethod);
+        } catch (error) {
+          setFormErrors({ account: error.message });
+          return;
+        }
       }
       const payload = { ...form };
 
@@ -451,7 +504,14 @@ export const ExpenseList = () => {
         navigate(created?.id ? `/finance/expenses/${created.id}` : '/finance/expenses');
       }
     } catch (error) {
-      setActionError(error?.message || 'Could not save expense. Please try again.');
+      const inlineErrors = Object.fromEntries(
+        Object.entries(error?.fieldErrors || {}).filter(([key]) => expenseInlineErrorKeys.includes(key))
+      );
+      const hasOtherError = Object.keys(error?.fieldErrors || {}).some(key => !expenseInlineErrorKeys.includes(key));
+      setFormErrors(inlineErrors);
+      if (hasOtherError || !Object.keys(inlineErrors).length) {
+        setActionError(error?.message || 'Could not save expense.');
+      }
     } finally {
       setSubmitting(false);
     }
@@ -521,14 +581,16 @@ export const ExpenseList = () => {
       <ExpenseForm
         title="Add Expense"
         values={form}
-        setValues={setForm}
+        setValues={updateExpenseForm}
         onSubmit={saveExpense}
         onCancel={()=>navigate('/finance/expenses')}
         submitting={submitting}
         error={actionError}
+        fieldErrors={formErrors}
         accounts={accounts}
         budgetItems={budgetItems}
         budgetError={budgetError}
+        onBudgetCreated={canEdit ? selectCreatedBudget : undefined}
       />
     );
   }
@@ -539,14 +601,16 @@ export const ExpenseList = () => {
       <ExpenseForm
         title="Edit Expense"
         values={form}
-        setValues={setForm}
+        setValues={updateExpenseForm}
         onSubmit={saveExpense}
         onCancel={()=>navigate(`/finance/expenses/${id}`)}
         submitting={submitting}
         error={actionError}
+        fieldErrors={formErrors}
         accounts={accounts}
         budgetItems={budgetItems}
         budgetError={budgetError}
+        onBudgetCreated={canEdit ? selectCreatedBudget : undefined}
       />
     );
   }

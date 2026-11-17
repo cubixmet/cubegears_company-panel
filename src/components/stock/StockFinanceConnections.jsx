@@ -19,37 +19,30 @@ export default function StockFinanceConnections({
 
   return <section className="cg-stock-finance" aria-label="Inventory GST and Finance connections">
     <header className="cg-stock-finance-head">
-      <div>
-        <h2>Stock · GST & Finance</h2>
-        <p>Review product tax data and open the linked supplier purchase and accounting records.</p>
-      </div>
-      <span>Read-only overview · No automatic posting</span>
+      <h2>Stock · GST & Finance</h2>
     </header>
     <div className="cg-stock-finance-grid">
       {canViewValuation && <article>
         <Warehouse size={18} aria-hidden="true"/>
         <span>Inventory Value</span>
         <strong>{loading || stockValue == null ? 'Unavailable' : INR.format(stockValue)}</strong>
-        <small>Cost-basis stock valuation, not supplier payments or profit</small>
       </article>}
       {showSupplierFinance && <>
         <article>
           <CreditCard size={18} aria-hidden="true"/>
           <span>Supplier Credit Outstanding</span>
           <strong>{available ? INR.format(credits.outstanding) : 'Unavailable'}</strong>
-          <small>{available ? credits.suppliersWithDue + ' suppliers with unpaid posted bills' : 'Awaiting Finance ledger'}</small>
+          <small>{available ? credits.suppliersWithDue + ' suppliers with unpaid bills' : 'Awaiting Finance ledger'}</small>
         </article>
         <article>
           <AlertTriangle size={18} aria-hidden="true"/>
           <span>Overdue Supplier Payments</span>
           <strong>{available ? INR.format(credits.overdue) : 'Unavailable'}</strong>
-          <small>Overdue portion of outstanding purchase bills</small>
         </article>
         <article>
           <Landmark size={18} aria-hidden="true"/>
           <span>Unused Advances & Debit Credits</span>
           <strong>{available ? INR.format(credits.availableCredits) : 'Unavailable'}</strong>
-          <small>Available credit is not a cash refund or settled bill yet</small>
         </article>
       </>}
       {showGST && <article>
@@ -78,11 +71,5 @@ export default function StockFinanceConnections({
         <ClipboardCheck size={16} aria-hidden="true"/> GSTR-2B & Purchase ITC
       </Link>}
     </div>
-    {showGST && <p className="cg-stock-finance-note">
-      A stock item's GST rate and HSN/SAC are reference fields only. Eligible input tax credit
-      depends on posted supplier invoice GST heads and verified GSTR-2B records.
-      Stock receipts, returns, job usage and supplier payments must use their existing
-      linked workflows — they are not created by opening this overview.
-    </p>}
   </section>;
 }

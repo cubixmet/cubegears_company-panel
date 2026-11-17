@@ -199,7 +199,7 @@ export const Header = () => {
         <div className="mobile-header-row">
           <div className="mobile-dual-identity">
             <button type="button" className="mobile-brand mobile-workshop-brand" onClick={() => navigate(homePath)} aria-label={`Go to ${companyName} workspace`}>
-              <WorkshopIdentity mode="mobile" shortName />
+              <WorkshopIdentity mode="mobile" />
             </button>
           </div>
 

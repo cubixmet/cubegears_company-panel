@@ -299,3 +299,10 @@
 @media (prefers-reduced-motion:reduce) {
   .app-content .account-dashboard-tabs button {transition:none}
 }
+
+/* Keep account navigation in the scroll flow on short screens. */
+@media (max-width: 900px) and (max-height: 420px) {
+  .app-content :is(.cg-credit-page,.account-billing-page,.storage-history-page,.storage-day-page,.document-templates-page,.account-security-page) .account-dashboard-tabs {
+    position: static;
+  }
+}

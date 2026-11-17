@@ -6,5 +6,10 @@
 .customer-tracking-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
 .customer-tracking-actions button,.customer-tracking-actions a{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:10px 13px;border:1px solid var(--border);border-radius:10px;background:var(--surface-2);color:var(--text-primary);font-size:14px;font-weight:650;text-decoration:none;cursor:pointer}
 .customer-tracking-actions button:disabled{opacity:.5;cursor:not-allowed}
+.customer-tracking-share-actions > .wa-manual-share{display:contents}
+.customer-tracking-share-actions > .wa-manual-share > .wa-manual-share__button{width:auto}
+.customer-tracking-share-actions > .wa-manual-share > :is(.wa-manual-share__error,.wa-manual-share__note,.wa-manual-share__preview){flex:0 0 100%;min-width:0;max-width:100%}
+.customer-tracking-share-actions .wa-manual-share__note a{margin-inline-start:4px}
+.customer-tracking-share-actions .wa-manual-share__preview textarea{display:block;width:100%;max-width:100%}
 .customer-tracking-error{color:var(--danger);font-size:14px}
 .customer-tracking-success{color:var(--success);font-size:14px}

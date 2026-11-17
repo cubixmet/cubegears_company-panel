@@ -29,7 +29,6 @@ export const InvoiceRecordsPanel = ({
       <header className="invoice-dashboard-section-title">
         <div>
           <h2>{activeTab === 'estimate' ? 'Estimate Records' : 'Invoice Records'}</h2>
-          <p>{activeTab === 'estimate' ? 'Quotations, customers and approval status.' : 'Customer bills, received payments, outstanding and document status.'}</p>
         </div>
         <span>{documents.length} record{documents.length === 1 ? '' : 's'}</span>
       </header>
@@ -49,9 +48,7 @@ export const InvoiceRecordsPanel = ({
         <div className="invoice-dashboard-empty cg-invoice-empty" role="status">
           <FileText size={28} aria-hidden="true"/>
           <strong>{hasFilters ? 'No matching documents' : activeTab === 'estimate' ? 'No estimates yet' : 'No invoices yet'}</strong>
-          <span>{hasFilters
-            ? 'Try another document number, customer or status.'
-            : activeTab === 'estimate' ? 'Create an estimate to start your quotation records.' : 'Create an invoice to start your billing records.'}</span>
+          {hasFilters && <span>Try another document number, customer or status.</span>}
           {hasFilters ? <button type="button" className="bill-btn secondary" onClick={onReset}>
             Clear filters
           </button> : canCreate && <button type="button" className="bill-btn" onClick={onCreate}>

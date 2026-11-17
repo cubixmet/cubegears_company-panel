@@ -5,7 +5,9 @@ const OwnerOnboarding = lazyPage(() => import('../pages/saas/OwnerOnboarding'), 
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { getStaffLandingPath } from '../utils/staffLanding';
+import { isStockProductId, stockInventoryLocation, stockProductLocation } from '../utils/stockProductRoutes';
 import { ProtectedRoute } from './ProtectedRoute';
+import { stockProductRoute } from '../utils/stockProductRoute';
 
 const CreditWorkspace = lazyPage(() => import('../pages/saas/CreditWorkspace'), 'CreditWorkspace');
 
@@ -15,6 +17,16 @@ function LegacySupplierRouteRedirect() {
   const { search } = useLocation();
   const selected = new URLSearchParams(search).get('supplier');
   return <Navigate to={selected ? '/suppliers/' + encodeURIComponent(selected) : '/suppliers'} replace />;
+}
+
+function StockInventoryRoute() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  const productId = params.get('product');
+  if (!params.has('product')) return <StockEasyPage />;
+  return <Navigate replace to={isStockProductId(productId)
+    ? stockProductLocation(productId, params, params.get('productBranch'))
+    : stockInventoryLocation(params)} />;
 }
 
 
@@ -51,6 +63,17 @@ const JobDetails = lazyPage(() => import('../pages/jobs/JobDetails'), 'JobDetail
 const JobStatus = lazyPage(() => import('../pages/jobs/JobStatus'), 'JobStatus');
 const JobReports = lazyPage(() => import('../pages/jobs/JobReports'), 'JobReports');
 const StockEasyPage = lazyPage(() => import('../pages/stock/StockEasyPage'), 'default');
+const StockProductPage = lazyPage(() => import('../pages/stock/StockProductPage'), 'default');
+
+function StockIndexRoute() {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  const productId = params.get('product');
+  return productId
+    ? <Navigate to={stockProductRoute(productId, params.get('productBranch'), search)} replace />
+    : <StockEasyPage />;
+}
+
 const SuppliersPage = lazyPage(() => import('../pages/suppliers/SuppliersPage'), 'default');
 const InvoiceList = lazyPage(() => import('../pages/invoices/InvoiceList'), 'InvoiceList');
 const EWayBillPage = lazyPage(() => import('../pages/invoices/EWayBillPage'), 'EWayBillPage');
@@ -237,7 +260,8 @@ export const AppRoutes = () => (
       <Route path="/suppliers/purchases" element={<SuppliersPage section="purchases" />} />
       <Route path="/suppliers/payments" element={<LegacySupplierRouteRedirect />} />
       <Route path="/suppliers/:id" element={<SuppliersPage />} />
-      <Route path="/stock" element={<StockEasyPage />} />
+      <Route path="/stock" element={<StockIndexRoute />} />
+      <Route path="/stock/products/:id" element={<StockProductPage />} />
       <Route path="/stock/suppliers" element={<LegacySupplierRouteRedirect />} />
       <Route path="/stock/*" element={<Navigate to="/stock" replace />} />
 

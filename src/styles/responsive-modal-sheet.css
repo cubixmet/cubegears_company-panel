@@ -134,10 +134,20 @@
 
   .responsive-modal-header h3{
     font-size:14px;
+    padding-block:8px;
+    white-space:normal;
+    overflow-wrap:anywhere;
+  }
+
+  .responsive-modal-close{
+    width:44px;
+    height:44px;
+    flex-basis:44px;
   }
 
   .responsive-modal-body{
     padding:12px 14px calc(14px + env(safe-area-inset-bottom));
+    overscroll-behavior:contain;
   }
 }
 

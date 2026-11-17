@@ -58,6 +58,12 @@ export const expenseToApiPayload = (values = {}) => {
       (String(values.taxAmount || '').trim() && !/^\d+(?:\.\d{1,2})?$/.test(String(values.taxAmount).trim()))) {
     throw new Error('Enter amounts with no more than two decimal places.');
   }
+  if (tax > amount) {
+    const message = 'Included GST cannot exceed the expense amount.';
+    const error = new Error(message);
+    error.fieldErrors = { tax: message };
+    throw error;
+  }
   if (receiptUrl && !/^https?:\/\/\S+$/i.test(receiptUrl)) {
     throw new Error('Receipt link must start with https:// or http://.');
   }

@@ -26,6 +26,9 @@
 .cws-subdomain-field span{font-size:13px;overflow-wrap:anywhere}
 .cws-subdomain-form>.cws-btn{min-height:44px}
 .cws-subdomain-form>small{flex-basis:100%;opacity:.75;line-height:1.5}
+.cws-subdomain-feedback{flex-basis:100%;min-width:0}
+.cws-subdomain-feedback .cws-error{overflow-wrap:anywhere}
+.cws-subdomain-field input[aria-invalid=true]{border-color:#b91c1c}
 .cws-warning{border-left:3px solid #b67c24;padding:11px 12px;font-size:13px;line-height:1.5;margin:10px 0}
 @media(max-width:600px){.cws-subdomain-form>.cws-btn{width:100%;justify-content:center}.cws-subdomain-field{flex-wrap:wrap}}
 

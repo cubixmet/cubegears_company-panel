@@ -2,12 +2,13 @@ import { recordLabel } from '../../utils/recordReferences.js';
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { getStaffLandingPath } from '../../utils/staffLanding';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
-import { Link, useLocation } from 'react-router-dom';
+import { createPath, Link, useLocation } from 'react-router-dom';
 import { ChevronRight, Home } from 'lucide-react';
 import { staffService } from '../../services/staff.service';
 import { customerService } from '../../services/customer.service';
 import { vehicleService } from '../../services/vehicle.service';
 import { supplierService } from '../../services/supplier.service';
+import { stockInventoryLocation } from '../../utils/stockProductRoutes';
 import { isRecordPath, recordBreadcrumbFallback, recordBreadcrumbLabel } from './breadcrumbRecordLabels';
 import '../../styles/breadcrumbs.css';
 
@@ -191,6 +192,14 @@ export function AppBreadcrumbs() {
     const segments = location.pathname.split('/').filter(Boolean);
     if (!segments.length || location.pathname === '/dashboard') return [];
 
+    if (segments.length === 3 && segments[0] === 'stock' && segments[1] === 'products') {
+      return [
+        { label: 'Home', href: homePath, current: false, home: true },
+        { label: LABELS.stock, href: '/stock', current: false },
+        { label: 'Product Details', href: location.pathname, current: true },
+      ];
+    }
+
     const isStaffProfile =
       segments.length === 3 &&
       segments[0] === 'staff-management' &&
@@ -221,7 +230,7 @@ export function AppBreadcrumbs() {
         current: index === segments.length - 1
       }))
     ];
-  }, [location.pathname, staffBreadcrumbLabel, recordLabel, supplierBreadcrumb, homePath]);
+  }, [location.pathname, location.search, staffBreadcrumbLabel, recordLabel, supplierBreadcrumb, homePath]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollLeft = scrollRef.current.scrollWidth;

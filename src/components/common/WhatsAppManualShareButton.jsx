@@ -2,17 +2,14 @@ import { useState } from 'react';
 import { ExternalLink, MessageCircle } from 'lucide-react';
 import apiClient from '../../api/apiClient';
 import { USE_MOCK_API } from '../../api/apiConfig';
-import { isLocalCustomerWebsiteDevelopment, localCustomerWebsiteOrigin } from '../../utils/customerWebsiteAddresses';
+import { customerWebsiteDevParams } from '../../utils/customerWebsiteAddresses';
 import '../../styles/whatsapp-manual-share.css';
 
 function prepareWhatsAppShare(targetType, targetId) {
   if (USE_MOCK_API) throw new Error('WhatsApp sharing requires the live Django backend.');
-  const payload = { targetType, targetId };
-  if (isLocalCustomerWebsiteDevelopment(import.meta.env.DEV, window.location.hostname)) {
-    const origin = localCustomerWebsiteOrigin(import.meta.env.VITE_CUSTOMER_WEBSITE_DEV_ORIGIN);
-    if (origin) payload.customerWebsiteDevOrigin = origin;
-  }
-  return apiClient.post('/whatsapp/manual-share', payload);
+  const devParams = customerWebsiteDevParams(import.meta.env.DEV, window.location.hostname,
+    import.meta.env.VITE_CUSTOMER_WEBSITE_DEV_ORIGIN);
+  return apiClient.post('/whatsapp/manual-share', { targetType, targetId, ...devParams });
 }
 
 /**

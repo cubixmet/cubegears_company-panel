@@ -155,20 +155,20 @@ export const ResetPassword = () => {
                   <span className="login-field-label">New password</span>
                   <div className={'login-input-shell ' + (fieldErrors.password ? 'is-error' : '')}>
                     <span className="login-input-icon"><Lock size={16}/></span>
-                    <input className="login-input" type={show ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); clearField('password'); }} placeholder="Minimum 8 characters" aria-invalid={Boolean(fieldErrors.password)}/>
-                    <button type="button" className="login-password-toggle" onClick={() => setShow((value) => !value)}>{show ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+                    <input className="login-input" type={show ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => { setPassword(e.target.value); clearField('password'); }} placeholder="Minimum 8 characters" aria-invalid={Boolean(fieldErrors.password)} aria-describedby={fieldErrors.password ? 'reset-password-error' : undefined}/>
+                    <button type="button" className="login-password-toggle" aria-label={show ? 'Hide password' : 'Show password'} onClick={() => setShow((value) => !value)}>{show ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                   </div>
-                  {fieldErrors.password && <span className="auth-field-error" role="alert">{fieldErrors.password}</span>}
+                  {fieldErrors.password && <span id="reset-password-error" className="auth-field-error" role="alert">{fieldErrors.password}</span>}
                 </label>
 
                 <label>
                   <span className="login-field-label">Confirm password</span>
                   <div className={'login-input-shell ' + (fieldErrors.confirm ? 'is-error' : '')}>
                     <span className="login-input-icon"><Lock size={16}/></span>
-                    <input className="login-input" type={showConfirm ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); clearField('confirm'); }} placeholder="Repeat new password" aria-invalid={Boolean(fieldErrors.confirm)}/>
-                    <button type="button" className="login-password-toggle" onClick={() => setShowConfirm((value) => !value)}>{showConfirm ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
+                    <input className="login-input" type={showConfirm ? 'text' : 'password'} autoComplete="new-password" value={confirm} onChange={(e) => { setConfirm(e.target.value); clearField('confirm'); }} placeholder="Repeat new password" aria-invalid={Boolean(fieldErrors.confirm)} aria-describedby={fieldErrors.confirm ? 'reset-confirm-error' : undefined}/>
+                    <button type="button" className="login-password-toggle" aria-label={showConfirm ? 'Hide confirmation' : 'Show confirmation'} onClick={() => setShowConfirm((value) => !value)}>{showConfirm ? <EyeOff size={16}/> : <Eye size={16}/>}</button>
                   </div>
-                  {fieldErrors.confirm && <span className="auth-field-error" role="alert">{fieldErrors.confirm}</span>}
+                  {fieldErrors.confirm && <span id="reset-confirm-error" className="auth-field-error" role="alert">{fieldErrors.confirm}</span>}
                 </label>
 
                 <div className="password-rules">

@@ -69,10 +69,11 @@ const productPayload = async (payload, { creating = false } = {}) => {
   };
   // Quantity may only change through recorded stock movements.
   if (creating) {
-    // An initial quantity is recorded atomically by StockItemViewSet.perform_create.
-    // This is opening stock, NOT a supplier purchase bill or payable.
+    // Opening stock is separate from the optional posted supplier purchase.
     part.onHand = number(payload.stockQuantity);
     part.reserved = 0;
+    if (payload.requestKey) part.requestKey = payload.requestKey;
+    if (payload.purchase) part.purchase = payload.purchase;
   }
   return part;
 };
@@ -86,6 +87,7 @@ export const stockCatalogService = {
     const item = await stockService.getStockItemById(id);
     return item ? toPart(item) : null;
   },
+  getBranchBalances: async () => USE_MOCK_API ? [] : rows(await apiClient.get('/stock/branch-balances')),
   createItem: async (payload) => {
     if (USE_MOCK_API) {
       if (!payload.partName?.trim()) {
@@ -123,7 +125,8 @@ export const stockCatalogService = {
       stockMockItems.unshift(item);
       return toPart(item);
     }
-    const part = await apiClient.post('/stock', await productPayload(payload, { creating: true }));
+    const endpoint = payload.purchase ? '/stock/receive-new-part' : '/stock';
+    const part = await apiClient.post(endpoint, await productPayload(payload, { creating: true }));
     return toPart(part);
   },
   updateItem: async (id, payload) => {
@@ -154,6 +157,9 @@ export const stockCatalogService = {
     return rows(await apiClient.get('/stock/items/rack-locations', { params: { q: search } }));
   },
   getCategories: async () => USE_MOCK_API ? mockCategories() : rows(await apiClient.get('/stock/categories')),
+  createCategory: async ({ name, parent }) => USE_MOCK_API
+    ? { id: name, name, parent: parent || null }
+    : apiClient.post('/stock/categories', { name, parent: parent || null, is_active: true }),
   getSuppliers: async () => USE_MOCK_API ? [...stockSuppliersMock] : rows(await apiClient.get('/stock/suppliers')),
   getStockDashboard: stockService.getStockDashboard,
   getLedger: stockService.getMovementLedger,

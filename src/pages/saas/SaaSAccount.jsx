@@ -58,7 +58,7 @@ function BillingView({ billing, storage, onOpenTemplates }) {
           <div><span>Included users</span><strong>{plan?.includedSeats ?? '—'}</strong></div>
           <div><span>Billing renewal</span><strong>{nextRenewal}</strong></div>
           <div><span>Active accounts</span><strong>{actualUsers ?? '—'}</strong></div>
-          <div><span>Current media</span><strong>{storage?.usedGb == null ? '—' : storage.usedGb + ' GB'}</strong></div>
+          <div><span>Current media</span><strong>{storage ? formatStorageBytes(storageBytes(storage)) : '—'}</strong></div>
         </div>
         <button type="button" className="saas-button" onClick={() => navigate('/account/plans')}>Compare / Change Plan <ChevronRight size={15}/></button>
         {billing?.billingNote && <p className="saas-muted saas-billing-note">{billing.billingNote}</p>}
@@ -124,6 +124,9 @@ function StorageView({ storage, setStorage }) {
   const [unit, setUnit] = useState('auto');
   const [category, setCategory] = useState('Job Card');
   const usedBytes = storageBytes(storage);
+  const displayedUsage = formatStorageBytes(usedBytes, unit);
+  const equivalentUsage = usedBytes > 0 && usedBytes < BYTES_PER_GB
+    ? formatStorageBytes(usedBytes, unit === 'GB' ? 'auto' : 'GB') : null;
   const storageEnabled = storage.settings?.enabled !== false;
 
   const upload = async (event) => {
@@ -191,8 +194,10 @@ function StorageView({ storage, setStorage }) {
         <div className="storage-overview-grid">
           <div className="storage-primary-usage">
             <span>Currently stored</span>
-            <strong>{formatStorageBytes(usedBytes, unit)}</strong>
-            <small>{usedBytes.toLocaleString('en-IN')} bytes</small>
+            <div className="storage-usage-amount" aria-live="polite">
+              <strong title={`${usedBytes.toLocaleString('en-IN')} bytes`}>{displayedUsage}</strong>
+              {equivalentUsage && equivalentUsage !== displayedUsage && <small>≈ {equivalentUsage}</small>}
+            </div>
           </div>
           <div><span>Files stored</span><strong>{storage.fileCount ?? storage.files?.length ?? 0}</strong></div>
           <div><span>Storage allowance</span><strong>{storage.quotaBytes != null ? formatStorageBytes(storage.quotaBytes, unit) : storage.quotaGb != null ? formatStorageBytes(Number(storage.quotaGb) * BYTES_PER_GB, unit) : 'Not capped'}</strong></div>

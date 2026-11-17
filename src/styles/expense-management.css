@@ -807,6 +807,32 @@ button.expense-data-row {
   grid-column: 1 / -1;
 }
 
+.expense-budget-field {
+  min-width: 0;
+}
+
+.expense-budget-add {
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.expense-budget-add:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.expense-budget-add:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
 .expense-field > span {
   color: var(--text-secondary);
   font-size: 9px;

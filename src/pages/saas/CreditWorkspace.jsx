@@ -9,6 +9,7 @@ import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { useAuth } from '../../hooks/useAuth';
 import { routeConfig } from '../../routes/routeConfig';
 import { featureLabelStatus } from '../../utils/featureActivation';
+import { formatStorageBytes, storageBytes } from '../../utils/storageUnits';
 import '../../styles/credit-wallet.css';
 
 const nf = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
@@ -336,7 +337,7 @@ export function CreditWorkspace({ section = 'overview' }) {
         </article>
         <article className="cg-credit-metric">
           <div><span>Storage Used</span><Database size={20}/></div>
-          <strong>{storageOverview?.usedGb == null ? '—' : `${storageOverview.usedGb} GB`}</strong>
+          <strong>{storageOverview ? formatStorageBytes(storageBytes(storageOverview)) : '—'}</strong>
         </article>
       </>}
     </div>}

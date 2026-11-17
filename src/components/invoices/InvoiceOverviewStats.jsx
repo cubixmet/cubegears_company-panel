@@ -8,20 +8,19 @@ export const InvoiceOverviewStats = ({
   const estimates = activeTab === 'estimate';
 
   const cards = estimates ? [
-    { label: 'Total Estimates', value: summary.totalCount, meta: 'All saved quotations', icon: ReceiptText },
-    { label: 'Issued / Converted', value: summary.issuedCount, meta: 'Excludes drafts and cancelled', icon: BadgeCheck, tone: 'success' },
-    { label: 'Draft Estimates', value: summary.draftCount, meta: 'Not issued yet', icon: FileClock, tone: 'warning' },
-    { label: 'Issued Estimate Value', value: formatMoney(summary.issuedValue),
-      meta: 'Quotation value, not income or cash received', icon: IndianRupee },
+    { label: 'Total Estimates', value: summary.totalCount, icon: ReceiptText },
+    { label: 'Issued / Converted', value: summary.issuedCount, icon: BadgeCheck, tone: 'success' },
+    { label: 'Draft Estimates', value: summary.draftCount, icon: FileClock, tone: 'warning' },
+    { label: 'Issued Estimate Value', value: formatMoney(summary.issuedValue), icon: IndianRupee },
   ] : [
     { label: 'Total Invoices', value: summary.totalCount,
-      meta: summary.draftCount + ' drafts · including historical records', icon: ReceiptText },
+      meta: summary.draftCount + ' drafts', icon: ReceiptText },
     { label: 'Issued Amount', value: formatMoney(summary.issuedValue),
-      meta: summary.issuedCount + ' issued invoices · excludes drafts and cancellations', icon: BadgeCheck },
+      meta: summary.issuedCount + ' issued', icon: BadgeCheck },
     { label: 'Payments Received', value: formatMoney(summary.received),
-      meta: 'Paid amounts from issued invoices', icon: IndianRupee, tone: 'success' },
+      icon: IndianRupee, tone: 'success' },
     { label: 'Outstanding', value: formatMoney(summary.outstanding),
-      meta: 'Unpaid balance on issued invoices', icon: Wallet, tone: 'warning' },
+      icon: Wallet, tone: 'warning' },
   ];
 
   return (
@@ -35,7 +34,7 @@ export const InvoiceOverviewStats = ({
             </div>
             <i className={'is-' + tone}><Icon size={16} aria-hidden="true"/></i>
           </div>
-          <small>{meta}</small>
+          {meta && <small>{meta}</small>}
         </article>
       ))}
     </section>

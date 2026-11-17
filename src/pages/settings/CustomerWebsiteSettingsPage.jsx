@@ -27,6 +27,7 @@ export default function CustomerWebsiteSettingsPage(){
   const [subdomainDraft,setSubdomainDraft] = useState('');
   const [wildcardReady,setWildcardReady] = useState(false);
   const [subdomainSaving,setSubdomainSaving] = useState(false);
+  const [subdomainError,setSubdomainError] = useState(null);
   const [logo,setLogo] = useState(false);
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
@@ -34,7 +35,7 @@ export default function CustomerWebsiteSettingsPage(){
   const [notice,setNotice] = useState('');
 
   const load = useCallback(async ()=>{
-    setLoading(true);setError('');
+    setLoading(true);setError('');setSubdomainError(null);
     try {
       const website = await apiClient.get('/company/customer-website');
       setFields(Object.fromEntries(Object.keys(empty).map(k=>[k,website[k]??empty[k]])));
@@ -71,14 +72,14 @@ export default function CustomerWebsiteSettingsPage(){
     if(subdomainSaving)return;
     const label=subdomainDraft.trim().toLowerCase();
     if(!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(label)){
-      setError('Use 3–63 lowercase letters, numbers or hyphens.');
+      setSubdomainError({message:'Use 3–63 English letters, numbers or hyphens. Start and end with a letter or number.'});
       return;
     }
     if(label===subdomainLabel)return;
     if(!await appConfirm(
       'Change your default website address? Existing customer links using the previous subdomain will need to be sent again.'
     ))return;
-    setSubdomainSaving(true);setError('');setNotice('');
+    setSubdomainSaving(true);setSubdomainError(null);setNotice('');
     try{
       const changed=await apiClient.patch('/company/customer-website/subdomain',{label});
       setSubdomain(changed.subdomain);
@@ -87,7 +88,10 @@ export default function CustomerWebsiteSettingsPage(){
       setWildcardReady(changed.wildcardReady===true);
       setNotice(changed.message||'Default website address updated.');
     }catch(e){
-      setError(e?.response?.data?.label||e?.message||'Could not change this website address.');
+      setSubdomainError({
+        message:e?.fieldErrors?.label||e?.message||'Could not change this website address.',
+        suggestion:e?.data?.suggestedLabel,
+      });
     }finally{setSubdomainSaving(false);}
   }
 
@@ -139,7 +143,9 @@ export default function CustomerWebsiteSettingsPage(){
               <input type="text" value={subdomainDraft} maxLength={63} required
                 autoCapitalize="none" spellCheck={false}
                 aria-label="Default website subdomain name"
-                onChange={event=>setSubdomainDraft(event.target.value.toLowerCase())}/>
+                aria-invalid={Boolean(subdomainError)}
+                aria-describedby={subdomainError ? 'website-subdomain-error' : 'website-subdomain-hint'}
+                onChange={event=>{setSubdomainDraft(event.target.value.toLowerCase());setSubdomainError(null);}}/>
               <span>{urls.suffix}</span>
             </div>
           </label>
@@ -147,7 +153,14 @@ export default function CustomerWebsiteSettingsPage(){
             disabled={subdomainSaving||!subdomainDraft.trim()||subdomainDraft.trim()===subdomainLabel}>
             {subdomainSaving?'Saving…':'Update Subdomain'}
           </button>
-          <small>Names are unique for every workshop. Changing this address does not change your login. Existing customer links on the old hostname must be sent again.</small>
+          {subdomainError&&<div className="cws-subdomain-feedback">
+            <div id="website-subdomain-error" className="cws-error" role="alert">{subdomainError.message}</div>
+            {subdomainError.suggestion&&<button type="button" className="cws-btn cws-secondary" onClick={()=>{
+              setSubdomainDraft(subdomainError.suggestion);
+              setSubdomainError(null);
+            }}>Use {subdomainError.suggestion}</button>}
+          </div>}
+          <small id="website-subdomain-hint">Use English letters, numbers or hyphens for the address. A Malayalam workshop name can be entered under Website Branding.</small>
         </form>
         {!wildcardReady&&<p className="cws-warning" role="status">
           Production address reserved in CubeGears. Platform wildcard DNS and HTTPS have not been marked ready yet; do not share the production address until activation.

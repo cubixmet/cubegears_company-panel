@@ -5,6 +5,7 @@ import { USE_MOCK_API } from '../../api/apiConfig';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import { branchService } from '../../services/branch.service';
 import { stockCatalogService } from '../../services/stockCatalog.service';
+import StockProductLink from './StockProductLink';
 import '../../styles/inventory-branch-operations.css';
 
 const rows = (result) => Array.isArray(result) ? result : result?.results || [];
@@ -53,14 +54,14 @@ export default function InventoryBranchOperations({ onChanged }) {
       const [branchRows, itemRows, stockRows, transferRows, auditRows] = await Promise.all([
         branchService.getBranches(),
         stockCatalogService.getItems(),
-        apiClient.get('/stock/branch-balances'),
+        stockCatalogService.getBranchBalances(),
         apiClient.get('/stock/transfers'),
         apiClient.get('/stock/audit'),
       ]);
       const activeBranches = rows(branchRows).filter((row) => row.is_active !== false);
       setBranches(activeBranches);
       setProducts(rows(itemRows));
-      setBalances(rows(stockRows));
+      setBalances(stockRows);
       setTransfers(rows(transferRows));
       setCounts(rows(auditRows));
       setTransfer((previous) => ({
@@ -123,10 +124,9 @@ export default function InventoryBranchOperations({ onChanged }) {
   };
 
   if (!canView || USE_MOCK_API) return null;
-  return <section className="cg-branch-inventory" aria-label="Live branch inventory operations">
+  return <section className="cg-branch-inventory" id="branch-stock" tabIndex={-1} aria-label="Live branch inventory operations">
     <div className="cg-branch-heading">
-      <div><h2>Branch Stock &amp; Reconciliation</h2>
-        <p>Real branch quantities, paired transfers and physical stock counts.</p></div>
+      <h2>Branch Stock &amp; Reconciliation</h2>
       <button type="button" onClick={refresh} disabled={loading || saving}>
         <RefreshCw size={16} aria-hidden="true"/> Refresh
       </button>
@@ -144,13 +144,32 @@ export default function InventoryBranchOperations({ onChanged }) {
       )}
     </div>
     {loading && <p role="status">Updating live inventory…</p>}
-    {tab === 'balances' && <div className="cg-branch-table-wrap">
-      <table><thead><tr><th>Branch</th><th>Part</th><th>SKU</th>
-        <th>On hand</th><th>Reserved</th><th>Available</th></tr></thead>
-        <tbody>{balances.length ? balances.map((row) => <tr key={row.branchId + row.itemId}>
-          <td>{row.branchName}</td><td>{row.name}</td><td>{row.sku}</td>
-          <td>{row.onHand}</td><td>{row.reserved}</td><td>{row.available}</td>
-        </tr>) : <tr><td colSpan={6}>No branch balances found.</td></tr>}</tbody>
+    {tab === 'balances' && <div className="cg-branch-table-wrap cg-branch-balance-list">
+      <table role="table"><thead role="rowgroup"><tr role="row">
+        {['Branch', 'Part', 'SKU', 'On hand', 'Reserved', 'Available'].map((label) =>
+          <th key={label} role="columnheader" scope="col">{label}</th>,
+        )}
+      </tr></thead>
+        <tbody role="rowgroup">{balances.length ? balances.map((row) => <tr role="row" key={row.branchId + row.itemId}>
+          <td role="cell" className="cg-branch-balance-wide">
+            <span className="cg-branch-cell-label" aria-hidden="true">Branch</span>{row.branchName}
+          </td>
+          <td role="cell" className="cg-branch-balance-wide">
+            <span className="cg-branch-cell-label" aria-hidden="true">Part</span>
+            <StockProductLink itemId={row.itemId} branchId={row.branchId}>
+              <strong>{row.name || 'View Product'}</strong>
+            </StockProductLink>
+          </td>
+          <td role="cell" className="cg-branch-balance-wide">
+            <span className="cg-branch-cell-label" aria-hidden="true">SKU</span>{row.sku ? (
+            <StockProductLink itemId={row.itemId} branchId={row.branchId}>
+              <strong>{row.sku}</strong>
+            </StockProductLink>
+          ) : '—'}</td>
+          <td role="cell"><span className="cg-branch-cell-label" aria-hidden="true">On hand</span>{row.onHand}</td>
+          <td role="cell"><span className="cg-branch-cell-label" aria-hidden="true">Reserved</span>{row.reserved}</td>
+          <td role="cell"><span className="cg-branch-cell-label" aria-hidden="true">Available</span>{row.available}</td>
+        </tr>) : <tr role="row"><td role="cell" colSpan={6}>No branch balances found.</td></tr>}</tbody>
       </table>
     </div>}
     {tab === 'transfers' && <>
@@ -179,7 +198,7 @@ export default function InventoryBranchOperations({ onChanged }) {
         <p>Source available: {selected?.available ?? '—'}. A transfer never increases total workshop stock.</p>
         <button type="submit" disabled={saving}>{saving ? 'Transferring…' : 'Confirm Branch Transfer'}</button>
       </form>}
-      <div className="cg-branch-table-wrap"><table><thead><tr>
+      <div className="cg-branch-table-wrap" role="region" aria-label="Branch transfer history" tabIndex={0}><table><thead><tr>
         <th>Transfer</th><th>From</th><th>To</th><th>Status</th></tr></thead>
         <tbody>{transfers.length ? transfers.slice(0, 100).map((row) =>
           <tr key={row.id}><td>{row.number}</td>
@@ -205,7 +224,7 @@ export default function InventoryBranchOperations({ onChanged }) {
         </div>
         <button type="submit" disabled={saving}>{saving ? 'Reconciling…' : 'Save Audited Count'}</button>
       </form>}
-      <div className="cg-branch-table-wrap"><table><thead><tr>
+      <div className="cg-branch-table-wrap" role="region" aria-label="Physical count history" tabIndex={0}><table><thead><tr>
         <th>Part ID</th><th>Expected</th><th>Counted</th><th>Variance</th><th>Reason</th></tr></thead>
         <tbody>{counts.length ? counts.slice(0, 100).map((row) =>
           <tr key={row.id}><td>{row.item}</td><td>{row.expected_qty}</td>

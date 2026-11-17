@@ -2,12 +2,13 @@
  * mode; these starter choices also keep the form usable in mock/offline mode.
  */
 export const STARTER_VEHICLE_CATALOG = [
-  { make: 'Toyota', models: ['Innova', 'Innova Crysta', 'Innova Hycross', 'Fortuner', 'Etios', 'Glanza', 'Camry'] },
-  { make: 'Maruti Suzuki', models: ['Alto', 'Swift', 'Dzire', 'Baleno', 'Brezza', 'Ertiga', 'Wagon R', 'Fronx', 'Grand Vitara'] },
-  { make: 'Hyundai', models: ['Grand i10 Nios', 'i20', 'Creta', 'Venue', 'Verna', 'Aura', 'Exter'] },
-  { make: 'Tata', models: ['Tiago', 'Altroz', 'Punch', 'Nexon', 'Harrier', 'Safari'] },
-  { make: 'Mahindra', models: ['Bolero', 'Scorpio', 'Scorpio N', 'XUV3XO', 'XUV700', 'Thar'] },
+  { make: 'Toyota', models: ['Innova', 'Innova Crysta', 'Innova Hycross', 'Fortuner', 'Etios', 'Etios Liva', 'Glanza', 'Camry', 'Qualis', 'Yaris'] },
+  { make: 'Maruti Suzuki', models: ['Alto', 'Alto K10', 'Swift', 'Dzire', 'Baleno', 'Brezza', 'Ertiga', 'Wagon R', 'Fronx', 'Grand Vitara', 'Maruti 800', 'Celerio', 'Ciaz', 'Eeco', 'Ignis', 'Omni', 'Ritz', 'S-Presso'] },
+  { make: 'Hyundai', models: ['Grand i10 Nios', 'i10', 'i20', 'Creta', 'Venue', 'Verna', 'Aura', 'Exter', 'Eon', 'Grand i10', 'Santro', 'Xcent'] },
+  { make: 'Tata', models: ['Tiago', 'Tigor', 'Altroz', 'Punch', 'Nexon', 'Harrier', 'Safari', 'Indica', 'Indigo', 'Nano', 'Sumo', 'Zest'] },
+  { make: 'Mahindra', models: ['Bolero', 'Bolero Neo', 'Marazzo', 'Scorpio', 'Scorpio N', 'XUV3XO', 'XUV500', 'XUV700', 'Thar'] },
   { make: 'Honda', models: ['City', 'Amaze', 'Jazz', 'Elevate'] },
+  { make: 'Honda Motorcycle', models: ['Activa', 'Activa 125', 'Dio', 'Shine', 'Unicorn'] },
   { make: 'Kia', models: ['Seltos', 'Sonet', 'Carens', 'Syros'] },
   { make: 'Renault', models: ['Kwid', 'Triber', 'Kiger', 'Duster'] },
   { make: 'Nissan', models: ['Magnite', 'Micra', 'Kicks'] },
@@ -20,7 +21,7 @@ export const STARTER_VEHICLE_CATALOG = [
   { make: 'Royal Enfield', models: ['Classic 350', 'Bullet 350', 'Hunter 350', 'Himalayan'] },
   { make: 'Yamaha', models: ['FZ-S', 'R15', 'MT-15', 'Fascino'] },
   { make: 'Bajaj', models: ['Pulsar', 'Dominar', 'Platina', 'Avenger'] },
-  { make: 'TVS', models: ['Apache RTR', 'Jupiter', 'Ntorq', 'Raider'] },
+  { make: 'TVS', models: ['Apache RTR', 'Jupiter', 'Jupiter 125', 'Ntorq', 'Raider', 'Sport', 'XL100'] },
   { make: 'Hero', models: ['Splendor Plus', 'Passion', 'HF Deluxe', 'Xpulse'] },
 ];
 

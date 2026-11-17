@@ -6,6 +6,7 @@ import { Laptop, LogOut, Moon, Sun, X, UserRound, Store } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useTheme } from '../../hooks/useTheme';
 import { getUserRoleLabel } from '../../utils/authDisplay';
+import { useDialogAccessibility } from '../common/useDialogAccessibility';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/mobile-slide-sidebar.css';
 
@@ -20,20 +21,16 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
     .trim().split(/\s+/).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'CG';
   const activeItemRef = useRef(null);
 
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && isOpen) onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  const drawerRef = useRef(null);
+  useDialogAccessibility(isOpen, onClose, drawerRef);
 
   useEffect(() => {
     if (!isOpen) return undefined;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = previousOverflow; };
-  }, [isOpen]);
+    const desktop = window.matchMedia('(min-width: 768px)');
+    const closeOnDesktop = () => { if (desktop.matches) onClose(); };
+    desktop.addEventListener('change', closeOnDesktop);
+    return () => desktop.removeEventListener('change', closeOnDesktop);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (!isOpen || !activeItemRef.current) return undefined;
@@ -59,12 +56,21 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
       <button
         type="button"
         aria-label="Close menu backdrop"
+        tabIndex={-1}
+        aria-hidden={!isOpen}
         onClick={onClose}
         className={`mobile-drawer-backdrop ${isOpen ? 'is-open' : ''}`}
       />
 
       <aside
+        ref={drawerRef}
+        id="workspace-mobile-drawer"
+        role="dialog"
+        aria-label="Workspace menu"
+        aria-modal={isOpen || undefined}
+        tabIndex={-1}
         aria-hidden={!isOpen}
+        inert={!isOpen}
         className={`mobile-drawer ${isOpen ? 'is-open' : ''}`}
       >
         <header className="mobile-drawer-head">
@@ -87,7 +93,7 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
           <small>{visibleRoutes.length} available pages</small>
         </div>
 
-        <nav className="mobile-drawer-nav" aria-label="Mobile navigation">
+        <nav className="mobile-drawer-nav" aria-label="Workspace navigation">
           <section className="mobile-drawer-section">
             <div className="mobile-drawer-section-title">Your account</div>
             <div className="mobile-drawer-items">
@@ -138,13 +144,13 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
 
         <footer className="mobile-drawer-footer">
           <div className="mobile-drawer-theme">
-            <button type="button" className={themeMode === 'light' ? 'is-active' : ''} onClick={() => setThemeMode('light')}>
+            <button type="button" aria-label="Light theme" aria-pressed={themeMode === 'light'} className={themeMode === 'light' ? 'is-active' : ''} onClick={() => setThemeMode('light')}>
               <Sun size={14}/><span>Light</span>
             </button>
-            <button type="button" className={themeMode === 'dark' ? 'is-active' : ''} onClick={() => setThemeMode('dark')}>
+            <button type="button" aria-label="Dark theme" aria-pressed={themeMode === 'dark'} className={themeMode === 'dark' ? 'is-active' : ''} onClick={() => setThemeMode('dark')}>
               <Moon size={14}/><span>Dark</span>
             </button>
-            <button type="button" className={themeMode === 'system' ? 'is-active' : ''} onClick={() => setThemeMode('system')}>
+            <button type="button" aria-label="System theme" aria-pressed={themeMode === 'system'} className={themeMode === 'system' ? 'is-active' : ''} onClick={() => setThemeMode('system')}>
               <Laptop size={14}/><span>System</span>
             </button>
           </div>

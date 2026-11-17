@@ -9,11 +9,7 @@ export const InvoiceListHeader = ({ activeTab, onCreate, onFinance, onGSTR, onSu
   return (
     <header className="invoice-dashboard-header">
       <div className="cg-invoice-heading">
-        <span className="cg-invoice-eyebrow">WORKSHOP BILLING</span>
         <h1>{activeTab === 'estimate' ? 'Estimates' : 'Invoices'}</h1>
-        <p>{activeTab === 'estimate'
-          ? 'Create quotations, track approvals, and convert approved estimates to invoices.'
-          : 'Create customer bills, track payment status, and print saved invoices.'}</p>
       </div>
 
       <div className="invoice-dashboard-header-actions">

@@ -234,7 +234,8 @@ export function AccountsPage() {
           <h1>Add Cash or Bank Account</h1>
           <p>Set up a new bank or cash account for financial tracking.</p>
         </header>
-        <AccountForm onSave={handleCreate} onCancel={() => navigate(accountListPath)} saving={saving} error={formError} />
+        <AccountForm initial={{ ...emptyForm, kind: channel || emptyForm.kind }}
+          onSave={handleCreate} onCancel={() => navigate(accountListPath)} saving={saving} error={formError} />
       </div>
     );
   }

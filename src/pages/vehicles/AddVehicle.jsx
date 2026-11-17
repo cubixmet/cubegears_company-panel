@@ -12,6 +12,7 @@ import { customerService } from '../../services/customer.service';
 import { vehicleService } from '../../services/vehicle.service';
 import { vehiclePhotoService } from '../../services/vehiclePhoto.service';
 import { VehicleCameraQueue } from '../../components/vehicles/VehicleCameraQueue';
+import { VehicleMakeModelPicker } from '../../components/jobs/VehicleMakeModelPicker';
 import { Car, Calendar, Gauge, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import '../../styles/vehicle-management.css';
 import '../../styles/vehicle-camera-form-responsive.css';
@@ -178,24 +179,21 @@ export const AddVehicle = () => {
             />
           </div>
 
-          <Input
-            label="Make / Manufacturer"
-            data-vehicle-field="make"
-            error={fieldErrors.make}
-            required
-            placeholder="Toyota"
-            value={formData.make}
-            onChange={(e) => setFormData({ ...formData, make: e.target.value })}
-          />
-
-          <Input
-            label="Model"
-            data-vehicle-field="model"
-            error={fieldErrors.model}
-            required
-            placeholder="Innova 2.5V"
-            value={formData.model}
-            onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+          <VehicleMakeModelPicker
+            outlined
+            persistCustomOptions={false}
+            make={formData.make}
+            model={formData.model}
+            fieldErrors={fieldErrors}
+            disabled={submitting || Boolean(savedVehicleId)}
+            onMakeChange={(make) => {
+              setFormData((current) => current.make === make ? current : { ...current, make, model: '' });
+              setFieldErrors((current) => ({ ...current, make: '', model: '' }));
+            }}
+            onModelChange={(model) => {
+              setFormData((current) => ({ ...current, model }));
+              setFieldErrors((current) => ({ ...current, model: '' }));
+            }}
           />
 
           <Input
