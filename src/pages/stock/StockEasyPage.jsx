@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import apiClient from '../../api/apiClient';
 import { USE_MOCK_API } from '../../api/apiConfig';
 import { AlertTriangle, Boxes, ChevronRight, History, PackageMinus, PackagePlus, Plus, RefreshCw, Search, ShoppingCart, Wrench } from 'lucide-react';
@@ -13,6 +13,9 @@ import { CountryPhoneField } from '../../components/common/CountryPhoneField';
 import { stockState, ZERO_GST_CLASSIFICATIONS } from '../../utils/stockPresentation';
 import { validInternationalPhone } from '../../utils/jobCreateAdapters';
 import { supplierFinanceService } from '../../services/supplierFinance.service';
+import { InventorySyncControls } from '../../pwa/AppControls';
+import { useOfflineInventory } from '../../pwa/InventoryOfflineProvider';
+import { syncErrorKind } from '../../pwa/inventoryStore';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import StockFinanceConnections from '../../components/stock/StockFinanceConnections';
 import StockPurchaseStartDialog from '../../components/stock/StockPurchaseStartDialog';
@@ -25,13 +28,13 @@ import '../../styles/stock-form-polish.css';
 import '../../styles/stock-list-polish.css';
 
 const number = (value) => Number(value) || 0;
+const cash = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format;
 // Inventory uses the same CGST / SGST / IGST component options as invoices.
 const STOCK_GST_CHOICES = invoiceLineTaxChoices('unknown');
 const validGstRate = (value) =>
   /^\d{1,3}(?:\.\d{1,2})?$/.test(String(value)) &&
   Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= 100;
 const list = (result) => Array.isArray(result) ? result : (result?.results || []);
-const MAX_STOCK_QUANTITY = 9_999_999_999.99;
 const initialPart = { partName: '', partNumber: '', supplier: '', brand: '', category: '', unit: 'Piece',
   costPrice: '', sellingPrice: '', tax: '0', zeroTaxClassification: '', hsnCode: '', stockQuantity: '',
   minimumStock: '5', location: '', stockSource: '', requestKey: '', invoiceNumber: '', invoiceDate: '',
@@ -93,9 +96,11 @@ const initialMove = { mode: 'in', itemId: '', quantity: '1', invoiceNo: '', note
 
 export default function StockEasyPage() {
   const navigate = useNavigate();
-  const { can } = useFeatureAccess();
-  const canManageStock = can('stock.edit');
-  const canCreateStock = can('stock.create');
+  const { hash } = useLocation();
+  const { can, nextLabelExpiryAt } = useFeatureAccess();
+  const { offline, scope, snapshot, rememberInventory, enqueue } = useOfflineInventory();
+  const canManageStock = !offline && can('stock.edit');
+  const canCreateStock = offline ? snapshot?.create === true : can('stock.create');
   const canPurchaseStock = can('stock.view') && can('stock.create') &&
     can('stock.edit') && can('payments.view') && can('payments.create') &&
     !USE_MOCK_API;
@@ -108,7 +113,6 @@ export default function StockEasyPage() {
   const filterValue = searchParams.get('filter') || 'all';
   const filter = ['all', 'low', 'out'].includes(filterValue) ? filterValue : 'all';
   const supplierId = searchParams.get('supplier') || '';
-  const [branchBalances, setBranchBalances] = useState(USE_MOCK_API ? [] : null);
   const updateQueryParam = (key, value) => {
     const next = new URLSearchParams(searchParams);
     if (!value || value === 'all') next.delete(key);
@@ -120,7 +124,7 @@ export default function StockEasyPage() {
   const [supplier, setSupplier] = useState(null);
   const [supplierError, setSupplierError] = useState('');
   useEffect(() => {
-    if (!supplierId) { setSupplier(null); setSupplierError(''); return undefined; }
+    if (offline || !supplierId) { setSupplier(null); setSupplierError(''); return undefined; }
     let alive = true;
     setSupplier(null);
     setSupplierError('');
@@ -132,7 +136,7 @@ export default function StockEasyPage() {
       .then((data) => { if (alive) setSupplier(data); })
       .catch((cause) => { if (alive) setSupplierError(cause?.message || 'Supplier not found or unavailable.'); });
     return () => { alive = false; };
-  }, [supplierId]);
+  }, [supplierId, offline]);
   const [items, setItems] = useState([]);
   const [remoteMatches, setRemoteMatches] = useState(null);
   const [rackLocations, setRackLocations] = useState([]);
@@ -176,19 +180,37 @@ export default function StockEasyPage() {
   const [receiveItem, setReceiveItem] = useState(null);
 
   const reload = async () => {
+    if (offline) {
+      setCategories(snapshot?.categories || []);
+      setSuppliers(snapshot?.suppliers || []);
+      setRackLocations(snapshot?.racks || []);
+      setError('');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setFinanceLoading(canViewSupplierFinance);
     setFinanceError('');
     if (!canViewSupplierFinance) setSupplierBalances(null);
     try {
-      const [inventory, stats, movements, groups, vendors, supplierCredit] = await Promise.allSettled([
+      const [inventory, stats, movements, groups, vendors, supplierCredit, racks] = await Promise.allSettled([
         stockCatalogService.getItems(),
         stockCatalogService.getStockDashboard(),
         stockCatalogService.getLedger(),
         stockCatalogService.getCategories(),
         stockCatalogService.getSuppliers(),
         canViewSupplierFinance ? supplierFinanceService.getSupplierBalances() : Promise.resolve(null),
+        scope ? stockCatalogService.getRackLocations() : Promise.resolve([]),
       ]);
+      if (!navigator.onLine) return;
+      if (inventory.status === 'fulfilled' && groups.status === 'fulfilled' &&
+          (vendors.status === 'fulfilled' || vendors.reason?.status === 403) && can('stock.view')) {
+        const expiresAt = Math.min(Date.now() + 24 * 60 * 60 * 1000, Date.parse(nextLabelExpiryAt) || Infinity);
+        await rememberInventory({
+          items: list(inventory.value), categories: list(groups.value), suppliers: list(vendors.value),
+          racks: list(racks.value), create: canCreateStock, expiresAt,
+        }).catch(() => {});
+      }
       if (inventory.status === 'fulfilled') {
         setItems(list(inventory.value).sort((a, b) =>
           String(b.created_at || b.createdAt || '').localeCompare(String(a.created_at || a.createdAt || ''))
@@ -218,11 +240,23 @@ export default function StockEasyPage() {
 
   // Feature access loads asynchronously. Reload supplier balances when the
   // logged-in role is resolved without ever querying restricted Finance data.
-  useEffect(() => { reload(); }, [canViewSupplierFinance]);
+  useEffect(() => { reload(); }, [canViewSupplierFinance, canCreateStock, offline, rememberInventory]);
+  useEffect(() => {
+    if (offline) {
+      setCategories(snapshot?.categories || []);
+      setSuppliers(snapshot?.suppliers || []);
+      setRackLocations(snapshot?.racks || []);
+    }
+  }, [offline, snapshot?.categories, snapshot?.suppliers, snapshot?.racks]);
+  useEffect(() => {
+    const refresh = () => { if (!offline) void reload(); };
+    window.addEventListener('cubixgear:inventory-synced', refresh);
+    return () => window.removeEventListener('cubixgear:inventory-synced', refresh);
+  });
 
   // Query the persisted backend catalogue rather than only the currently loaded page.
   useEffect(() => {
-    if (!query.trim()) { setRemoteMatches(null); return undefined; }
+    if (offline || !query.trim()) { setRemoteMatches(null); return undefined; }
     let alive = true;
     const timer = setTimeout(() => {
       stockCatalogService.getItems(query.trim())
@@ -230,10 +264,10 @@ export default function StockEasyPage() {
         .catch(() => { if (alive) setRemoteMatches(null); });
     }, 200);
     return () => { alive = false; clearTimeout(timer); };
-  }, [query]);
+  }, [query, offline]);
 
   useEffect(() => {
-    if (!partOpen || partMode !== 'new') return undefined;
+    if (offline || !partOpen || partMode !== 'new') return undefined;
     let alive = true;
     const timer = setTimeout(() => {
       stockCatalogService.getRackLocations(part.location.trim())
@@ -241,7 +275,7 @@ export default function StockEasyPage() {
         .catch(() => { if (alive) setRackLocations([]); });
     }, 180);
     return () => { alive = false; clearTimeout(timer); };
-  }, [partOpen, partMode, part.location]);
+  }, [offline, partOpen, partMode, part.location]);
 
   const filtered = useMemo(() => (remoteMatches ?? items).filter((item) => {
     const search = [item.partName, item.name, item.partNumber, item.sku, item.barcode, item.brand, item.rack, item.location, item.supplierName, item.categoryName]
@@ -262,12 +296,12 @@ export default function StockEasyPage() {
   ).slice(0, 8), [items, partLookup]);
   const brands = useMemo(() => {
     const names = new Map();
-    for (const value of [...items.map((item) => item.brand), ...draftBrands]) {
+    for (const value of (offline ? snapshot?.brands || [] : [...items.map((item) => item.brand), ...draftBrands])) {
       const name = String(value ?? '').trim();
       if (name && !names.has(name.toLowerCase())) names.set(name.toLowerCase(), name);
     }
     return [...names.values()].sort((a, b) => a.localeCompare(b));
-  }, [items, draftBrands]);
+  }, [items, draftBrands, offline, snapshot?.brands]);
   const receiptMatches = useMemo(() => items.filter((item) =>
     [item.partName, item.partNumber, item.sku, item.barcode, item.brand].join(' ').toLowerCase().includes(moveLookup.trim().toLowerCase())
   ).slice(0, 12), [items, moveLookup]);
@@ -281,7 +315,7 @@ export default function StockEasyPage() {
   };
   const openPartDialog = (lookup = '') => {
     setError('');
-    setPart({ ...initialPart, supplier: supplierId });
+    setPart({ ...initialPart, supplier: supplierId, stockSource: offline ? 'opening' : '' });
     setPartGstChoice('none');
     setPartErrors({});
     setQuickSupplierOpen(false);
@@ -298,6 +332,7 @@ export default function StockEasyPage() {
   };
 
   const openPartChoice = (kind) => {
+    if (offline) { setError('Connect to the internet to add catalogue options.'); return; }
     setQuickSupplierOpen(false);
     setPartChoice({ kind, name: '', parent: '', error: '' });
   };
@@ -326,6 +361,7 @@ export default function StockEasyPage() {
   };
 
   const createQuickSupplier = async () => {
+    if (offline) { setQuickSupplierError('Connect to the internet to add a supplier.'); return; }
     if (quickSupplierSaving || !quickSupplier.name.trim()) {
       setQuickSupplierError('Supplier Name is required.');
       return;
@@ -354,6 +390,7 @@ export default function StockEasyPage() {
   };
 
   const beginMove = (mode, itemId = '', partItem = null) => {
+    if (offline) { setError('Stock receipts and issues require an internet connection.'); return; }
     setError('');
     // Supplier purchases must use the canonical bill + GST + Finance workflow.
     // Selecting a supplier in this dialog is sufficient for catalog items that
@@ -390,7 +427,8 @@ export default function StockEasyPage() {
 
   const selectedPartSupplier = suppliers.find(supplier => String(supplier.id) === String(part.supplier));
   const partSupplierGstin = normalizeSupplierGstin(selectedPartSupplier?.gstin || selectedPartSupplier?.gstNo);
-  const stockSource = number(part.stockQuantity) > 0 ? part.stockSource : '';
+  const stockSource = number(part.stockQuantity) > 0
+    ? part.stockSource || (offline ? 'opening' : '') : '';
   const isCreditPurchase = stockSource === 'credit';
   const isSupplierStep = stockSource === 'supplier';
 
@@ -438,6 +476,16 @@ export default function StockEasyPage() {
       partFormRef.current?.querySelector('[data-field="stockSource"]')?.focus();
       return;
     }
+    if (offline && (isCreditPurchase || isSupplierStep)) {
+      setError('Supplier purchases require an internet connection.');
+      return;
+    }
+    if (offline && ((part.category && !snapshot?.categories.some(row => String(row.id) === part.category && row.is_active !== false)) ||
+        (part.supplier && !snapshot?.suppliers.some(row => String(row.id) === part.supplier && row.is_active !== false)) ||
+        (part.brand && !snapshot?.brands.includes(part.brand)))) {
+      setError('Choose from the catalogue options saved on this device.');
+      return;
+    }
     if ((isCreditPurchase || isSupplierStep) && !canPurchaseStock) {
       setError('Receiving a purchase needs Stock Edit and Payments permissions. You may save the product with quantity 0.');
       return;
@@ -460,23 +508,45 @@ export default function StockEasyPage() {
     setSaving(true);
     setError('');
     try {
-      const created = await stockCatalogService.createItem({
+      const input = {
         ...part, reserved: 0, reorderLevel: number(part.minimumStock),
         costPrice: number(part.costPrice), sellingPrice: number(part.sellingPrice),
         tax: Number(part.tax), zeroTaxClassification: Number(part.tax) === 0 ? part.zeroTaxClassification : '',
         hsnCode: part.hsnCode.trim(),
         minimumStock: number(part.minimumStock),
         stockQuantity: stockSource === 'opening' ? quantity : 0,
-        requestKey: stockSource === 'opening' || isCreditPurchase ? part.requestKey : '',
+        requestKey: stockSource === 'opening' || isCreditPurchase || (scope && !isSupplierStep) ? part.requestKey : '',
         ...(isCreditPurchase ? { purchase: {
           quantity: quantityText, invoiceNumber: part.invoiceNumber.trim(), invoiceDate: part.invoiceDate,
           placeOfSupply: partSupplierGstin ? part.placeOfSupply : undefined,
         } } : {}),
-      });
+      };
+      let created;
+      let queued = false;
+      if ((offline || (scope && snapshot?.create)) && !isCreditPurchase && !isSupplierStep) {
+        const payload = await stockCatalogService.openingStockPayload(input, scope);
+        if (!offline) {
+          try {
+            created = await stockCatalogService.createOpeningStock(payload);
+          } catch (exception) {
+            if (syncErrorKind(exception) !== 'retry') throw exception;
+          }
+        }
+        if (!created) {
+          await enqueue(payload);
+          queued = true;
+        }
+      } else {
+        created = await stockCatalogService.createItem(input);
+      }
       setPartOpen(false);
       setPart(initialPart);
       setPartLookup('');
       setPartMode('find');
+      if (queued) {
+        setSuccess('Saved on this device · Pending sync');
+        return;
+      }
       if (isSupplierStep && created?.id) {
         navigate('/suppliers/' + encodeURIComponent(part.supplier) + '#supplier-purchase-form', {
           state: {
@@ -513,6 +583,7 @@ export default function StockEasyPage() {
   const saveMovement = async (event) => {
     event.preventDefault();
     if (saving) return;
+    if (offline) { setError('Stock receipts and issues require an internet connection.'); return; }
     if (move.mode === 'in' && !USE_MOCK_API) {
       // Legacy stock-in modal must not create an unbilled purchase.
       // Supplier purchase posting is the only normal Stock purchase action.
@@ -567,15 +638,17 @@ export default function StockEasyPage() {
         </div>
         <div className="cg-easy-actions">
           <button type="button" className="cg-easy-secondary" onClick={reload} disabled={loading}><RefreshCw size={16}/> Refresh</button>
-          {canPurchaseStock && <button type="button" className="cg-easy-secondary"
+          {(offline || canPurchaseStock) && <button type="button" className="cg-easy-secondary"
             onClick={() => beginMove('in')}><PackagePlus size={16}/> Receive Purchase</button>}
           {canCreateStock && <button type="button" className="cg-easy-primary" onClick={() => openPartDialog()}><Plus size={16}/> Add New Part</button>}
         </div>
       </header>
 
+      <InventorySyncControls />
+      {offline && <p className="cg-easy-hint">Opening stock can be saved on this device. Branch stock, transfers and purchases require an internet connection.</p>}
       {error && !partOpen && !moveOpen && <div className="cg-easy-alert" role="alert">{error}</div>}
       {success && <div className="cg-easy-success" role="status">{success}<button type="button" onClick={() => setSuccess('')}>Dismiss</button></div>}
-      {supplierId && (
+      {!offline && supplierId && (
         <section className="cg-easy-supplier-detail" aria-label="Selected supplier details">
           <div>
             <h2>{supplier?.name || 'Supplier details'}</h2>
@@ -593,7 +666,7 @@ export default function StockEasyPage() {
         </section>
       )}
 
-      <section className="cg-easy-metrics" aria-label="Inventory summary">
+      {!offline && <><section className="cg-easy-metrics" aria-label="Inventory summary">
         {[
           { label: 'Total parts', value: dashboard?.totalItems ?? items.length, icon: Boxes },
           { label: 'Stock value', value: canManageStock ? cash(totalValue) : 'Restricted', icon: ShoppingCart },
@@ -696,10 +769,10 @@ export default function StockEasyPage() {
         <div className="cg-easy-history">{ledger.length ? ledger.slice(0, 5).map((entry) => (
           <div key={entry.id} className="cg-easy-history-row"><div><strong>{entry.partName || entry.itemName || 'Stock Item'}</strong><small>{entry.type || entry.movement_type || 'Movement'}</small></div><b>{number(entry.quantity ?? entry.qty) > 0 ? '+' : ''}{number(entry.quantity ?? entry.qty)}</b></div>
         )) : <p>No stock movements yet.</p>}</div>
-      </section>
+      </section></>}
 
       <StockPurchaseStartDialog
-        isOpen={receiveOpen}
+        isOpen={receiveOpen && !offline}
         items={items}
         suppliers={suppliers}
         initialItem={receiveItem}
@@ -716,7 +789,8 @@ export default function StockEasyPage() {
               <div className="cg-easy-picker-search"><Search size={17}/><input autoFocus placeholder="Search existing products..." value={partLookup} onChange={(event) => setPartLookup(event.target.value)} /></div>
             </label>
             <div className="cg-easy-pick-list">
-              {matchingParts.length ? matchingParts.map((item) => (
+              {offline ? <p className="cg-easy-hint">Existing product search requires an internet connection.</p>
+              : matchingParts.length ? matchingParts.map((item) => (
                 <button key={item.id} type="button" onClick={() => { setPartOpen(false); beginMove('in', item.id, item); }}>
                   <span><strong>{item.partName || item.name}</strong><small>{item.sku || 'No SKU'} · {item.available} available</small></span>
                   <span>Receive </span>
@@ -724,12 +798,12 @@ export default function StockEasyPage() {
               )) : <p className="cg-easy-hint">No existing products matched your search.</p>}
             </div>
             <button type="button" className="cg-easy-new-product" onClick={() => {
-              const exists = matchingParts.some((item) =>
+              const exists = !offline && matchingParts.some((item) =>
                 (item.partName || item.name || '').toLowerCase() === partLookup.trim().toLowerCase());
               if (exists) { setError('This part already exists. Select it from the list above.'); return; }
               setError('');
               setPart({ ...initialPart, supplier: supplierId, partName: partLookup.trim(),
-                requestKey: inventoryRequestKey(), invoiceDate: localDate() });
+                requestKey: inventoryRequestKey(), invoiceDate: localDate(), stockSource: offline ? 'opening' : '' });
               setPartMode('new');
             }}><Plus size={17}/> Add as New Product</button>
             {error && <p className="cg-easy-alert" role="alert">{error}</p>}
@@ -753,7 +827,10 @@ export default function StockEasyPage() {
                 {suppliers.filter(x => x.is_active !== false).map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
               </OutlinedSelect>
               <button type="button" className="cg-easy-option-add" disabled={partChoiceSaving}
-                onClick={() => { setPartChoice(null); setQuickSupplierOpen(v => !v); setQuickSupplierError(''); }}>
+                onClick={() => {
+                  if (offline) { setError('Connect to the internet to add a supplier.'); return; }
+                  setPartChoice(null); setQuickSupplierOpen(v => !v); setQuickSupplierError('');
+                }}>
                 <Plus size={15}/> Add Supplier
               </button>
             </div>
@@ -838,7 +915,7 @@ export default function StockEasyPage() {
                 ))}
                 <option value="custom">Saved/Other HSN-Specific Rate (custom %)</option>
               </OutlinedSelect>
-              <OutlinedInput label="Purchase / Opening Quantity" type="number" min="0" max="1000000" step="0.01"
+              <OutlinedInput label={offline ? 'Opening Stock Quantity' : 'Purchase / Opening Quantity'} type="number" min="0" max="1000000" step="0.01"
                 inputMode="decimal" data-field="stockQuantity" aria-invalid={Boolean(partErrors.stockQuantity)}
                 value={part.stockQuantity} onChange={e => {
                   setPart({ ...part, stockQuantity: e.target.value });
@@ -853,7 +930,7 @@ export default function StockEasyPage() {
                 }}/>
               {partErrors.stockQuantity && <p className="cg-easy-alert" role="alert">{partErrors.stockQuantity}</p>}
             </div>
-            {number(part.stockQuantity) > 0 && (
+            {number(part.stockQuantity) > 0 && !offline && (
               <OutlinedSelect label="Stock Source *" aria-label="Stock Source" data-field="stockSource"
                 required value={part.stockSource} onChange={e => {
                   setPart({ ...part, stockSource: e.target.value });
@@ -920,39 +997,9 @@ export default function StockEasyPage() {
               <OutlinedInput label="Purchase Price (₹) *" required type="number" min="0" step="0.01" value={part.costPrice} onChange={e => setPart({ ...part, costPrice: e.target.value })}/>
               <OutlinedInput label="Selling Price (₹) *" required type="number" min="0" step="0.01" value={part.sellingPrice} onChange={e => setPart({ ...part, sellingPrice: e.target.value })}/>
             </div>
-            <div className="cg-easy-fields">
-              {canPurchaseStock && (
-                <OutlinedSelect label="Stock Source" value={part.stockSource} onChange={e => {
-                  setPart(previous => ({ ...previous, stockSource: e.target.value }));
-                  setPartErrors(previous => ({ ...previous, stockQuantity: '' }));
-                  setError('');
-                }}>
-                  <option value="opening">Opening Stock (already on hand)</option>
-                  <option value="purchase">Supplier Purchase</option>
-                </OutlinedSelect>
-              )}
-              <OutlinedInput label={isSupplierPurchase ? 'Purchase Quantity *' : 'Opening Stock Quantity'}
-                type="number" min={isSupplierPurchase ? '0.01' : '0'} max={MAX_STOCK_QUANTITY}
-                step="0.01" inputMode="decimal" required={isSupplierPurchase}
-                data-field="stockQuantity" aria-invalid={Boolean(partErrors.stockQuantity)}
-                aria-describedby={partErrors.stockQuantity ? 'part-quantity-error part-stock-hint' : 'part-stock-hint'}
-                value={part.stockQuantity} onChange={e => {
-                  setPart(previous => ({ ...previous, stockQuantity: e.target.value }));
-                  setPartErrors(previous => ({ ...previous, stockQuantity: '' }));
-                }} onInvalid={event => {
-                  event.preventDefault();
-                  setPartErrors(previous => ({ ...previous, stockQuantity: quantityError }));
-                  event.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  event.currentTarget.focus();
-                }}/>
-            </div>
-            {partErrors.stockQuantity && (
-              <p id="part-quantity-error" className="cg-easy-alert" role="alert">{partErrors.stockQuantity}</p>
-            )}
-            <p id="part-stock-hint" className="cg-easy-hint cg-easy-part-guidance">
-              {isSupplierPurchase
-                ? 'Choose a supplier and post the purchase bill to receive this quantity into stock.'
-                : 'Enter the quantity already on hand. It becomes available in Inventory as soon as you save.'}
+            <p className="cg-easy-hint cg-easy-part-guidance">
+              {offline ? 'Opening stock will count as available after sync.' :
+                'Opening stock becomes available in Inventory after saving.'}
             </p>
             <div className="cg-easy-fields">
               <OutlinedInput label="Minimum Stock" type="number" min="0" step="0.01" value={part.minimumStock} onChange={e => setPart({ ...part, minimumStock: e.target.value })}/>
@@ -970,7 +1017,7 @@ export default function StockEasyPage() {
         )}
       </ResponsiveModalSheet>
 
-      <ResponsiveModalSheet isOpen={moveOpen} onClose={() => !saving && setMoveOpen(false)} title={move.mode === 'in' ? 'Receive Stock' : 'Internal Use — Stock Out'} maxWidth="590px">
+      <ResponsiveModalSheet isOpen={moveOpen && !offline} onClose={() => !saving && setMoveOpen(false)} title={move.mode === 'in' ? 'Receive Stock' : 'Internal Use — Stock Out'} maxWidth="590px">
         <form className="cg-easy-form" onSubmit={saveMovement}>
           {error && <p className="cg-easy-alert" role="alert">{error}</p>}
           {move.mode === 'out' && <p className="cg-easy-hint">For customer vehicle repairs, issue stock on the Job Card Parts page instead. This action records internal workshop consumption only.</p>}

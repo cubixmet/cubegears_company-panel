@@ -6,6 +6,7 @@ import {
   QuickActionsPanel,
   ServiceOperations,
 } from '../../components/dashboard';
+import { DashboardAttendance } from '../../components/dashboard/DashboardAttendance';
 import { Loader } from '../../components/common/Loader';
 import { useAuth } from '../../hooks/useAuth';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
@@ -73,6 +74,7 @@ export const Dashboard = () => {
       <section className="dashboard-top-actions" aria-label="Dashboard Quick Actions">
         <QuickActionsPanel onNavigate={navigate} />
       </section>
+      {can('attendance.self') && <DashboardAttendance key={user?.id} />}
       <DashboardStats data={data} />
 
       {can('jobs.view') && <ServiceOperations

@@ -46,14 +46,14 @@ const resolveSupplierId = async (value) => {
   )?.id || null;
 };
 
-const productPayload = async (payload, { creating = false } = {}) => {
+const productPayload = async (payload, { creating = false, resolvedOptions = false } = {}) => {
   const part = {
     partName: payload.partName || payload.name || '',
     ...(payload.sku?.trim() ? { sku: payload.sku.trim() } : {}),
     partNumber: payload.partNumber?.trim() || '',
     barcode: payload.barcode || '',
     brand: payload.brand || '',
-    category: await resolveCategoryId(payload.category),
+    category: resolvedOptions ? payload.category || null : await resolveCategoryId(payload.category),
     unit: payload.unit || 'Piece',
     costPrice: number(payload.costPrice ?? payload.cost),
     sellingPrice: number(payload.sellingPrice ?? payload.price),
@@ -61,7 +61,7 @@ const productPayload = async (payload, { creating = false } = {}) => {
     reorderLevel: number(payload.reorderLevel ?? payload.minimumStock ?? payload.minimum),
     compatibleVehicle: payload.compatibleVehicle || 'Universal',
     location: payload.location || payload.rack || '',
-    supplier: await resolveSupplierId(payload.supplier),
+    supplier: resolvedOptions ? payload.supplier || null : await resolveSupplierId(payload.supplier),
     tax: number(payload.tax),
     zeroTaxClassification: number(payload.tax) === 0 ? (payload.zeroTaxClassification || '') : '',
     hsnCode: payload.hsnCode || '',
@@ -88,6 +88,11 @@ export const stockCatalogService = {
     return item ? toPart(item) : null;
   },
   getBranchBalances: async () => USE_MOCK_API ? [] : rows(await apiClient.get('/stock/branch-balances')),
+  openingStockPayload: async (payload, scope) => ({
+    ...await productPayload(payload, { creating: true, resolvedOptions: true }),
+    offlineScope: scope,
+  }),
+  createOpeningStock: async (payload) => toPart(await apiClient.post('/stock', payload)),
   createItem: async (payload) => {
     if (USE_MOCK_API) {
       if (!payload.partName?.trim()) {

@@ -1,5 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
-import { useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+import { useOfflineInventory } from '../../pwa/InventoryOfflineProvider';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -9,6 +11,8 @@ import '../../styles/layout.css';
 
 export const DashboardLayout = ({ children }) => {
   const location = useLocation();
+  const { offline, snapshot } = useOfflineInventory();
+  const { logout } = useAuth();
   const scrollAreaRef = useRef(null);
 
   // This layout uses its own scrolling <main>, not the browser window.
@@ -28,9 +32,15 @@ export const DashboardLayout = ({ children }) => {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      {!offline && <Sidebar />}
       <div className="app-main-column">
-        <Header />
+        {offline ? (
+          <nav className="cg-pwa-controls cg-pwa-offline-nav" aria-label="Offline workspace">
+            {snapshot && <Link to="/stock">Inventory</Link>}
+            <Link to="/settings">Settings</Link>
+            <button type="button" onClick={logout}>Sign out</button>
+          </nav>
+        ) : <Header />}
 
         <main className="app-scroll-area" ref={scrollAreaRef}>
           <div className={`app-content ${useDashboardSpacing ? 'is-dashboard-content' : ''}`}>
@@ -38,14 +48,14 @@ export const DashboardLayout = ({ children }) => {
             {children}
           </div>
 
-          {!isInvoiceWorkspace && <Footer />}
+          {!offline && !isInvoiceWorkspace && <Footer />}
         </main>
       </div>
 
       {/* Keep mobile navigation available on every protected workspace route,
           including invoice and estimate pages; document previews still omit
           the nonessential footer. */}
-      <MobileBottomNav />
+      {!offline && <MobileBottomNav />}
     </div>
   );
 };

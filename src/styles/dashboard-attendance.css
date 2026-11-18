@@ -1,0 +1,32 @@
+.dashboard-page .dashboard-attendance {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.dashboard-attendance-header,
+.dashboard-attendance-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+.dashboard-attendance-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.dashboard-attendance-header a,
+.dashboard-attendance-error button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--primary);
+}
+
+.dashboard-attendance .attendance-punch-card {
+  width: 100%;
+}

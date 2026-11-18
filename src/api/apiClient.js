@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_CONFIG } from './apiConfig';
+import { forgetVerifiedSession } from '../pwa/session';
 import { safeApiErrorMessage, isHtmlResponse } from '../utils/safeApiErrorMessage';
 
 export const apiClient = axios.create(API_CONFIG);
@@ -15,6 +16,7 @@ const clearAuth = () => {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('auth_refresh_token');
   localStorage.removeItem('auth_user');
+  forgetVerifiedSession();
 };
 
 const redirectToLogin = () => {
@@ -30,8 +32,8 @@ const refreshAccessToken = async () => {
   const refresh = localStorage.getItem('auth_refresh_token');
   if (!refresh) throw new Error('No refresh token available.');
 
-  if (!refreshPromise) {
-    refreshPromise = axios
+  if (!refreshPromise || refreshPromise.token !== refresh) {
+    const request = axios
       .post(
         `${API_CONFIG.baseURL}/auth/refresh`,
         { refresh },
@@ -44,6 +46,9 @@ const refreshAccessToken = async () => {
         }
       )
       .then(({ data }) => {
+        if (localStorage.getItem('auth_refresh_token') !== refresh) {
+          throw new Error('Sign-in changed while refreshing the session.');
+        }
         const access = data?.access;
         if (!access) throw new Error('Token refresh did not return an access token.');
 
@@ -56,11 +61,12 @@ const refreshAccessToken = async () => {
         return access;
       })
       .finally(() => {
-        refreshPromise = null;
+        if (refreshPromise?.request === request) refreshPromise = null;
       });
+    refreshPromise = { token: refresh, request };
   }
 
-  return refreshPromise;
+  return refreshPromise.request;
 };
 
 apiClient.interceptors.request.use(
@@ -83,7 +89,13 @@ apiClient.interceptors.response.use(
     const status = error?.response?.status;
     const originalRequest = error?.config;
     const isAuthRequest = isPublicAuthRequest(originalRequest?.url);
-
+    const sentToken = originalRequest?.headers?.get?.('Authorization') || originalRequest?.headers?.Authorization;
+    const currentToken = localStorage.getItem('auth_token');
+    if (status === 401 && !isAuthRequest && sentToken !== `Bearer ${currentToken}`) {
+      const expired = new Error('Sign-in changed. Retry with the current account.');
+      expired.status = 401;
+      return Promise.reject(expired);
+    }
 
     if (
       status === 401 &&
@@ -94,13 +106,15 @@ apiClient.interceptors.response.use(
     ) {
       originalRequest._cubixgearRetried = true;
 
+      const refreshAtStart = localStorage.getItem('auth_refresh_token');
       let access;
       try {
         access = await refreshAccessToken();
       } catch (refreshError) {
         // Invalid/revoked refresh credentials end the session. A temporary
         // API outage must NOT destroy a valid saved session on every page.
-        if ([400, 401, 403].includes(refreshError?.response?.status)) {
+        if ([400, 401, 403].includes(refreshError?.response?.status) &&
+            localStorage.getItem('auth_refresh_token') === refreshAtStart) {
           clearAuth();
           redirectToLogin();
           const expired = new Error('Your session expired. Please sign in again.');

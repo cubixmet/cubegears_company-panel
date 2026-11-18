@@ -1,5 +1,6 @@
 
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useOfflineInventory } from '../pwa/InventoryOfflineProvider';
 import { useAuth } from '../hooks/useAuth';
 import { SaaSAccountLayout, WorkspaceAccessNotice } from '../components/layout/SaaSAccountLayout';
 import { isAccountPath, isAccountOnly, setupRedirect } from '../utils/accountWorkspace';
@@ -11,6 +12,7 @@ export const ProtectedRoute = () => {
   const { isAuthenticated, loading, user, sessionError, retrySession } = useAuth();
   const featureAccess = useFeatureAccess();
   const location = useLocation();
+  const { offline, ready, snapshot } = useOfflineInventory();
 
   if (loading) {
     return (
@@ -48,6 +50,22 @@ export const ProtectedRoute = () => {
         }}>Retry Connection</button>
       </section>
     );
+  }
+
+  if (offline) {
+    if (isAuthenticated && !ready) return <p role="status">Loading offline Inventory…</p>;
+    if (isAuthenticated && (location.pathname === '/settings' ||
+        (snapshot && (location.pathname === '/stock' || location.pathname === '/')))) {
+      return <DashboardLayout><Outlet /></DashboardLayout>;
+    }
+    const notice = <section className="cg-pwa-controls" role="status">
+        <strong>Offline</strong>
+        <p>{snapshot
+          ? 'This page requires an internet connection.'
+          : 'Open Inventory online with a verified account to use it offline.'}</p>
+        {snapshot && <Link to="/stock">Open Inventory</Link>}
+      </section>;
+    return isAuthenticated ? <DashboardLayout>{notice}</DashboardLayout> : notice;
   }
 
   if (!isAuthenticated) {

@@ -49,7 +49,7 @@ const writeMockBranches = (rows) => {
 export const branchService = {
   getBranches: async () => {
     if (!USE_MOCK_API) {
-      const rows = await apiClient.get('/branches');
+      const rows = await apiClient.get('/branches/');
       return Array.isArray(rows) ? rows : rows?.results || [];
     }
     return readMockBranches();
@@ -76,7 +76,7 @@ export const branchService = {
 
   createBranch: async (data) => {
     if (!USE_MOCK_API) {
-      return apiClient.post('/branches', {
+      return apiClient.post('/branches/', {
         name: data.name,
         code: data.code,
         phone: data.phone || '',

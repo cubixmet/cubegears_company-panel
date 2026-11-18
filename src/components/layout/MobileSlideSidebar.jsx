@@ -8,6 +8,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { getUserRoleLabel } from '../../utils/authDisplay';
 import { useDialogAccessibility } from '../common/useDialogAccessibility';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
+import { InstallAppControls } from '../../pwa/AppControls';
 import '../../styles/mobile-slide-sidebar.css';
 
 export const MobileSlideSidebar = ({ isOpen, onClose }) => {
@@ -105,6 +106,7 @@ export const MobileSlideSidebar = ({ isOpen, onClose }) => {
                 <span className="mobile-drawer-item-icon"><Store size={17}/></span>
                 <span className="mobile-drawer-item-label">Shop Details</span>
               </NavLink>}
+              {isOpen && <InstallAppControls inDrawer />}
             </div>
           </section>
           {sections.map((section) => {

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import apiClient from '../api/apiClient';
 import { useLocation } from 'react-router-dom';
 import { isAccountOnly } from '../utils/accountWorkspace';
+import { useOfflineInventory } from '../pwa/InventoryOfflineProvider';
 import { useAuth } from '../hooks/useAuth';
 
 // UI filtering only. Django tenant permissions and entitlements remain authoritative.
@@ -49,6 +50,7 @@ export function moduleIsVisible(access, permission) {
 export function FeatureAccessProvider({ children }) {
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
+  const { offline, restrictInventory } = useOfflineInventory();
   const userKey = userIdentity(user);
   const [access, setAccess] = useState(LOCKED);
   const [loading, setLoading] = useState(false);
@@ -56,6 +58,7 @@ export function FeatureAccessProvider({ children }) {
 
   const refresh = useCallback(async () => {
     const requestId = ++latestRequestRef.current;
+    if (offline) return;
     if (!isAuthenticated || !userKey) {
       setAccess(LOCKED);
       setLoading(false);
@@ -103,7 +106,7 @@ export function FeatureAccessProvider({ children }) {
     } finally {
       if (requestId === latestRequestRef.current) setLoading(false);
     }
-  }, [isAuthenticated, userKey]);
+  }, [isAuthenticated, userKey, offline]);
 
   useEffect(() => {
     refresh();
@@ -141,6 +144,12 @@ export function FeatureAccessProvider({ children }) {
     // Always trust the freshly verified server permission intersection, even when paid gating is off.
     return current.permissions.includes(permission);
   }, [isAuthenticated, checking, current]);
+
+  useEffect(() => {
+    if (!offline && !checking && !current.unavailable && (!can('stock.view') || !can('stock.create'))) {
+      void restrictInventory(can('stock.view')).catch(() => {});
+    }
+  }, [offline, checking, current, can, restrictInventory]);
 
   const value = useMemo(() => ({ ...current, loading: checking, refresh, can }), [current, checking, refresh, can]);
   return <FeatureAccessContext.Provider value={value}>{children}</FeatureAccessContext.Provider>;

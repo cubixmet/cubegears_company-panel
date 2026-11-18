@@ -1,3 +1,4 @@
+import { useOfflineInventory } from '../pwa/InventoryOfflineProvider';
 import { useEffect } from 'react';
 import { lazyPage } from './lazyPage';
 const OwnerCompanyProfile = lazyPage(() => import('../pages/saas/OwnerCompanyProfile'), 'OwnerCompanyProfile');
@@ -118,10 +119,11 @@ function PublicSignupRedirect() {
 function RootRedirect() {
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
+  const { offline } = useOfflineInventory();
 
   return (
     <Navigate
-      to={`${isAuthenticated ? getStaffLandingPath(user) : "/dashboard"}${location.search}`}
+      to={`${offline ? "/stock" : isAuthenticated ? getStaffLandingPath(user) : "/dashboard"}${location.search}`}
       replace
     />
   );

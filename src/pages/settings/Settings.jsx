@@ -1,3 +1,5 @@
+import { InstallAppControls, InventorySyncControls } from '../../pwa/AppControls';
+import { useOffline } from '../../pwa/connectivity';
 import { useContext, useEffect, useMemo, useState } from "react";
 import { Bell, Boxes, Building2, Clock3, CreditCard, Plug, ShieldCheck, WalletCards } from 'lucide-react';
 import { ThemeContext } from '../../context/ThemeContext';
@@ -63,6 +65,7 @@ const schemas = {
 
 export const Settings = () => {
   const navigate = useNavigate();
+  const offline = useOffline();
   const location = useLocation();
   const { can } = useFeatureAccess();
   const visibleSections = useMemo(() => sections.filter(section => !SETTINGS_SECTION_PERMISSIONS[section.id] || can(SETTINGS_SECTION_PERMISSIONS[section.id])), [can]);
@@ -98,6 +101,7 @@ export const Settings = () => {
   };
 
   useEffect(() => {
+    if (offline) return undefined;
     let mounted = true;
     settingsService.getAllSettings()
       .then((incoming) => {
@@ -111,7 +115,7 @@ export const Settings = () => {
       .catch((error) => { if (mounted) setLoadError(error?.message || 'Could not load company settings.'); })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, []);
+  }, [offline]);
 
   useEffect(() => {
     const section = new URLSearchParams(location.search).get('section');
@@ -165,14 +169,19 @@ export const Settings = () => {
     setMessageType('info');
   };
 
+  const appControls = <><InstallAppControls /><InventorySyncControls /></>;
+  if (offline) return <div className="settings-page">{appControls}</div>;
+
   if (loading) return (
     <div className="settings-page" role="status" aria-live="polite">
+      {appControls}
       <div className="settings-loading">Loading company settings…</div>
     </div>
   );
 
   if (loadError) return (
     <div className="settings-page">
+      {appControls}
       <div className="settings-load-error" role="alert">
         <h2>Unable to load Settings</h2>
         <p>{loadError}</p>
@@ -183,6 +192,7 @@ export const Settings = () => {
 
   return (
     <div className="settings-page">
+      {appControls}
       {(can('settings.manage') || can('company.manage')) && (
         <button type="button" className="settings-primary-button"
           style={{ alignSelf: 'flex-start', minHeight: '44px', marginBottom: '12px' }}

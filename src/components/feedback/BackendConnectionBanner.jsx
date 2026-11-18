@@ -64,7 +64,7 @@ export function BackendConnectionBanner() {
     };
   }, [checkConnection]);
 
-  if (status === 'online' || status === 'checking') return null;
+  if (status === 'online' || status === 'checking' || !navigator.onLine) return null;
 
   const retrying = status === 'retrying';
   return (

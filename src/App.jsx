@@ -1,5 +1,7 @@
 
 import { RecordReferenceRouter } from './routes/RecordReferenceRouter';
+import { InventoryOfflineProvider } from './pwa/InventoryOfflineProvider';
+import { AppUpdateNotice } from './pwa/AppControls';
 import { AuthProvider } from './context/AuthContext';
 import { FeatureAccessProvider } from './context/FeatureAccessContext';
 import { CompanyProvider } from './context/CompanyContext';
@@ -69,13 +71,16 @@ export function App() {
         <ThemeProvider>
           <AppDialogHost />
           <AuthProvider>
-            <FeatureAccessProvider>
-            <CompanyProvider>
-              <PayrollPeriodProvider>
-                <AppRoutes />
-              </PayrollPeriodProvider>
-            </CompanyProvider>
-            </FeatureAccessProvider>
+            <InventoryOfflineProvider>
+              <AppUpdateNotice />
+              <FeatureAccessProvider>
+                <CompanyProvider>
+                  <PayrollPeriodProvider>
+                    <AppRoutes />
+                  </PayrollPeriodProvider>
+                </CompanyProvider>
+              </FeatureAccessProvider>
+            </InventoryOfflineProvider>
           </AuthProvider>
         </ThemeProvider>
       </RecordReferenceRouter>
