@@ -1,6 +1,6 @@
 import { recordLabel } from '../../utils/recordReferences.js';
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FormPage } from '../../components/common/forms/FormPage';
 import { FormSection } from '../../components/common/forms/FormSection';
 import { StickyFormFooter } from '../../components/common/forms/StickyFormFooter';
@@ -18,6 +18,10 @@ import { extractVehicleFieldErrors, focusFirstVehicleError, requiredVehicleField
 export const EditVehicle = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const returnToJob = typeof state?.returnToJob === 'string' && state.returnToJob;
+  const done = () => navigate(returnToJob ? '/jobs/' + encodeURIComponent(returnToJob) + '/overview' : '/vehicles/' + id,
+    { replace: Boolean(returnToJob) });
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -26,6 +30,7 @@ export const EditVehicle = () => {
   const [fieldErrors, setFieldErrors] = useState({});
   const [reloadKey, setReloadKey] = useState(0);
   const formRef = useRef(null);
+  const initialForm = useRef(null);
   const [formData, setFormData] = useState({
     customerId: '',
     regNo: '',
@@ -59,7 +64,7 @@ export const EditVehicle = () => {
       if (!vehicle) throw new Error('Vehicle not found.');
       setCustomers(Array.isArray(customerRows) ? customerRows : []);
       if (vehicle) {
-        setFormData({
+        const values = {
           customerId: vehicle.customerId || '',
           regNo: vehicle.registration || '',
           make: vehicle.make || '',
@@ -69,7 +74,7 @@ export const EditVehicle = () => {
           fuelType: vehicle.fuelType || 'Petrol',
           transmission: vehicle.transmission || 'Manual',
           color: vehicle.color || '',
-          odometer: vehicle.odometer || '',
+          odometer: vehicle.odometer ?? '',
           vin: vehicle.vin || '',
           engineNo: vehicle.engineNo || '',
           lastServiceDate: vehicle.lastServiceDate || '',
@@ -77,7 +82,9 @@ export const EditVehicle = () => {
           insuranceExpiry: vehicle.insuranceExpiry || '',
           notes: vehicle.notes || '',
           status: vehicle.status || 'Active'
-        });
+        };
+        initialForm.current = values;
+        setFormData(values);
       }
     }).catch((cause) => {
       if (alive) setLoadError(cause?.message || 'Unable to load vehicle details.');
@@ -107,12 +114,18 @@ export const EditVehicle = () => {
     setFieldErrors({});
     setFormError('');
     try {
-      const selectedCustomer = customers.find((customer) => String(customer.id) === String(formData.customerId));
-      await vehicleService.updateVehicle(id, {
-        ...formData,
-        customerName: selectedCustomer?.name || ''
-      });
-      navigate(`/vehicles/${id}`);
+      const changes = Object.fromEntries(Object.entries(formData)
+        .filter(([name, value]) => initialForm.current?.[name] !== value));
+      for (const field of ['year', 'lastServiceDate', 'nextServiceDue', 'insuranceExpiry']) {
+        if (changes[field] === '') changes[field] = null;
+      }
+      if (changes.odometer === '') changes.odometer = 0;
+      if (changes.customerId) {
+        const selected = customers.find(customer => String(customer.id) === String(changes.customerId));
+        changes.customerName = selected?.name || '';
+      }
+      if (Object.keys(changes).length) await vehicleService.updateVehicle(id, changes);
+      done();
     } catch (cause) {
       const next = extractVehicleFieldErrors(cause);
       setFieldErrors(next);
@@ -197,7 +210,7 @@ export const EditVehicle = () => {
             cancelLabel="Cancel"
             saveLabel="Update Vehicle"
             isSubmitting={submitting}
-            onCancel={() => navigate(`/vehicles/${id}`)}
+            onCancel={done}
           />
         </form>
       </FormPage>

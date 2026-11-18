@@ -6,7 +6,7 @@ export const PURCHASE_ACCOUNT_PATHS = new Set([
 
 export const isAccountPath = (pathname = '') => pathname === '/account' || pathname.startsWith('/account/');
 
-// Paid modules may be empty while the company still has FREE Dashboard/Staff
+// Paid modules may be empty while the company still has free workspace
 // access. Trust only the permissions and free-module list verified by Django.
 export const hasFreeWorkspace = (access) => Boolean(
   Array.isArray(access?.freeModules) && Array.isArray(access?.permissions)
@@ -14,6 +14,7 @@ export const hasFreeWorkspace = (access) => Boolean(
     (access.freeModules.includes('dashboard') && access.permissions.includes('dashboard.view'))
     || (access.freeModules.includes('staff') && access.permissions.includes('staff.view'))
     || (access.freeModules.includes('settings') && access.permissions.includes('settings.view'))
+    || (access.freeModules.includes('notifications') && access.permissions.includes('notifications.view'))
     || (access.freeModules.includes('roles') && access.permissions.includes('company.manage'))
     || access.permissions.includes('attendance.self')
   )

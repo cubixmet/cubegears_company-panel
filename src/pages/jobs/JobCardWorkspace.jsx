@@ -1,6 +1,6 @@
 import { appConfirm } from '../../components/common/appDialogs';
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, Clock3, FileText, Gauge, History, PackageSearch, Plus, ReceiptText, ShieldCheck, Star, UserRound, Wrench, ChevronRight, Download, Share2, LockKeyhole, SkipForward } from "lucide-react";
+import { Camera, CheckCircle2, Clock3, FileText, Gauge, History, PackageSearch, Pencil, Plus, ReceiptText, ShieldCheck, Star, UserRound, Wrench, ChevronRight, Download, Share2, LockKeyhole, SkipForward } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { jobService } from '../../services/job.service';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
@@ -193,8 +193,10 @@ export function JobCardWorkspace() {
   const [feedbackRating, setFeedbackRating] = useState('');
   const [feedbackText, setFeedbackText] = useState('');
 
+  const photoPage = location.pathname.endsWith('/photos');
   const activeTab = useMemo(() => {
     const section = location.pathname.split('/').filter(Boolean).at(-1);
+    if (section === 'photos') return 'inspection';
     return section === 'full-log' ? 'activity' : TABS.some(([key]) => key === section) ? section : 'overview';
   }, [location.pathname]);
 
@@ -1030,10 +1032,12 @@ export function JobCardWorkspace() {
 
   const readyForDelivery = job.status === 'Ready for Delivery';
   const shareTarget = readyForDelivery ? 'ready_delivery' : 'job';
+  const canEditJobDetails = canEditJob && job.status !== 'Delivered';
+  const editJobUrl = `/jobs/${encodeURIComponent(job.id)}/edit`;
 
   return (
     <div className="job-management-page cg-job-detail jobs-ui-polished job-workspace-dashboard flex w-full min-w-0 flex-col gap-4 pb-4">
-      <JobBreadcrumbs current={TABS.find(([key]) => key === activeTab)?.[1] || "Overview"} jobLabel={jobDisplayLabel(job)} jobId={job.id} />
+      <JobBreadcrumbs current={photoPage ? 'Vehicle Photos' : TABS.find(([key]) => key === activeTab)?.[1] || "Overview"} jobLabel={jobDisplayLabel(job)} jobId={job.id} />
       <header className="job-detail-header flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <div className="min-w-0">
@@ -1044,6 +1048,13 @@ export function JobCardWorkspace() {
 
         <div className="flex flex-wrap items-center gap-2">
           <span className="job-overview-status-badge">{normalizeJobStatus(job.status)}</span>
+          {canEditJob && !photoPage && <Link to={'/jobs/' + encodeURIComponent(job.id) + '/photos'}
+            className="job-financial-header-link">
+            <Camera size={15} aria-hidden="true"/> Edit Photos
+          </Link>}
+          {canEditJobDetails && <Link to={editJobUrl} className="job-financial-header-link">
+            <Pencil size={15} aria-hidden="true"/> Edit Job Card
+          </Link>}
           <WhatsAppManualShareButton key={`${job.id}:${shareTarget}`} targetType={shareTarget} targetId={job.id}
             label={readyForDelivery ? 'Share Vehicle Ready Message' : 'Send via WhatsApp'} buttonOnly />
           {hasInvoiceAccess && jobLinkedInvoiceId && activeTab !== 'invoice' && (
@@ -1327,6 +1338,11 @@ export function JobCardWorkspace() {
                   <h3 id="job-overview-customer-heading">Customer & Vehicle</h3>
                   <p>Basic job information</p>
                 </div>
+                {canEditJobDetails && <Link to={editJobUrl}
+                  aria-label="Edit Customer & Vehicle"
+                  className="ml-auto inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-line px-2.5 text-sm font-semibold text-content">
+                  <Pencil size={14} aria-hidden="true"/> Edit
+                </Link>}
               </div>
               <dl className="job-overview-detail-grid">
                 <div><dt>Customer name</dt><dd>{job.customerName || 'Not added'}</dd></div>
@@ -1443,7 +1459,7 @@ export function JobCardWorkspace() {
             <span className="job-complaints-total">{complaints.length} {complaints.length === 1 ? 'complaint' : 'complaints'}</span>
           </header>
 
-          <div className="job-complaint-entry">
+          {canEditJob && job.status !== 'Delivered' && <div className="job-complaint-entry">
             <label htmlFor="job-customer-complaint">Add Customer Complaint</label>
             <div className="job-complaint-compose">
               <textarea
@@ -1464,7 +1480,7 @@ export function JobCardWorkspace() {
               <span>Track each complaint separately. Update status from its details page.</span>
               <span>{complaintText.length}/1000</span>
             </div>
-          </div>
+          </div>}
 
           <div className="job-complaints-list-header">
             <div>
@@ -1533,7 +1549,7 @@ export function JobCardWorkspace() {
 
       {activeTab === 'inspection' && (
         <div className="job-inspection-camera-stack">
-          <JobInspectionPanel
+          {!photoPage && <JobInspectionPanel
           job={job}
           canEdit={can('jobs.edit') && !activeTabLocked}
           canReopen={can('jobs.edit') && inspectionWasSkipped && currentStage === 'estimate' && !activeTabLocked}
@@ -1549,7 +1565,7 @@ export function JobCardWorkspace() {
               throw e;
             }
           }}
-          />
+          />}
           <VehiclePhotoGallery jobId={job.id} canEdit={can('jobs.edit')}/>
         </div>
       )}

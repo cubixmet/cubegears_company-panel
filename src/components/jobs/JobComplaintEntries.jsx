@@ -5,7 +5,7 @@ const priorities = ['Low', 'Medium', 'High', 'Urgent'];
 const categories = ['General', 'Engine', 'Brakes', 'AC', 'Electrical', 'Transmission',
   'Suspension', 'Body', 'Tyres', 'Other'];
 
-export function JobComplaintEntries({ complaints, onChange, disabled = false, errors = {} }) {
+export function JobComplaintEntries({ complaints, onChange, disabled = false, errors = {}, savedCount = 0 }) {
   const patch = (id, key, value) => onChange((current) =>
     current.map((row) => row.id === id ? { ...row, [key]: value } : row)
   );
@@ -23,8 +23,8 @@ export function JobComplaintEntries({ complaints, onChange, disabled = false, er
         <article className="job-complaint-row" key={row.id}>
           <div className="job-complaint-row-head">
             <strong>Complaint {String(index + 1).padStart(2, '0')}</strong>
-            <button type="button" disabled={disabled} onClick={() => onChange((rows) => rows.filter((item) => item.id !== row.id))}
-              aria-label={`Remove complaint ${index + 1}`}><Trash2 size={16}/> Remove</button>
+            {index >= savedCount && <button type="button" disabled={disabled} onClick={() => onChange((rows) => rows.filter((item) => item.id !== row.id))}
+              aria-label={`Remove complaint ${index + 1}`}><Trash2 size={16}/> Remove</button>}
           </div>
           <label>Description
             <textarea name={`complaint-${index}`} rows={2} maxLength={2000} disabled={disabled}

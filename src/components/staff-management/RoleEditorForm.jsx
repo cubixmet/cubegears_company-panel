@@ -1,67 +1,60 @@
-import { useEffect, useState } from 'react';
-import { Save, SlidersHorizontal } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { RolePermissionMatrix } from './RolePermissionMatrix';
 import { clearFieldValidation } from '../../utils/formValidation';
-import { buildRoleAccessPreset } from '../../config/rolePermissions';
+import { buildRolePresetPermissions, WORKSHOP_ROLE_PRESETS } from '../../config/rolePermissions';
 
 export const RoleEditorForm = ({
+  id,
   editingRole,
   formData,
   setFormData,
   modules,
-  saving,
   onSubmit,
-  onCancel,
   onPermissionToggle,
   onToggleModule,
   error,
 }) => {
   const protectedRole = Boolean(editingRole?.isProtected);
-  const [mode, setMode] = useState('custom');
+  const [presetName, setPresetName] = useState('');
   const [advanced, setAdvanced] = useState(Boolean(editingRole));
-
-  useEffect(() => {
-    // Never overwrite existing saved permissions merely by opening Edit.
-    setMode('custom');
-    setAdvanced(Boolean(editingRole));
-  }, [editingRole?.id]);
+  const preset = WORKSHOP_ROLE_PRESETS.find(role => role.name === presetName);
 
   const selected = modules.reduce((sum, module) => sum +
     module.actions.filter(action => Boolean(formData.permissions?.[module.key]?.[action])).length, 0);
 
-  const setPreset = (value) => {
-    if (protectedRole) return;
-    setMode(value);
-    if (value === 'custom') {
-      setAdvanced(true);
-      return;
-    }
-    // Grant only explicitly permitted actions in visible modules.
-    // Presets never grant Finance, Payroll, Delete or approval permissions.
+  const selectPreset = (event) => {
+    const select = event.currentTarget;
+    const name = select.value;
+    const nextPreset = WORKSHOP_ROLE_PRESETS.find(role => role.name === name);
+    setPresetName(name);
+    clearFieldValidation(select.form?.elements.namedItem('name'));
     setFormData(current => ({
       ...current,
-      permissions: {
-        ...current.permissions,
-        ...buildRoleAccessPreset(modules, value),
-      },
+      name,
+      permissions: buildRolePresetPermissions(modules, nextPreset),
     }));
-    setAdvanced(false);
-  };
-
-  const customize = (moduleKey, actionKey) => {
-    setMode('custom');
-    onPermissionToggle(moduleKey, actionKey);
-  };
-
-  const customizeModule = (moduleKey, enable) => {
-    setMode('custom');
-    onToggleModule(moduleKey, enable);
+    setAdvanced(!nextPreset);
   };
 
   return (
-    <form className="role-editor-form role-editor-simple" noValidate onSubmit={onSubmit}
+    <form id={id} className="role-editor-form role-editor-simple" noValidate onSubmit={onSubmit}
       onChange={event => clearFieldValidation(event.target)}>
       {error && <div className="staff-directory-message is-error" role="alert">{error}</div>}
+      {!editingRole && (
+        <label className="role-editor-field">
+          <span id={`${id}-preset-label`}>Role</span>
+          <select value={presetName} onChange={selectPreset}
+            aria-labelledby={`${id}-preset-label`}
+            aria-describedby={preset ? `${id}-preset-hint` : undefined}>
+            <option value="">Custom role</option>
+            {WORKSHOP_ROLE_PRESETS.map(role => <option key={role.name}>{role.name}</option>)}
+          </select>
+          {preset && (
+            <small id={`${id}-preset-hint`} className="role-access-hint">{preset.description}</small>
+          )}
+        </label>
+      )}
       <section className="role-editor-card">
         <div className="role-editor-grid">
           <label className="role-editor-field">
@@ -81,45 +74,20 @@ export const RoleEditorForm = ({
           </label>
         </div>
       </section>
-      <fieldset className="role-quick-presets" disabled={protectedRole}>
-        <legend>Access level</legend>
-        <div className="role-preset-options">
-          {[
-            { id: 'viewer', label: 'View only', help: 'Basic workshop pages, no finance or payroll' },
-            { id: 'standard', label: 'Standard access', help: 'Manage customers, vehicles and jobs' },
-            { id: 'custom', label: 'Custom', help: 'Choose permissions yourself' },
-          ].map(item => (
-            <label key={item.id} className={mode === item.id ? 'is-selected' : ''}>
-              <input type="radio" name="role-access-mode" checked={mode === item.id}
-                onChange={() => setPreset(item.id)} />
-              <span><strong>{item.label}</strong><small>{item.help}</small></span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      <p className="sr-only">Branch-specific restrictions are not available yet. Paid modules still require activation and permissions.</p>
       <section className="role-permission-choice">
         <button type="button" className="role-permission-expand" aria-expanded={advanced}
           aria-controls="role-permission-details" onClick={() => setAdvanced(value => !value)}>
-          <span><SlidersHorizontal size={16} aria-hidden="true" /> Permissions
-            <small>{selected} selected</small></span>
-          <span>{advanced ? 'Hide' : 'Customize'}</span>
+          <span>{advanced ? 'Hide permissions' : 'Show permissions'}</span>
+          <span><small>{selected} selected</small><ChevronDown size={16} aria-hidden="true" /></span>
         </button>
         {advanced && (
           <div id="role-permission-details">
             <RolePermissionMatrix modules={modules} permissions={formData.permissions}
-              protectedRole={protectedRole} onToggle={customize}
-              onToggleModule={customizeModule} />
+              protectedRole={protectedRole} onToggle={onPermissionToggle}
+              onToggleModule={onToggleModule} />
           </div>
         )}
       </section>
-      <footer className="role-editor-actions">
-        <button type="button" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="is-primary" disabled={saving || protectedRole}>
-          <Save size={15} aria-hidden="true" />
-          {protectedRole ? 'Protected Role' : saving ? 'Saving…' : editingRole ? 'Save Changes' : 'Create Role'}
-        </button>
-      </footer>
     </form>
   );
 };

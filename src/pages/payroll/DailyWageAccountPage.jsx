@@ -1,6 +1,6 @@
 import { appConfirm, appPrompt } from '../../components/common/appDialogs';
-import { useEffect, useMemo, useState } from "react";
-import { CalendarCheck2, CheckCircle2, ClipboardList, History, Pencil, Plus, Wallet, WalletCards } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CheckCircle2, ClipboardList, History, Plus, Wallet, WalletCards } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ResponsiveModalSheet } from '../../components/common/ResponsiveModalSheet';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
@@ -26,6 +26,22 @@ const panels = [
   ['audit', 'Audit History', History],
 ];
 
+const wageForms = [
+  ['rate', 'Wage Rate'],
+  ['attendance', 'Attendance'],
+  ['extra', 'Extra Earning'],
+  ['adjustment', 'Adjustment'],
+  ['pay', 'Payment'],
+];
+
+const wageFormTitles = {
+  rate: 'Set Daily Wage Rate',
+  attendance: 'Finalize Attendance & Post Wage',
+  extra: 'Add Extra Earning',
+  adjustment: 'Wage Adjustment',
+  pay: 'Pay Outstanding Wage',
+};
+
 export const DailyWageAccountPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -42,7 +58,8 @@ export const DailyWageAccountPage = () => {
   const canReviewExtra = can('payroll.extras.approve');
   const canReversePayment = can('payroll.payments.reverse');
   const canViewPayments = can('payroll.payments.view');
-  const [account, setAccount] = useState(null);
+  const [loadedAccount, setLoadedAccount] = useState(null);
+  const account = loadedAccount?.id === id ? loadedAccount.data : null;
   const [financialAccounts, setFinancialAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -53,6 +70,12 @@ export const DailyWageAccountPage = () => {
   const [section, setSection] = useState('history');
   const [reload, setReload] = useState(0);
   const [filter, setFilter] = useState('All');
+  const hasOutstandingWage = Number(account?.currentBalance || 0) > 0;
+  const formOptions = wageForms.filter(([kind]) => actionAccess[kind]);
+  const firstAvailableForm = formOptions.find(([kind]) => kind !== 'pay' || hasOutstandingWage)?.[0];
+  const initialForm = !account?.currentRate && actionAccess.rate ? 'rate'
+    : !account?.today?.finalized && actionAccess.attendance ? 'attendance'
+      : firstAvailableForm;
 
   useEffect(() => {
     if (!actionAccess.pay) return;
@@ -67,39 +90,47 @@ export const DailyWageAccountPage = () => {
     setLoading(true);
     setError('');
     dailyWageService.account(id).then((result) => {
-      if (mounted) setAccount(result);
+      if (mounted) setLoadedAccount({ id, data: result });
     }).catch((err) => {
-      if (mounted) setError(err.message || 'Unable to load wage account.');
+      if (!mounted) return;
+      setLoadedAccount(null);
+      setError(err.message || 'Unable to load wage account.');
     }).finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
   }, [canView, id, reload]);
 
-  const open = (kind, method = 'Cash') => {
+  useEffect(() => { setModal(''); }, [id]);
+
+  const open = useCallback((kind, method = 'Cash') => {
     setError('');
     setNotice('');
     setForm({ ...empty(kind, account || {}), method });
     setModal(kind);
-  };
+  }, [account]);
 
-  // Staff Profile payment shortcuts open the SAME audited wage payout form.
-  // They never create or post a payment until this form is explicitly saved.
   useEffect(() => {
-    if (!location.state?.openPayment || !account || !canView || !actionAccess.pay) return;
-    const method = location.state.paymentMethod === 'Bank Transfer'
-      ? 'Bank Transfer' : 'Cash';
-    navigate(location.pathname, { replace: true, state: null });
-    if (Number(account.currentBalance || 0) > 0) {
-      open('pay', method);
-    } else {
+    if (!account || loading || !canView || !location.state) return;
+    const { openPayment, paymentMethod, openWageForms, ...state } = location.state;
+    if (!openPayment && !openWageForms) return;
+    navigate(`${location.pathname}${location.search}${location.hash}`, {
+      replace: true, state: Object.keys(state).length ? state : null,
+    });
+    if (openPayment && actionAccess.pay) {
+      if (hasOutstandingWage) open('pay', paymentMethod === 'Bank Transfer' ? 'Bank Transfer' : 'Cash');
+      else setNotice('There is no outstanding wage to pay.');
+    } else if (openWageForms && initialForm) {
+      open(initialForm);
+    } else if (openWageForms && actionAccess.pay) {
       setNotice('There is no outstanding wage to pay.');
     }
-  }, [location.state, location.pathname, account, id, canView, actionAccess.pay, navigate]);
+  }, [location.state, location.pathname, location.search, location.hash, account, loading,
+    canView, actionAccess.pay, hasOutstandingWage, initialForm, navigate, open]);
   const set = (name, value) => setForm((old) => ({ ...old, [name]: value }));
   const close = () => { if (!saving) setModal(''); };
 
   const submit = async (event) => {
     event.preventDefault();
-    if (!actionAccess[modal] || saving || !modal) return;
+    if (!account || !actionAccess[modal] || saving) return;
     if (modal === 'pay') {
       const accountId = form.account;
       const chosen = financialAccounts.find((item) => String(item.id) === String(accountId));
@@ -126,7 +157,7 @@ export const DailyWageAccountPage = () => {
     try {
       const actions = {
         rate: () => dailyWageService.addRate(id, {
-          rate: form.rate, effectiveFrom: form.effectiveFrom, reason: form.reason,
+          rate: form.rate, effectiveFrom: form.effectiveFrom, reason: 'Daily wage rate saved from Wage Account',
         }),
         attendance: () => dailyWageService.finalizeAttendance(id, {
           date: form.date, status: form.status, reason: form.reason,
@@ -207,9 +238,9 @@ export const DailyWageAccountPage = () => {
           <p>{account?.employee?.employeeCode || ''} · {account?.employee?.designation || 'Workshop Staff'} · Daily Wage Ledger</p>
         </div>
         <div className="dw-actions">
-          {actionAccess.rate && <button type="button" className="dw-button" onClick={() => open('rate')}><Pencil size={16}/> Edit Wage Rate</button>}
-          {actionAccess.attendance && <button type="button" className="dw-button" onClick={() => open('attendance')}><CalendarCheck2 size={16}/> Finalize Attendance</button>}
-          {actionAccess.pay && <button type="button" className="dw-button is-primary" onClick={() => open('pay')} disabled={Number(account?.currentBalance || 0) <= 0}><Wallet size={16}/> Pay Wage</button>}
+          {account && firstAvailableForm && <button type="button" className="dw-button is-primary" onClick={() => open(initialForm)}>
+            <Wallet size={16} aria-hidden="true"/> Wage Forms
+          </button>}
         </div>
       </header>
       <DailyWageNav/>
@@ -233,9 +264,7 @@ export const DailyWageAccountPage = () => {
             )) : <span>No daily wage rate set. Configure one to start posting attendance wages.</span>}
           </div>
           <div className="dw-actions">
-            {actionAccess.extra && <button type="button" className="dw-button is-primary" onClick={() => open('extra')}><Plus size={15}/> Add Extra Earning</button>}
-            {actionAccess.adjustment && <button type="button" className="dw-button" onClick={() => open('adjustment')}><Pencil size={15}/> Adjustment</button>}
-            <Link to="/payroll/daily-wages/history" className="dw-button"><History size={15}/> All Daily History</Link>
+            <Link to={`/payroll/daily-wages/history${location.search}`} className="dw-button"><History size={15}/> All Daily History</Link>
           </div>
         </section>
         <section className="dw-card">
@@ -300,11 +329,20 @@ export const DailyWageAccountPage = () => {
           )}
         </section>
       </>}
-      <ResponsiveModalSheet isOpen={Boolean(modal)} title={
-        { rate: 'Set Daily Wage Rate', attendance: 'Finalize Attendance & Post Wage',
-          extra: 'Add Extra Earning', adjustment: 'Approved Wage Adjustment', pay: 'Pay Outstanding Wage' }[modal]
-      } onClose={close} maxWidth="520px">
-        <form className="dw-modal-form" onSubmit={submit}>
+      <ResponsiveModalSheet isOpen={Boolean(account && actionAccess[modal])}
+        title={`Wage Forms · ${account?.employee?.name || ''}`} onClose={close} maxWidth="520px">
+        <div className="dw-form-options" role="group" aria-label="Wage forms">
+          {formOptions.map(([kind, label]) => (
+            <button key={kind} type="button" className="dw-button" aria-pressed={kind === modal}
+              onClick={() => { if (kind !== modal) open(kind); }}
+              disabled={saving || (kind === 'pay' && !hasOutstandingWage)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        {actionAccess.pay && !hasOutstandingWage && <p className="dw-form-note">No outstanding wages to pay.</p>}
+        <form className="dw-modal-form" onSubmit={submit} aria-labelledby="dw-form-heading">
+          <h4 id="dw-form-heading">{wageFormTitles[modal]}</h4>
           {modal === 'rate' && <>
             <label>Daily Wage Rate (₹)<input name="rate" type="number" min="0.01" step="0.01" value={form.rate || ''} onChange={(e) => set('rate', e.target.value)} required/></label>
             <label>Effective From<input type="date" value={form.effectiveFrom || ''} onChange={(e) => set('effectiveFrom', e.target.value)} required/></label>
@@ -370,12 +408,12 @@ export const DailyWageAccountPage = () => {
               <p className="dw-alert" role="alert">No active financial accounts. Create a Cash or Bank account under Accounts before paying staff.</p>
             )}
           </>}
-          {modal !== 'pay' && (
+          {modal !== 'rate' && modal !== 'pay' && (
             <label>Reason<input value={form.reason || ''} required onChange={(e) => set('reason', e.target.value)} placeholder="Reason and authorizing detail"/></label>
           )}
           {error && <p className="dw-alert" role="alert">{error}</p>}
           <div className="dw-modal-actions">
-            <button type="button" className="dw-button" onClick={close}>Cancel</button>
+            <button type="button" className="dw-button" onClick={close} disabled={saving}>Cancel</button>
             <button type="submit" className="dw-button is-primary" disabled={saving}>
               <CheckCircle2 size={16}/>{saving ? 'Saving…' : modal === 'pay' ? 'Confirm Payment' : 'Save'}
             </button>

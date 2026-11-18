@@ -171,7 +171,8 @@
   width:100%;min-width:0;
 }
 .settings-page .settings-form-grid .crud-field.full {grid-column:1 / -1}
-.settings-page .settings-form-grid .crud-field > span {
+.settings-page .settings-form-grid .crud-field > span,
+.settings-page .settings-form-grid .settings-phone-field > .ui-phone__label {
   font-size:12px;font-weight:650;color:var(--text-secondary);
   line-height:1.45;
 }
@@ -203,6 +204,13 @@
 }
 .settings-page .settings-form-grid .crud-field :is(input,select,textarea):disabled {
   cursor:not-allowed;opacity:.65;
+}
+.settings-page .settings-form-grid .crud-field [aria-invalid="true"],
+.settings-page .settings-phone-field .ui-input-shell--error {
+  border-color:var(--danger);
+}
+.settings-page .settings-field-error {
+  color:var(--danger);font-size:12px;line-height:1.45;
 }
 .settings-page .settings-toggle {
   display:flex;align-items:center;justify-content:space-between;

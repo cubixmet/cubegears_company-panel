@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { FormPage } from '../../components/common/forms/FormPage';
 import { StickyFormFooter } from '../../components/common/forms/StickyFormFooter';
 import { CustomerManagementTabs } from '../../components/customers/CustomerManagementTabs';
@@ -13,6 +13,10 @@ import {
 export const EditCustomer = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const returnToJob = typeof state?.returnToJob === 'string' && state.returnToJob;
+  const done = () => navigate(returnToJob ? '/jobs/' + encodeURIComponent(returnToJob) + '/overview' : '/customers/' + id,
+    { replace: Boolean(returnToJob) });
   const [formData, setFormData] = useState(() => ({
     ...customerFormDefaults(), status: 'active',
   }));
@@ -76,7 +80,7 @@ export const EditCustomer = () => {
       await customerService.updateCustomer(id, {
         ...toCustomerFormPayload(formData), status: formData.status,
       });
-      navigate('/customers/' + id);
+      done();
     } catch (error) {
       setFormError(error?.message || 'Unable to save customer changes.');
     } finally {
@@ -98,7 +102,7 @@ export const EditCustomer = () => {
       <StickyFormFooter
         statusText="Customer Details"
         cancelLabel="Cancel" saveLabel="Update Customer"
-        isSubmitting={submitting} onCancel={() => navigate('/customers/' + id)}
+        isSubmitting={submitting} onCancel={done}
       />
     </form>
   </FormPage>;

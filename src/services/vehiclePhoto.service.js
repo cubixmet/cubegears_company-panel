@@ -33,6 +33,10 @@ export const vehiclePhotoService = {
     requireBackend();
     return apiClient.patch(`/vehicle-photos/${id}`, { published });
   },
+  setCaption: async (id, caption) => {
+    requireBackend();
+    return apiClient.patch(`/vehicle-photos/${id}`, { caption });
+  },
   file: async (photoId) => {
     requireBackend();
     return apiClient.get(`/vehicle-photos/${photoId}/file`, { responseType: 'blob' });

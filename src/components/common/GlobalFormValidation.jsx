@@ -65,6 +65,7 @@ export function GlobalFormValidation() {
         }
         if (mutation.type !== 'attributes' || !isInvalid(mutation.target)) continue;
         const target = mutation.target;
+        if (target.closest('[data-disable-global-validation]')) continue;
         if (target instanceof HTMLInputElement
           || target instanceof HTMLSelectElement
           || target instanceof HTMLTextAreaElement) pendingReactField ||= target;

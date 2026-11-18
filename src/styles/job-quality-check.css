@@ -66,6 +66,7 @@
 .cg-job-detail .job-qc-check-control{
   display:flex;flex-direction:column;gap:5px;min-width:0
 }
+.cg-job-detail .job-qc-status-options{display:none}
 .cg-job-detail .job-qc-check select,
 .cg-job-detail .job-qc-field :is(input,textarea){
   width:100%;min-width:0;min-height:43px;padding:10px 12px;
@@ -110,6 +111,7 @@
   font-size:12px;font-weight:500;line-height:1.5;overflow-wrap:anywhere
 }
 .cg-job-detail .job-qc-error{color:var(--danger);border-color:var(--danger)}
+.cg-job-detail .job-qc-error:focus{outline:2px solid var(--danger);outline-offset:2px}
 .cg-job-detail .job-qc-success{color:var(--success)}
 .cg-job-detail .job-qc-error svg,.cg-job-detail .job-qc-success svg{flex:0 0 auto}
 .cg-job-detail .job-qc-submit-actions{
@@ -146,14 +148,39 @@
 @media(max-width:920px){
   .cg-job-detail .job-qc-layout{grid-template-columns:minmax(0,1fr)}
 }
-@media(max-width:520px){
+@media(max-width:600px){
   .cg-job-detail .job-qc-card{padding:13px;border-radius:13px}
   .cg-job-detail .job-qc-heading h2{font-size:15px}
   .cg-job-detail .job-qc-check{
     grid-template-columns:1fr;gap:8px;padding:11px
   }
-  .cg-job-detail .job-qc-check-control{padding-left:25px}
-  .cg-job-detail .job-qc-check select,
+  .cg-job-detail .job-qc-heading p,
+  .cg-job-detail .job-qc-check-description label,
+  .cg-job-detail .job-qc-error{font-size:14px}
+  .cg-job-detail .job-qc-check-control select{display:none}
+  .cg-job-detail .job-qc-status-options{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;
+  }
+  .cg-job-detail .job-qc-status-option{
+    display:grid;place-items:center;min-width:0;min-height:44px;padding:5px;
+    border:1px solid var(--border);border-radius:8px;
+    background:var(--surface);color:var(--text-primary);
+    font-size:13px;font-weight:650;cursor:pointer;text-align:center;
+  }
+  .cg-job-detail .job-qc-status-option input[type="radio"]{min-height:0!important}
+  .cg-job-detail .job-qc-status-option:has(input:focus-visible){
+    outline:2px solid var(--primary);outline-offset:2px;
+  }
+  .cg-job-detail .job-qc-status-option:has(input:checked){
+    border-color:var(--primary);background:var(--primary-soft);
+  }
+  .cg-job-detail .job-qc-status-option.is-pass:has(input:checked){
+    border-color:var(--success);background:var(--success-soft);color:var(--success);
+  }
+  .cg-job-detail .job-qc-status-option.is-fail:has(input:checked){
+    border-color:var(--danger);background:var(--danger-soft);color:var(--danger);
+  }
+  .cg-job-detail .job-qc-status-option:has(input:disabled){cursor:default}
   .cg-job-detail .job-qc-field :is(input,textarea){font-size:16px}
   .cg-job-detail .job-qc-decision-actions{gap:7px}
   .cg-job-detail .job-qc-submit-actions button{min-height:46px}

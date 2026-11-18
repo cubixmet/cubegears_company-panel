@@ -27,6 +27,9 @@ const ratePeriod = (period) => ({
   ten_seconds: '10 seconds', hourly: 'hour', daily: 'day',
   weekly: 'week', monthly: '30 days', permanent: 'lifetime',
 })[period] || period || '—';
+const isPreviousReportsLabel = (bundle) =>
+  bundle.purchaseDisabledReason === 'REPORTS_IN_ACCOUNTS_TAX' ||
+  ['workflow-business_insights', 'business_insights'].includes(bundle.key);
 
 export function CreditWorkspace({ section = 'overview' }) {
   const navigate = useNavigate();
@@ -243,16 +246,17 @@ export function CreditWorkspace({ section = 'overview' }) {
   const low = wallet?.lowBalance === true;
   // Never combine a lifetime charge with a daily/weekly/monthly rate into a
   // fake "monthly total". Display each server-published label price separately.
-  const freeKeys = ['dashboard', 'settings', 'staff', 'roles', 'billing'];
+  const freeKeys = ['dashboard', 'settings', 'staff', 'roles', 'billing', 'notifications'];
   // The server hides free-only labels; also guard stale cached API responses.
   // Mixed labels remain visible for the paid modules they contain.
   const paidBundles = featureBundles.filter(bundle =>
-    (bundle.features || []).some(item => !freeKeys.includes(item.key))
+    !isPreviousReportsLabel(bundle) && (bundle.features || []).some(item => !freeKeys.includes(item.key))
   );
   const activeBundles = paidBundles.filter(bundle => bundle.active === true);
+  const previousReports = featureBundles.filter(bundle => bundle.active && isPreviousReportsLabel(bundle));
   const freeRoutes = [
     ...routeConfig.filter(route =>
-      ['credits', 'dashboard', 'settings', 'staff-management'].includes(route.id) &&
+      ['credits', 'dashboard', 'settings', 'staff-management', 'notifications'].includes(route.id) &&
       featureAccess.freeModules?.includes(route.permission.split('.')[0]) &&
       featureAccess.can(route.permission)
     ),
@@ -357,7 +361,7 @@ export function CreditWorkspace({ section = 'overview' }) {
       <summary>Module access &amp; status</summary>
     {section === 'overview' && <section className="cg-credit-panel" aria-label="Free modules">
       <header><div><span>INCLUDED — NO CREDITS</span><h2>Free modules for your company</h2></div><ShieldCheck size={22}/></header>
-      <p>Dashboard, Settings, Staff Management, Roles & Permissions and SaaS Account have no feature activation or credit charge. Login and role permissions still apply. Other modules require an active paid Feature Label.</p>
+      <p>Dashboard, Settings, Staff Management, Roles & Permissions, Notifications and SaaS Account are included. Sign in with a role that allows access.</p>
       <div className="cg-credit-shortcuts">
         {freeRoutes.map(route => { const Icon = route.icon; return <button type="button" key={route.id} onClick={() => navigate(route.path)}>
           <Icon size={19}/><strong>{route.label}</strong><small>Free • allowed by your role</small>
@@ -382,7 +386,7 @@ export function CreditWorkspace({ section = 'overview' }) {
 
     {section === 'overview' && featureAccess.labelOnly && <section className="cg-credit-panel cg-credit-active-labels" aria-label="Activated feature label prices and status">
       <header><div><span>ACTIVE LABELS &amp; BILLING</span><h2>Activated modules and their credit costs</h2></div><Coins size={22}/></header>
-      <p>Only purchased active labels unlock paid modules; Dashboard, Settings, Staff Management, Roles & Permissions and SaaS Account are free. Staff still need their role permissions. Wallet Logs show actual debits.</p>
+      <p>Active labels unlock paid modules for staff with the required role permissions. Wallet Logs show actual debits.</p>
       {activeBundles.length ? <div className="cg-credit-active-label-grid">
         {activeBundles.map(bundle => {
           const period = ratePeriod(bundle.billingType);
@@ -396,7 +400,7 @@ export function CreditWorkspace({ section = 'overview' }) {
             <small>{bundle.validUntil ? `Valid until ${when(bundle.validUntil)}` : bundle.billingType === 'permanent' ? 'Permanent access until switched off' : 'See active label status'}</small>
           </article>;
         })}
-      </div> : <p className="cg-credit-empty">No active feature labels. Activate a published label to unlock paid workshop modules.</p>}
+      </div> : !previousReports.length && <p className="cg-credit-empty">No active feature labels. Activate a published label to unlock paid workshop modules.</p>}
       <div className="cg-credit-actions">
         <button type="button" className="primary" onClick={openModulePricing} aria-controls="module-pricing">View Prices &amp; Activation </button>
         <button type="button" onClick={() => navigate('/account/credits/logs')}>Check Wallet Cash Flow <FileClock size={16}/></button>
@@ -438,11 +442,17 @@ export function CreditWorkspace({ section = 'overview' }) {
 
     {section === 'overview' && <section className="cg-credit-panel cg-bundle-marketplace" id="module-pricing" ref={modulePricingRef} tabIndex={-1} aria-label="Available modules">
       <header><div><span>MODULE PRICING</span><h2>Paid workshop modules ({paidBundles.length})</h2></div><Coins size={22}/></header>
-      <p>Free modules above do not need a purchase. Postpaid module credits accrue only while access is ON, using the period selected by the administrator. Usage is logged now and paid on the configured due date next month, not after every period.</p>
+      {paidBundles.some(bundle => bundle.cyclePostpaid || (bundle.billingMode === 'monthly_postpaid' && bundle.billingType !== 'permanent')) && (
+        <p>For recurring postpaid modules, changes to billable staff logins update the usage rate from that time. The wallet pays the accrued credits on the monthly due date.</p>
+      )}
       <div className="cg-bundle-grid">
         {paidBundles.map((bundle) => {
           const status = featureLabelStatus(bundle, wallet);
-          const period = bundle.billingMode === 'monthly_postpaid' ? 'calendar month' : ({ permanent: 'lifetime', monthly: '30 days', weekly: '7 days', daily: '24 hours', hourly: '1 hour', per_use: 'use' })[bundle.billingType] || bundle.billingType;
+          const postpaid = bundle.cyclePostpaid || bundle.billingMode === 'monthly_postpaid';
+          const period = bundle.cyclePostpaid && bundle.billingMode !== 'monthly_postpaid' ? 'billing cycle' : ({
+            permanent: 'lifetime', monthly: '30 days', weekly: '7 days', daily: '24 hours',
+            hourly: '1 hour', ten_seconds: '10 seconds', per_use: 'use',
+          })[bundle.billingType] || bundle.billingType;
           return <article key={bundle.id ?? `unpriced:${bundle.key}`} className="cg-bundle-card">
             <div className="cg-bundle-head">
               <h3>{bundle.name}</h3>
@@ -456,18 +466,18 @@ export function CreditWorkspace({ section = 'overview' }) {
               <p className="cg-bundle-workflow">
                 <strong>Works with:</strong> {bundle.workflowDependencies.map(key => ({
                   workshop_operations: 'Workshop Operations', accounts_tax: 'Accounts & Tax',
-                  attendance_payroll: 'Attendance & Payroll', business_insights: 'Reports & Analytics',
+                  attendance_payroll: 'Attendance & Payroll',
                 }[key] || key.replaceAll('_',' '))).join(', ')}
               </p>
             )}
             <div className="cg-bundle-price">
               {bundle.purchaseDisabledReason === 'FREE_MODULES_ONLY'
                 ? <><span>Included free</span><strong>0 <small>credits — no purchase needed</small></strong></>
-                : <><span>{bundle.cyclePostpaid || bundle.billingMode === 'monthly_postpaid' ? 'Usage rate (monthly settlement)' : 'Per user credits'}</span>
+                : <><span>{postpaid ? 'Rate per billable login' : 'Per user credits'}</span>
                   <strong>{credits(bundle.perUserCredits)} <small>credits / user / {period}</small></strong>
                   <div className="cg-bundle-summary">
-                    <span>{bundle.userCount ?? '—'} active login users</span>
-                    <b>{credits(bundle.totalCredits)} credits total</b>
+                    <span>{bundle.userCount ?? '—'} {bundle.userCount === 1 ? 'billable login' : 'billable logins'}</span>
+                    <b>{credits(bundle.totalCredits)} {postpaid ? `credits / ${period}` : 'credits total'}</b>
                   </div></>}
             </div>
             <div className="cg-bundle-feature-list">
@@ -498,6 +508,15 @@ export function CreditWorkspace({ section = 'overview' }) {
         })}
       </div>
       {!paidBundles.length && !loading && <p className="cg-credit-empty">No paid modules are published yet. Module pricing is managed by your SaaS administrator.</p>}
+      {previousReports.map(bundle => <div key={bundle.id} className="cg-credit-inline">
+        <span>Previous Reports access · {bundle.validUntil
+          ? `Valid until ${when(bundle.validUntil)}`
+          : `${credits(bundle.totalCredits)} credits / ${ratePeriod(bundle.billingType)}`}</span>
+        <div className="cg-bundle-actions">
+          <button className="secondary" type="button" disabled={busy !== '' || !wallet?.canManage}
+            onClick={() => stopBundle(bundle)}>Switch off previous Reports access</button>
+        </div>
+      </div>)}
       {wallet && !wallet.canManage && <p className="cg-credit-note">Only the company account owner can purchase module access.</p>}
     </section>}
 

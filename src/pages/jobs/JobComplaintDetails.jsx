@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, CalendarClock, CarFront, CheckCircle2, FileText, UserRound } from 'lucide-react';
+import { ArrowLeft, CalendarClock, CarFront, CheckCircle2, FileText, Pencil, UserRound } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { jobService } from '../../services/job.service';
 import { JobBreadcrumbs } from '../../components/jobs/JobBreadcrumbs';
+import { JobComplaintEditor } from '../../components/jobs/JobComplaintEditor';
 import { jobDisplayLabel } from '../../components/jobs/jobs.utils';
 import { statusForComplaint, complaintStatusClass, COMPLAINT_STATUSES } from '../../components/jobs/complaintStatus';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
@@ -40,6 +41,7 @@ export function JobComplaintDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [editingDescription, setEditingDescription] = useState(false);
   const [editStatus, setEditStatus] = useState('Pending');
   const [notes, setNotes] = useState('');
   const [workReference, setWorkReference] = useState('');
@@ -133,6 +135,20 @@ export function JobComplaintDetails() {
               </span>
             </div>
             <p className="job-complaint-detail-description">{description}</p>
+            {can('jobs.edit') && job.status !== 'Delivered' && (
+              <button type="button" onClick={() => setEditingDescription(true)}
+                className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-line px-3 text-sm font-semibold text-content">
+                <Pencil size={15} aria-hidden="true"/> Edit Complaint
+              </button>
+            )}
+            {editingDescription && can('jobs.edit') && job.status !== 'Delivered' && (
+              <JobComplaintEditor job={job} selectedIndex={found.index}
+                onClose={() => setEditingDescription(false)}
+                onSaved={updated => {
+                  setJob(updated);
+                  setEditingDescription(false);
+                }}/>
+            )}
 
             <div className="job-complaint-detail-fields">
               <div>

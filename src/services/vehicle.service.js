@@ -26,8 +26,8 @@ const normalizeVehicle = (vehicle = {}) => ({
   fuelType: vehicle.fuelType || vehicle.fuel || vehicle.engineType || '',
   transmission: vehicle.transmission || '',
   color: vehicle.color || '',
-  odometer: vehicle.odometer || vehicle.kilometres || '',
-  kilometres: vehicle.kilometres || vehicle.odometer || '',
+  odometer: vehicle.odometer ?? vehicle.kilometres ?? '',
+  kilometres: vehicle.kilometres ?? vehicle.odometer ?? '',
   vin: vehicle.vin || '',
   engineNo: vehicle.engineNo || '',
   lastServiceDate: vehicle.lastServiceDate || '',
@@ -92,12 +92,18 @@ export const createVehicle = async (data) => {
 };
 
 export const updateVehicle = async (id, data) => {
-  const payload = toStorageShape(data);
   if (USE_MOCK_API) {
     await delay();
+    const registration = data.registration ?? data.regNo ?? data.licensePlate;
+    const odometer = data.odometer ?? data.kilometres;
+    const payload = {
+      ...data,
+      ...(registration !== undefined && { registration, regNo: registration, licensePlate: registration }),
+      ...(odometer !== undefined && { odometer, kilometres: odometer }),
+    };
     return normalizeVehicle(updateMockVehicle(id, payload));
   }
-  const result = await apiClient.patch(`${API_ENDPOINTS.VEHICLES}/${id}`, payload);
+  const result = await apiClient.patch(`${API_ENDPOINTS.VEHICLES}/${id}`, data);
   return normalizeVehicle(result);
 };
 

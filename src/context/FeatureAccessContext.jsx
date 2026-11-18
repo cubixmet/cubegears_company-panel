@@ -90,7 +90,7 @@ export function FeatureAccessProvider({ children }) {
           ? response.nextLabelExpiryAt : null,
         modules: response.enabledModules.filter(item => typeof item === 'string'),
         freeModules: Array.isArray(response.freeModules)
-          ? response.freeModules.filter(item => ['dashboard', 'settings', 'staff', 'roles', 'billing'].includes(item)) : [],
+          ? response.freeModules.filter(item => ['dashboard', 'settings', 'staff', 'roles', 'billing', 'notifications'].includes(item)) : [],
         permissions: response.permissions.filter(item => typeof item === 'string'),
         canManageFeatures: response.canManageFeatures === true,
         billingHold: response.billingHold === true,

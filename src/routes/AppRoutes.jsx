@@ -58,6 +58,7 @@ const EditVehicle = lazyPage(() => import('../pages/vehicles/EditVehicle'), 'Edi
 const ServiceList = lazyPage(() => import('../pages/services/ServiceList'), 'ServiceList');
 const JobList = lazyPage(() => import('../pages/jobs/JobList'), 'JobList');
 const JobCreatePage = lazyPage(() => import('../pages/jobs/JobCreatePage'), 'JobCreatePage');
+const JobEditPage = lazyPage(() => import('../pages/jobs/JobEditPage'), 'JobEditPage');
 const JobComplaintDetails = lazyPage(() => import('../pages/jobs/JobComplaintDetails'), 'JobComplaintDetails');
 const OutsideLabourPage = lazyPage(() => import('../pages/jobs/OutsideLabourPage'), 'OutsideLabourPage');
 const JobDetails = lazyPage(() => import('../pages/jobs/JobDetails'), 'JobDetails');
@@ -233,6 +234,7 @@ export const AppRoutes = () => (
 
       <Route path="/jobs" element={<JobList />} />
       <Route path="/jobs/new" element={<JobCreatePage />} />
+      <Route path="/jobs/edit" element={<Navigate to="/jobs?layout=cards" replace />} />
       <Route path="/jobs/outside-labour" element={<OutsideLabourPage />} />
       <Route path="/jobs/reports" element={<JobReports />} />
       <Route path="/jobs/add" element={<Navigate to="/jobs/new" replace />} />
@@ -249,7 +251,7 @@ export const AppRoutes = () => (
       <Route path="/jobs/:id/invoice" element={<JobDetails />} />
       <Route path="/jobs/:id/activity" element={<JobDetails />} />
       <Route path="/jobs/:id/full-log" element={<JobDetails />} />
-      <Route path="/jobs/:id/edit" element={<JobDetails />} />
+      <Route path="/jobs/:id/edit" element={<JobEditPage />} />
       <Route path="/jobs/:id/status" element={<JobStatus />} />
 
       <Route path="/jobs/:id/costs" element={<JobDetails />} />

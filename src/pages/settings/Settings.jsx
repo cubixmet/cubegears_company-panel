@@ -1,11 +1,13 @@
 import { InstallAppControls, InventorySyncControls } from '../../pwa/AppControls';
 import { useOffline } from '../../pwa/connectivity';
 import { useContext, useEffect, useMemo, useState } from "react";
-import { Bell, Boxes, Building2, Clock3, CreditCard, Plug, ShieldCheck, WalletCards } from 'lucide-react';
+import { Bell, Boxes, Building2, Clock3, CreditCard, ShieldCheck, WalletCards } from 'lucide-react';
 import { ThemeContext } from '../../context/ThemeContext';
 import { settingsService } from '../../services/settings.service';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
+import { focusField } from '../../utils/formValidation';
+import { jobPhoneLength, splitInternationalPhone, validInternationalPhone } from '../../utils/jobCreateAdapters';
 import {
   SettingsEditor,
   SettingsHeader,
@@ -29,11 +31,12 @@ const SETTINGS_SECTION_PERMISSIONS = { operations: 'jobs.view', billing: 'invoic
 
 const schemas = {
   company: [
-    ['name', 'Workshop / Company Name', 'text'], ['phone', 'Phone', 'tel'], ['email', 'Official Email', 'email'], ['gstNo', 'GSTIN / Tax Number', 'text'], ['address', 'Registered Address', 'textarea'],
+    ['name', 'Workshop / Company Name', 'text'], ['phone', 'Phone', 'tel'], ['email', 'Official Email', 'email'],
+    ['gstNo', 'GSTIN / Tax Number', 'text'], ['address', 'Registered Address', 'textarea'],
     ['currency', 'Currency', 'select', ['INR', 'USD', 'AED', 'SAR']], ['timezone', 'Timezone', 'select', ['Asia/Kolkata', 'Asia/Dubai', 'Asia/Riyadh', 'UTC']], ['dateFormat', 'Date Format', 'select', ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD']]
   ],
   operations: [
-    ['workingStart', 'Working Day Starts', 'time'], ['workingEnd', 'Working Day Ends', 'time'], ['bookingSlotMinutes', 'Booking Slot Minutes', 'number'], ['bookingCapacity', 'Vehicles per Slot', 'number'], ['jobPrefix', 'Job Number Prefix', 'text'], ['deliveryCreditAllowed', 'Allow Delivery With Balance', 'checkbox']
+    ['workingStart', 'Working Day Starts', 'time'], ['workingEnd', 'Working Day Ends', 'time'], ['bookingSlotMinutes', 'Booking Slot Minutes', 'number'], ['bookingCapacity', 'Vehicles per Slot', 'number'], ['jobPrefix', 'Job Number Prefix', 'text']
   ],
   billing: [
     ['invoicePrefix', 'Invoice Prefix', 'text'], ['defaultTaxRate', 'Default GST Rate (%)', 'number'], ['paymentTermsDays', 'Default Payment Terms (Days)', 'number'], ['rounding', 'Enable Invoice Rounding', 'checkbox']
@@ -59,7 +62,7 @@ const schemas = {
     ['browserPush', 'Browser Push', 'checkbox']
   ],
   security: [
-    ['sessionHours', 'Session Lifetime (Hours)', 'number'], ['requireStrongPassword', 'Strong Password Required', 'checkbox'], ['auditExports', 'Audit Data Exports', 'checkbox'], ['twoFactor', 'Two-factor Authentication', 'checkbox']
+    ['sessionHours', 'Session Lifetime (Hours)', 'number'], ['requireStrongPassword', 'Strong Password Required', 'checkbox'], ['auditExports', 'Audit Data Exports', 'checkbox']
   ]
 };
 
@@ -80,6 +83,7 @@ export const Settings = () => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('success');
+  const [companyErrors, setCompanyErrors] = useState({});
   const { themeMode, setThemeMode } = useContext(ThemeContext);
 
   const loadSettings = async () => {
@@ -140,23 +144,61 @@ export const Settings = () => {
 
   const update = (key, value) => {
     setMessage('');
+    if (active === 'company' && companyErrors[key]) {
+      setCompanyErrors((current) => ({ ...current, [key]: '' }));
+    }
     setData((prev) => ({ ...prev, [active]: { ...(prev[active] || {}), [key]: value } }));
+  };
+
+  const showCompanyErrors = (errors) => {
+    setCompanyErrors(errors);
+    const firstField = schemas.company.find(([key]) => errors[key])?.[0];
+    if (firstField) requestAnimationFrame(() => focusField(document.getElementById(`settings-company-${firstField}`)));
   };
 
   const save = async () => {
     if (saving || !dirty) return;
-    setSaving(true);
     setMessage('');
+    const current = data[active] || {};
+    const payload = active === 'company'
+      ? Object.fromEntries(schemas.company
+        .map(([key]) => [key, current[key] ?? ''])
+        .filter(([key, value]) => value !== (savedData.company?.[key] ?? '')))
+      : current;
+    if (active === 'company') {
+      const errors = {};
+      if ('name' in payload && !payload.name.trim()) errors.name = 'Enter the workshop or company name.';
+      if (payload.phone && !validInternationalPhone(payload.phone)) {
+        const { country } = splitInternationalPhone(payload.phone);
+        errors.phone = `Enter a ${jobPhoneLength(country)}-digit phone number for ${country}.`;
+      }
+      if ('gstNo' in payload) {
+        payload.gstNo = payload.gstNo.trim().toUpperCase();
+        if (payload.gstNo && !/^[0-9]{2}[A-Z0-9]{13}$/.test(payload.gstNo)) {
+          errors.gstNo = 'Enter a 15-character GSTIN starting with two digits, or leave it blank.';
+        }
+      }
+      showCompanyErrors(errors);
+      if (Object.keys(errors).length) return;
+    }
+    setSaving(true);
     try {
-      const payload = data[active] || {};
       const result = await settingsService.updateSettings(active, payload);
-      const saved = result && typeof result === 'object' && !Array.isArray(result) ? { ...payload, ...result } : payload;
+      const saved = result && typeof result === 'object' && !Array.isArray(result) ? { ...current, ...result } : current;
       setSavedData((prev) => ({ ...prev, [active]: saved }));
       setData((prev) => ({ ...prev, [active]: saved }));
       setMessage('Changes saved successfully.');
       setMessageType('success');
     } catch (error) {
-      setMessage(error?.message || 'Unable to save settings. Please try again.');
+      const errors = active === 'company'
+        ? Object.fromEntries(schemas.company.filter(([key]) => error?.fieldErrors?.[key])
+          .map(([key]) => [key, error.fieldErrors[key]]))
+        : {};
+      if (Object.keys(errors).length) {
+        showCompanyErrors(errors);
+      } else {
+        setMessage(error?.message || 'Unable to save settings. Please try again.');
+      }
       setMessageType('error');
     } finally {
       setSaving(false);
@@ -165,6 +207,7 @@ export const Settings = () => {
 
   const reset = () => {
     setData((prev) => ({ ...prev, [active]: { ...(savedData[active] || {}) } }));
+    if (active === 'company') setCompanyErrors({});
     setMessage('Changes for this section were discarded.');
     setMessageType('info');
   };
@@ -193,13 +236,6 @@ export const Settings = () => {
   return (
     <div className="settings-page">
       {appControls}
-      {(can('settings.manage') || can('company.manage')) && (
-        <button type="button" className="settings-primary-button"
-          style={{ alignSelf: 'flex-start', minHeight: '44px', marginBottom: '12px' }}
-          onClick={() => navigate('/settings/whatsapp')}>
-          <Plug size={16} aria-hidden="true"/> Manual WhatsApp Sharing
-        </button>
-      )}
       <SettingsHeader
         saving={saving}
         disabled={!dirty}
@@ -230,6 +266,7 @@ export const Settings = () => {
           sections={visibleSections}
           schema={schemas[active] || []}
           data={data[active] || {}}
+          fieldErrors={active === 'company' ? companyErrors : undefined}
           themeMode={themeMode}
           setThemeMode={setThemeMode}
           onUpdate={update}

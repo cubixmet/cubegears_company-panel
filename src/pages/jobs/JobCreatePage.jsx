@@ -15,6 +15,7 @@ import { customerService } from '../../services/customer.service';
 import { branchService } from '../../services/branch.service';
 import { JobComplaintEntries } from '../../components/jobs/JobComplaintEntries';
 import { JobCardReview } from '../../components/jobs/JobCardReview';
+import { JOB_FUEL_LEVELS, JOB_SERVICE_TYPES } from '../../components/jobs/jobOverviewOptions';
 import { JOB_PHONE_COUNTRIES, splitInternationalPhone, joinInternationalPhone, validInternationalPhone, jobPhoneLength, jobPhoneHint, sanitizeJobNationalPhone, pasteJobNationalPhone, splitVehicleMakeModel, newComplaint, buildJobComplaints } from '../../utils/jobCreateAdapters';
 import { useFeatureAccess } from '../../context/FeatureAccessContext';
 import '../../styles/job-create-professional.css';
@@ -514,7 +515,7 @@ export const JobCreatePage = () => {
             </label>
             <label className={labelClass}>Service Type
               <select value={form.serviceType} onChange={(e) => set('serviceType', e.target.value)} className={inputClass}>
-                {['General Service','Running Repair','Breakdown','Insurance Repair','Body Shop','AC Service','Electrical','Engine Work','Periodic Maintenance'].map((item)=><option key={item}>{item}</option>)}
+                {JOB_SERVICE_TYPES.map((item)=><option key={item}>{item}</option>)}
               </select>
             </label>
           </div>
@@ -583,8 +584,8 @@ export const JobCreatePage = () => {
             </label>
             <label className={labelClass}>Fuel Level
               <select name="fuelLevel" value={form.fuelLevel} onChange={(e) => set('fuelLevel', e.target.value)} className={inputClass}>
-                {['Empty','10%','25%','50%','75%','Full'].map((item)=><option key={item}>{item}</option>)}
-                {form.fuelLevel && !['Empty','10%','25%','50%','75%','Full'].includes(form.fuelLevel)
+                {JOB_FUEL_LEVELS.map((item)=><option key={item}>{item}</option>)}
+                {form.fuelLevel && !JOB_FUEL_LEVELS.includes(form.fuelLevel)
                   && <option value={form.fuelLevel}>{form.fuelLevel} (existing)</option>}
               </select>
             </label>

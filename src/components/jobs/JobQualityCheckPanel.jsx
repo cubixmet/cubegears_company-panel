@@ -21,6 +21,7 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
   const [showSkip, setShowSkip] = useState(false);
   const [skipReason, setSkipReason] = useState('');
   const formRef = useRef(null);
+  const checklistErrorRef = useRef(null);
   const lockRef = useRef(false);
 
   useEffect(() => {
@@ -37,6 +38,15 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
     setDraft((current) => current.inspector
       ? current : { ...current, inspector: loggedInName });
   }, [loggedInName]);
+
+  useEffect(() => {
+    if (!errors) return;
+    const invalidFields = formRef.current?.querySelectorAll('[aria-invalid="true"]') || [];
+    const target = checklistErrorRef.current ||
+      [...invalidFields].find((field) => field.getClientRects().length);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'center' });
+  }, [errors]);
 
   // The current editor is always the authenticated inspector. Read-only QC
   // retains the inspector who signed the previously saved result.
@@ -64,11 +74,6 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
     if (qcHasErrors(invalid)) {
       setErrors(invalid);
       setSuccess('');
-      requestAnimationFrame(() => {
-        const field = formRef.current?.querySelector('[aria-invalid="true"]');
-        field?.focus();
-        field?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      });
       return;
     }
     lockRef.current = true;
@@ -144,7 +149,9 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
           <span className="job-qc-progress-pending">{summary.pending} Pending</span>
         </div>
 
-        {errors?.form && <p className="job-qc-error" role="alert"><AlertCircle size={15}/>{errors.form}</p>}
+        {errors?.form && <p ref={checklistErrorRef} className="job-qc-error" role="alert" tabIndex={-1}>
+          <AlertCircle size={15} aria-hidden="true"/>{errors.form}
+        </p>}
 
         <div className="job-qc-checks">
           {draft.checklist.map((item, index) => {
@@ -153,9 +160,9 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
               <div className={'job-qc-check' + (invalid ? ' is-invalid' : '')} key={item.id}>
                 <div className="job-qc-check-description">
                   <span className="job-qc-check-index">{String(index + 1).padStart(2, '0')}</span>
-                  <label htmlFor={'job-qc-status-' + item.id}>{item.item}</label>
+                  <label id={'job-qc-label-' + item.id} htmlFor={'job-qc-status-' + item.id}>{item.item}</label>
                 </div>
-                <div className="job-qc-check-control">
+                <div className="job-qc-check-control" data-disable-global-validation>
                   <select id={'job-qc-status-' + item.id} value={item.status}
                     disabled={!canEdit || busy}
                     aria-invalid={invalid}
@@ -165,6 +172,19 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
                     <option value="Pass">Pass</option>
                     <option value="Fail">Fail</option>
                   </select>
+                  <div className="job-qc-status-options" role="radiogroup"
+                    aria-labelledby={'job-qc-label-' + item.id}>
+                    {['Pending', 'Pass', 'Fail'].map((status) => (
+                      <label key={status} className={'job-qc-status-option is-' + status.toLowerCase()}>
+                        <input type="radio" className="sr-only" name={'job-qc-choice-' + item.id} value={status}
+                          checked={item.status === status} disabled={!canEdit || busy}
+                          aria-invalid={invalid}
+                          aria-describedby={invalid ? 'job-qc-error-' + item.id : undefined}
+                          onChange={() => changeItem(item.id, status)}/>
+                        <span>{status}</span>
+                      </label>
+                    ))}
+                  </div>
                   {invalid && <small id={'job-qc-error-' + item.id} className="job-qc-field-error">
                     {errors.items[item.id]}
                   </small>}
@@ -190,7 +210,10 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
           <span id="job-qc-inspector-label" className="job-qc-inspector-label">
             QC Inspector <span aria-hidden="true">*</span>
           </span>
-          <output className="job-qc-inspector-name" aria-labelledby="job-qc-inspector-label">
+          <output className="job-qc-inspector-name" aria-labelledby="job-qc-inspector-label"
+            tabIndex={errors?.inspector ? -1 : undefined}
+            aria-invalid={Boolean(errors?.inspector)}
+            aria-describedby={errors?.inspector ? 'job-qc-inspector-error' : 'job-qc-inspector-hint'}>
             {inspectorName || 'Account name unavailable'}
           </output>
           {errors?.inspector
@@ -203,6 +226,7 @@ export function JobQualityCheckPanel({ job, canEdit, onSaved, onCompleted }) {
         <div className="job-qc-field">
           <label htmlFor="job-qc-road-notes">Road Test Notes / Rework Reason</label>
           <textarea id="job-qc-road-notes" rows={5} maxLength={2000}
+            data-disable-global-validation
             value={draft.testDriveNotes} disabled={!canEdit || busy}
             placeholder="Enter test result, issues found or required rework..."
             aria-invalid={Boolean(errors?.testDriveNotes)}

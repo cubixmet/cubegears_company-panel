@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { permissionActionLabel } from '../../config/rolePermissions';
 
 export const RolePermissionMatrix = ({
@@ -23,32 +23,35 @@ export const RolePermissionMatrix = ({
       <div className="role-permission-modules">
         {filtered.map(module => {
           const current = permissions[module.key] || {};
-          const allChecked = module.actions.every(action => Boolean(current[action]));
+          const selected = module.actions.filter(action => Boolean(current[action])).length;
+          const allChecked = selected === module.actions.length;
           return (
-            <article key={module.key} className="role-permission-module">
-              <header>
-                <div>
-                  <strong>{module.label}</strong>
-                  <span>{module.actions.filter(action => Boolean(current[action])).length} of {module.actions.length} selected</span>
-                </div>
+            <details key={module.key} className="role-permission-module">
+              <summary>
+                <strong>{module.label}</strong>
+                <small>{selected} of {module.actions.length} selected</small>
+                <ChevronDown size={16} aria-hidden="true" />
+              </summary>
+              <div className="role-permission-module-content">
                 <button type="button" disabled={protectedRole}
+                  aria-label={`${allChecked ? 'Clear all' : 'Select all'} ${module.label} permissions`}
                   onClick={() => onToggleModule(module.key, !allChecked)}>
-                  {allChecked ? 'Clear' : 'Select all'}
+                  {allChecked ? 'Clear all' : 'Select all'}
                 </button>
-              </header>
-              <div className="role-permission-actions">
-                {module.actions.map(action => {
-                  const checked = Boolean(current[action]);
-                  return (
-                    <label key={action} className={checked ? 'is-checked' : ''}>
-                      <input type="checkbox" checked={checked} disabled={protectedRole}
-                        onChange={() => onToggle(module.key, action)} />
-                      <span>{permissionActionLabel(action, module.key)}</span>
-                    </label>
-                  );
-                })}
+                <div className="role-permission-actions">
+                  {module.actions.map(action => {
+                    const checked = Boolean(current[action]);
+                    return (
+                      <label key={action} className={checked ? 'is-checked' : ''}>
+                        <input type="checkbox" checked={checked} disabled={protectedRole}
+                          onChange={() => onToggle(module.key, action)} />
+                        <span>{permissionActionLabel(action, module.key)}</span>
+                      </label>
+                    );
+                  })}
+                </div>
               </div>
-            </article>
+            </details>
           );
         })}
         {!filtered.length && <p className="roles-dashboard-empty">No matching modules.</p>}

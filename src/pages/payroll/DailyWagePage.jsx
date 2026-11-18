@@ -62,6 +62,7 @@ const Empty = ({ text }) => <div className="dw-empty">{text}</div>;
 export const DailyWagePage = ({ mode = 'overview' }) => {
   const { can } = useFeatureAccess();
   const navigate = useNavigate();
+  const { search } = useLocation();
   const canView = can(mode === 'payments' ? 'payroll.payments.view' : 'payroll.view');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -204,7 +205,9 @@ export const DailyWagePage = ({ mode = 'overview' }) => {
                     <td data-label="Extra">{rupees(w.today.extraEarnings)}</td>
                     <td data-label="Unpaid Balance"><strong>{rupees(w.currentBalance)}</strong></td>
                     <td data-label="Last Paid">{w.lastPaymentDate || '—'}</td>
-                    <td data-label="Action"><button className="dw-button is-primary dw-account-action" onClick={() => navigate(`/staff/${w.id}/wages`)} type="button">Wage Account <ArrowUpRight size={16} aria-hidden="true" /></button></td>
+                    <td data-label="Action"><button className="dw-button is-primary dw-account-action"
+                      onClick={() => navigate(`/staff/${w.id}/wages${search}`, { state: { openWageForms: true } })}
+                      type="button">Wage Account <ArrowUpRight size={16} aria-hidden="true" /></button></td>
                   </tr>
                 ))}</tbody>
               </table>

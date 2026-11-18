@@ -59,7 +59,12 @@
 .dw-subtabs{border:0;border-bottom:1px solid var(--border);border-radius:0;padding:8px 11px}
 .dw-payment-due{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);font-size:12px;font-weight:650}
 .dw-payment-due strong{font-size:20px;font-weight:800;color:var(--primary)}
-.dw-modal-form{display:flex;flex-direction:column;gap:14px;min-width:0;padding:2px}
+.dw-form-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:8px}
+.dw-form-options .dw-button{min-height:44px;text-align:center;white-space:normal}
+.dw-form-options .dw-button[aria-pressed="true"]{border-color:var(--primary);background:var(--primary-soft);color:var(--primary)}
+.dw-form-note{margin:8px 0 0;color:var(--text-muted);font-size:13px}
+.dw-modal-form{display:flex;flex-direction:column;gap:14px;min-width:0;padding:2px;margin-top:16px}
+.dw-modal-form>h4{margin:0;color:var(--text-primary);font-size:16px;line-height:1.3}
 .dw-modal-form label{display:flex;flex-direction:column;gap:7px;min-width:0;font-size:12px;font-weight:700;color:var(--text-secondary)}
 .dw-modal-form input,.dw-modal-form select{display:block;width:100%;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);color:var(--text-primary);font-size:14px;font-weight:400}
 .dw-modal-form input:focus-visible,.dw-modal-form select:focus-visible,.dw-toolbar input:focus-visible{outline:2px solid var(--primary);outline-offset:1px}

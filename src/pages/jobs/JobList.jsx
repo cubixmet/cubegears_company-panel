@@ -351,6 +351,7 @@ export const JobList = () => {
         canViewCustomers={canViewCustomers}
         canViewVehicles={canViewVehicles}
         canViewStaff={canViewStaff}
+        canEditJobs={can('jobs.edit')}
         totalCount={filteredJobs.length}
         loading={loading}
         status={status}

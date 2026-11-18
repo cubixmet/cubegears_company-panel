@@ -8,6 +8,11 @@ const COMPANY_EDITABLE_SETTINGS = new Set([
 ]);
 
 const editablePayload = (category, data) => {
+  if (category === 'operations' || category === 'security') {
+    const payload = { ...data };
+    delete payload[category === 'operations' ? 'deliveryCreditAllowed' : 'twoFactor'];
+    return payload;
+  }
   if (category !== 'company') return data;
   // GET /settings/company contains the read-only company.logo URL.
   // It must never be echoed back into the settings PUT payload.
@@ -19,13 +24,13 @@ const editablePayload = (category, data) => {
 const STORAGE_KEY = 'cubixgear:settings';
 const defaults = {
   company: { name: 'CubixGear Garage', phone: '9876543210', email: 'admin@cubixgear.com', gstNo: '', address: '', currency: 'INR', timezone: 'Asia/Kolkata', dateFormat: 'DD/MM/YYYY' },
-  operations: { workingStart: '09:00', workingEnd: '18:30', bookingSlotMinutes: 30, bookingCapacity: 4, jobPrefix: 'JOB-', deliveryCreditAllowed: false },
+  operations: { workingStart: '09:00', workingEnd: '18:30', bookingSlotMinutes: 30, bookingCapacity: 4, jobPrefix: 'JOB-' },
   billing: { invoicePrefix: 'INV-', defaultTaxRate: 18, paymentTermsDays: 0, rounding: true },
   inventory: { defaultMinimumStock: 5, defaultReorderQty: 10, lowStockAlerts: true, negativeStock: false },
   attendance: { graceMinutes: 15, overtimeAfterMinutes: 540, locationRequired: false, correctionApproval: true },
   payroll: { payrollDay: 30, overtimeMultiplier: 1.5, managerApproval: true },
   notifications: { jobCreated: true, jobAssigned: true, jobStatus: true, jobReady: true, lowStock: true, overdueInvoice: true, leaveDecision: true, email: false, whatsapp: false, browserPush: true },
-  security: { sessionHours: 12, requireStrongPassword: true, auditExports: true, twoFactor: false },
+  security: { sessionHours: 12, requireStrongPassword: true, auditExports: true },
   integrations: { razorpayEnabled: false, whatsappEnabled: false, emailEnabled: false, webhookUrl: '' }
 };
 

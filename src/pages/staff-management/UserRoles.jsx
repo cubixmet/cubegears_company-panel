@@ -19,6 +19,7 @@ const createInitialForm = () => ({
   status: 'Active',
   permissions: createPermissionMatrix(false),
 });
+const roleFormId = 'staff-role-editor';
 
 export const UserRoles = () => {
   const featureAccess = useFeatureAccess();
@@ -67,7 +68,7 @@ export const UserRoles = () => {
   }, []);
 
   const handleOpenAdd = () => {
-    if (!isCompanyOwner) return;
+    if (!isCompanyOwner || saving) return;
     setEditingRole(null);
     setFormData(createInitialForm());
     setError('');
@@ -75,7 +76,7 @@ export const UserRoles = () => {
   };
 
   const handleOpenEdit = (role) => {
-    if (!isCompanyOwner) return;
+    if (!isCompanyOwner || saving) return;
     setEditingRole(role);
     setError('');
     setFormData({
@@ -85,6 +86,12 @@ export const UserRoles = () => {
       permissions: role.permissions || createPermissionMatrix(false),
     });
     setIsModalOpen(true);
+  };
+
+  const closeRoleEditor = () => {
+    if (saving) return;
+    setIsModalOpen(false);
+    setError('');
   };
 
   const handlePermissionToggle = (moduleKey, actionKey) => {
@@ -118,10 +125,11 @@ export const UserRoles = () => {
   const handleSaveRole = async (event) => {
     event.preventDefault();
     if (!isCompanyOwner || saving || editingRole?.isProtected) return;
+    const form = event.currentTarget;
 
     if (!formData.name.trim()) {
-      showFormFieldError(event.currentTarget, 'name', 'Role Name is required.');
-      setError('Role Name is required.');
+      setError('');
+      showFormFieldError(form, 'name', 'Enter a role name.');
       return;
     }
 
@@ -147,8 +155,9 @@ export const UserRoles = () => {
 
       window.setTimeout(() => setToastMsg(''), 3000);
     } catch (err) {
-      showServerFormErrors(event.currentTarget, err, { name: 'name', status: 'status' });
-      setError(err?.message || 'Unable to save role.');
+      if (!showServerFormErrors(form, err, { is_active: 'status' })) {
+        setError(err?.message || 'Unable to save role.');
+      }
     } finally {
       setSaving(false);
     }
@@ -210,10 +219,10 @@ export const UserRoles = () => {
   return (
     <div className="staff-roles roles-dashboard">
       {toastMsg && <div className="roles-dashboard-toast">{toastMsg}</div>}
-      {error && <div className="roles-dashboard-error">{error}</div>}
+      {error && !isModalOpen && <div className="roles-dashboard-error">{error}</div>}
       {cleanupError && <div className="roles-dashboard-error" role="alert">{cleanupError}</div>}
 
-      <RolesHeader onAdd={handleOpenAdd} canManage={isCompanyOwner} />
+      <RolesHeader onAdd={handleOpenAdd} canManage={isCompanyOwner} saving={saving} />
       {!isCompanyOwner && (
         <p role="note" className="roles-dashboard-info">
           Only the company owner can create, edit or delete Roles & Permissions.
@@ -259,26 +268,31 @@ export const UserRoles = () => {
 
       <ResponsiveModalSheet
         isOpen={isCompanyOwner && isModalOpen}
-        onClose={() => {
-          if (saving) return;
-          setIsModalOpen(false);
-          setError('');
-        }}
+        onClose={closeRoleEditor}
         title={editingRole ? `Role: ${editingRole.name}` : 'Add New Role'}
         maxWidth="640px"
+        className="staff-role-editor-sheet"
+        footer={
+          <div className="role-editor-actions">
+            <button type="button" onClick={closeRoleEditor} disabled={saving}>
+              {editingRole?.isProtected ? 'Close' : 'Cancel'}
+            </button>
+            {!editingRole?.isProtected && (
+              <button type="submit" form={roleFormId} className="is-primary" disabled={saving}>
+                {saving ? 'Saving…' : editingRole ? 'Save Changes' : 'Create Role'}
+              </button>
+            )}
+          </div>
+        }
       >
         <RoleEditorForm
+          id={roleFormId}
           editingRole={editingRole}
           formData={formData}
           setFormData={setFormData}
           modules={availableModules}
-          saving={saving}
           error={error}
           onSubmit={handleSaveRole}
-          onCancel={() => {
-            setIsModalOpen(false);
-            setError('');
-          }}
           onPermissionToggle={handlePermissionToggle}
           onToggleModule={handleSelectAllModule}
         />
