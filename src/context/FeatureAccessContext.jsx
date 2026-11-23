@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { isAccountOnly } from '../utils/accountWorkspace';
 import { useOfflineInventory } from '../pwa/InventoryOfflineProvider';
 import { useAuth } from '../hooks/useAuth';
+import { readFeatureAccess, rememberFeatureAccess, offlineAccessAfterFailure } from '../pwa/offlineAccess';
 
 // UI filtering only. Django tenant permissions and entitlements remain authoritative.
 const FeatureAccessContext = createContext(null);
@@ -58,7 +59,14 @@ export function FeatureAccessProvider({ children }) {
 
   const refresh = useCallback(async () => {
     const requestId = ++latestRequestRef.current;
-    if (offline) return;
+    if (offline) {
+      const cached = isAuthenticated ? readFeatureAccess(user) : null;
+      if (requestId === latestRequestRef.current) {
+        setAccess(cached || { ...LOCKED, userKey });
+        setLoading(false);
+      }
+      return;
+    }
     if (!isAuthenticated || !userKey) {
       setAccess(LOCKED);
       setLoading(false);
@@ -78,7 +86,7 @@ export function FeatureAccessProvider({ children }) {
       // Route changes or browser focus may overlap requests; ignore stale
       // permission responses so they cannot overwrite the current tenant.
       if (requestId !== latestRequestRef.current) return;
-      setAccess({
+      const verifiedAccess = {
         userKey,
         companyId: response.companyId,
         billingStatus: response.billingStatus || {enabled:false, blocked:false},
@@ -99,14 +107,23 @@ export function FeatureAccessProvider({ children }) {
         isCompanyOwner: response.isCompanyOwner === true,
         paidAccessRequired: response.paidAccessRequired === true,
         unavailable: false,
-      });
-    } catch {
-      // Offline/invalid entitlement results never unlock another tenant's modules.
-      if (requestId === latestRequestRef.current) setAccess({ ...LOCKED, userKey });
+      };
+      setAccess(verifiedAccess);
+      rememberFeatureAccess(user, verifiedAccess);
+    } catch (error) {
+      // The Django server remains authoritative for every live request.
+      // If it is temporarily unreachable, use ONLY the last successful
+      // entitlement response for the same verified user/company/branch,
+      // bounded by the original JWT/label expiry. Never restore access after
+      // explicit 401/403, validation or tenant-mismatch failures.
+      if (requestId === latestRequestRef.current) {
+        const saved = offlineAccessAfterFailure(user, error);
+        setAccess(saved || { ...LOCKED, userKey });
+      }
     } finally {
       if (requestId === latestRequestRef.current) setLoading(false);
     }
-  }, [isAuthenticated, userKey, offline]);
+  }, [isAuthenticated, userKey, offline, user]);
 
   useEffect(() => {
     refresh();

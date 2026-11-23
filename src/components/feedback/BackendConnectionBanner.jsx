@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RefreshCw, WifiOff } from 'lucide-react';
 import { checkBackendConnection } from '../../api/backendConnection';
+import { reportBackendConnection } from '../../pwa/connectivity';
 
 const POLL_INTERVAL_MS = 60000;
 const HEALTH_TIMEOUT_MS = 8000;
@@ -27,11 +28,15 @@ export function BackendConnectionBanner() {
     try {
       await checkBackendConnection(controller.signal);
       if (requestRef.current === controller) {
+        reportBackendConnection(true);
         setIssue('network');
         setStatus('online');
       }
     } catch (error) {
       if (requestRef.current === controller) {
+        // A failed readiness check means the API is not usable, even if
+        // the device is still connected to Wi-Fi.
+        reportBackendConnection(false);
         setIssue(error?.code === 'BACKEND_NOT_READY' ? 'dependencies' : 'network');
         setStatus('offline');
       }

@@ -2,6 +2,8 @@ import { useLayoutEffect, useRef } from "react";
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useOfflineInventory } from '../../pwa/InventoryOfflineProvider';
+import { useFeatureAccess } from '../../context/FeatureAccessContext';
+import { routeConfig } from '../../routes/routeConfig';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { MobileBottomNav } from './MobileBottomNav';
@@ -13,6 +15,7 @@ export const DashboardLayout = ({ children }) => {
   const location = useLocation();
   const { offline, snapshot } = useOfflineInventory();
   const { logout } = useAuth();
+  const { can } = useFeatureAccess();
   const scrollAreaRef = useRef(null);
 
   // This layout uses its own scrolling <main>, not the browser window.
@@ -32,13 +35,19 @@ export const DashboardLayout = ({ children }) => {
 
   return (
     <div className="app-shell">
-      {!offline && <Sidebar />}
+      <Sidebar />
       <div className="app-main-column">
         {offline ? (
-          <nav className="cg-pwa-controls cg-pwa-offline-nav" aria-label="Offline workspace">
-            {snapshot && <Link to="/stock">Inventory</Link>}
-            <Link to="/settings">Settings</Link>
-            <button type="button" onClick={logout}>Sign out</button>
+          <nav className="cg-pwa-controls cg-pwa-offline-nav" aria-label="Offline workspace"
+            style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '12px' }}>
+            <strong>Offline · previously saved data</strong>
+            <span>Other changes require internet. Inventory drafts can sync after reconnection.</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+              {routeConfig.filter(route => can(route.permission) || route.accessAny?.some(can)).map(route =>
+                <Link key={route.path} to={route.path}>{route.label}</Link>)}
+              {snapshot && <Link to="/stock">Offline Inventory</Link>}
+              <button type="button" onClick={logout}>Sign out</button>
+            </div>
           </nav>
         ) : <Header />}
 

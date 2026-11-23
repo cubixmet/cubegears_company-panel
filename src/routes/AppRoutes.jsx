@@ -1,4 +1,3 @@
-import { useOfflineInventory } from '../pwa/InventoryOfflineProvider';
 import { useEffect } from 'react';
 import { lazyPage } from './lazyPage';
 const OwnerCompanyProfile = lazyPage(() => import('../pages/saas/OwnerCompanyProfile'), 'OwnerCompanyProfile');
@@ -57,6 +56,7 @@ const VehicleDetails = lazyPage(() => import('../pages/vehicles/VehicleDetails')
 const EditVehicle = lazyPage(() => import('../pages/vehicles/EditVehicle'), 'EditVehicle');
 const ServiceList = lazyPage(() => import('../pages/services/ServiceList'), 'ServiceList');
 const JobList = lazyPage(() => import('../pages/jobs/JobList'), 'JobList');
+const QuickServicePage = lazyPage(() => import('../pages/jobs/QuickServicePage'), 'QuickServicePage');
 const JobCreatePage = lazyPage(() => import('../pages/jobs/JobCreatePage'), 'JobCreatePage');
 const JobEditPage = lazyPage(() => import('../pages/jobs/JobEditPage'), 'JobEditPage');
 const JobComplaintDetails = lazyPage(() => import('../pages/jobs/JobComplaintDetails'), 'JobComplaintDetails');
@@ -120,11 +120,9 @@ function PublicSignupRedirect() {
 function RootRedirect() {
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
-  const { offline } = useOfflineInventory();
-
   return (
     <Navigate
-      to={`${offline ? "/stock" : isAuthenticated ? getStaffLandingPath(user) : "/dashboard"}${location.search}`}
+      to={`${isAuthenticated ? getStaffLandingPath(user) : "/dashboard"}${location.search}`}
       replace
     />
   );
@@ -233,6 +231,7 @@ export const AppRoutes = () => (
       <Route path="/services/:id/delete" element={<ServiceList />} />
 
       <Route path="/jobs" element={<JobList />} />
+      <Route path="/jobs/quick-service" element={<QuickServicePage />} />
       <Route path="/jobs/new" element={<JobCreatePage />} />
       <Route path="/jobs/edit" element={<Navigate to="/jobs?layout=cards" replace />} />
       <Route path="/jobs/outside-labour" element={<OutsideLabourPage />} />

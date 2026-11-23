@@ -116,7 +116,7 @@ export const OutsideLabourPanel = ({
     return rows.filter((row) => (
       (filter === 'All' || row.status === filter)
       && (!term || [
-        row.workerName, row.workerPhone, row.workDescription, row.jobNumber, row.vehicleReg,
+        row.workerName, row.workerPhone, row.workDescription, row.jobNumber, row.vehicleReg, row.quickServiceDescription,
       ].some((field) => String(field || '').toLowerCase().includes(term)))
     ));
   }, [rows, filter, search]);
@@ -423,7 +423,7 @@ export const OutsideLabourPanel = ({
             <article key={row.id} className="outside-labour-entry">
               <div className="outside-labour-entry-main">
                 <strong>{row.workerName}</strong>
-                <span>{row.jobNumber} · {row.workDescription}</span>
+                <span>{row.jobNumber || (row.quickServiceDescription ? `Quick Service · ${row.quickServiceDescription}` : 'Quick Service')} · {row.workDescription}</span>
                 {row.workerPhone && <small>{row.workerPhone}</small>}
               </div>
               <div className="outside-labour-entry-money">

@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { API_CONFIG } from './apiConfig';
 import { forgetVerifiedSession } from '../pwa/session';
+import { forgetFeatureAccess } from '../pwa/offlineAccess';
+import { offlineSnapshot } from '../pwa/connectivity';
+import {
+  offlineReadRequestKey, readOfflineResponse, rememberOfflineResponse,
+  clearOfflineResponses,
+} from '../pwa/offlineReads';
 import { safeApiErrorMessage, isHtmlResponse } from '../utils/safeApiErrorMessage';
 
 export const apiClient = axios.create(API_CONFIG);
@@ -17,6 +23,8 @@ const clearAuth = () => {
   localStorage.removeItem('auth_refresh_token');
   localStorage.removeItem('auth_user');
   forgetVerifiedSession();
+  forgetFeatureAccess();
+  void clearOfflineResponses().catch(() => {});
 };
 
 const redirectToLogin = () => {
@@ -72,20 +80,63 @@ const refreshAccessToken = async () => {
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('auth_token');
+    const method = String(config.method || 'get').toLowerCase();
 
     if (token && !isPublicAuthRequest(config.url)) {
       config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
 
+    if (offlineSnapshot() && !['get', 'head', 'options'].includes(method) &&
+        !isPublicAuthRequest(config.url)) {
+      const error = new Error('This action requires an internet connection. No changes were saved.');
+      error.code = 'OFFLINE_WRITE_BLOCKED';
+      return Promise.reject(error);
+    }
+
+    // A limited, device-local read-only copy of pages that this account
+    // already visited online. Auth, permissions and binary files are excluded.
+    if (offlineSnapshot() && offlineReadRequestKey(config)) {
+      config.adapter = async request => {
+        const cached = await readOfflineResponse(request).catch(() => ({ found: false }));
+        if (!cached.found) {
+          const error = new Error('This page has no saved offline data. Open it online once.');
+          error.code = 'OFFLINE_CACHE_MISS';
+          error.config = request;
+          throw error;
+        }
+        request._cubixgearOfflineCache = true;
+        return {
+          data: cached.data,
+          status: 200,
+          statusText: 'OK',
+          headers: { 'content-type': 'application/json' },
+          config: request,
+        };
+      };
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
 
 apiClient.interceptors.response.use(
-  (response) => response.data,
+  (response) => {
+    if (!response.config?._cubixgearOfflineCache && offlineReadRequestKey(response.config)) {
+      void rememberOfflineResponse(response.config, response.data).catch(() => {});
+    }
+    return response.data;
+  },
   async (error) => {
+    if (error?.code === 'OFFLINE_WRITE_BLOCKED' || error?.code === 'OFFLINE_CACHE_MISS') {
+      return Promise.reject(error);
+    }
+    const responseStatus = error?.response?.status;
+    if ((!responseStatus || [502, 503, 504].includes(responseStatus)) &&
+        offlineReadRequestKey(error?.config)) {
+      const cached = await readOfflineResponse(error.config).catch(() => ({ found: false }));
+      if (cached.found) return cached.data;
+    }
     const status = error?.response?.status;
     const originalRequest = error?.config;
     const isAuthRequest = isPublicAuthRequest(originalRequest?.url);

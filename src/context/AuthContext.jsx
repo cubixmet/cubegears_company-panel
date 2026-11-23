@@ -2,6 +2,8 @@ import { createContext, useCallback, useEffect, useMemo, useState } from "react"
 import apiClient from '../api/apiClient';
 import { useOffline } from '../pwa/connectivity';
 import { forgetVerifiedSession, offlineSessionDeadline, rememberVerifiedSession } from '../pwa/session';
+import { forgetFeatureAccess } from '../pwa/offlineAccess';
+import { clearOfflineResponses } from '../pwa/offlineReads';
 
 export const AuthContext = createContext(null);
 
@@ -22,6 +24,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(() => Boolean(localStorage.getItem('auth_token')));
   const [loading, setLoading] = useState(() => Boolean(localStorage.getItem('auth_token')));
   const [sessionError, setSessionError] = useState('');
+  const [usingCachedSession, setUsingCachedSession] = useState(false);
   const [sessionRetryKey, setSessionRetryKey] = useState(0);
   const retrySession = useCallback(() => setSessionRetryKey((key) => key + 1), []);
 
@@ -29,6 +32,7 @@ export const AuthProvider = ({ children }) => {
     const token = localStorage.getItem('auth_token');
     if (!token) {
       setSessionError('');
+      setUsingCachedSession(false);
       setLoading(false);
       setIsAuthenticated(false);
       setUser(null);
@@ -40,6 +44,7 @@ export const AuthProvider = ({ children }) => {
       const permitted = offlineSessionDeadline(stored) > Date.now();
       setUser(permitted ? stored : null);
       setIsAuthenticated(permitted);
+      setUsingCachedSession(permitted);
       setSessionError(permitted ? '' : 'Connect to the internet to verify your sign-in.');
       setLoading(false);
       return;
@@ -59,24 +64,40 @@ export const AuthProvider = ({ children }) => {
         rememberVerifiedSession(resolvedUser);
         setUser(resolvedUser);
         setIsAuthenticated(true);
+        setUsingCachedSession(false);
         setSessionError('');
         localStorage.setItem('auth_user', JSON.stringify(resolvedUser));
       })
       .catch((error) => {
         if (!active) return;
-        // A network outage / 5xx response is not proof that a stored JWT
-        // expired. Lock the workspace and show Retry without deleting tokens.
         if ([401, 403].includes(error?.status)) {
+          // Explicit server refusal ends the saved session.
           localStorage.removeItem('auth_token');
           localStorage.removeItem('auth_refresh_token');
           localStorage.removeItem('auth_user');
           forgetVerifiedSession();
-          setSessionError('');
-        } else {
-          setSessionError(error?.message || 'Unable to verify your session. Check your API connection.');
+          forgetFeatureAccess();
+          void clearOfflineResponses().catch(() => {});
+          setUser(null);
+          setIsAuthenticated(false);
+          setUsingCachedSession(false);
+          setSessionError('Your session expired. Please sign in again.');
+          return;
         }
-        setUser(null);
-        setIsAuthenticated(false);
+
+        // Offline access is permitted only for a previously verified,
+        // unexpired session during an actual network/server outage.
+        // Malformed API responses and other 4xx errors must not unlock it.
+        const unavailable = error?.status >= 500 ||
+          (error?.status == null &&
+            ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT'].includes(error?.code));
+        const stored = readStoredUser();
+        const permitted = unavailable && offlineSessionDeadline(stored) > Date.now();
+        setUser(permitted ? stored : null);
+        setIsAuthenticated(Boolean(permitted));
+        setUsingCachedSession(Boolean(permitted));
+        setSessionError(permitted ? '' :
+          error?.message || 'Connect to the internet to verify your session.');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -93,11 +114,13 @@ export const AuthProvider = ({ children }) => {
     const syncSession = (event) => {
       if (event.key !== 'auth_token' && event.key !== null) return;
       if (!localStorage.getItem('auth_token')) {
+        setUsingCachedSession(false);
         setUser(null);
         setIsAuthenticated(false);
         setSessionError('');
         setLoading(false);
       } else {
+        setUsingCachedSession(false);
         setUser(null);
         setIsAuthenticated(false);
         setLoading(true);
@@ -109,7 +132,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    if (!offline || !user) return undefined;
+    if ((!offline && !usingCachedSession) || !user) return undefined;
     const expire = () => {
       setUser(null);
       setIsAuthenticated(false);
@@ -122,15 +145,34 @@ export const AuthProvider = ({ children }) => {
     }
     const timeout = setTimeout(expire, delay);
     return () => clearTimeout(timeout);
-  }, [offline, user]);
+  }, [offline, user, usingCachedSession]);
 
   useEffect(() => {
     const reconnect = () => {
-      if (!isAuthenticated && localStorage.getItem('auth_token')) retrySession();
+      if (localStorage.getItem('auth_token')) retrySession();
     };
     window.addEventListener('online', reconnect);
-    return () => window.removeEventListener('online', reconnect);
-  }, [isAuthenticated, retrySession]);
+    window.addEventListener('cubixgear:backend-recovered', reconnect);
+    return () => {
+      window.removeEventListener('online', reconnect);
+      window.removeEventListener('cubixgear:backend-recovered', reconnect);
+    };
+  }, [retrySession]);
+
+  // navigator.onLine may stay true when the API is down. Recheck when the
+  // tab is active so cached access cannot outlive a recovered server refusal.
+  useEffect(() => {
+    if (!usingCachedSession) return undefined;
+    const recheck = () => {
+      if (navigator.onLine && document.visibilityState === 'visible') retrySession();
+    };
+    const timer = setInterval(recheck, 60_000);
+    window.addEventListener('focus', recheck);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', recheck);
+    };
+  }, [usingCachedSession, retrySession]);
 
   const login = async (credentials) => {
     setLoading(true);
@@ -158,6 +200,7 @@ export const AuthProvider = ({ children }) => {
       rememberVerifiedSession(resolvedUser);
       setUser(resolvedUser || null);
       setIsAuthenticated(true);
+      setUsingCachedSession(false);
       setSessionError('');
 
       return resolvedUser;
@@ -171,8 +214,11 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('auth_refresh_token');
     localStorage.removeItem('auth_user');
     forgetVerifiedSession();
+    forgetFeatureAccess();
+    void clearOfflineResponses().catch(() => {});
     setUser(null);
     setIsAuthenticated(false);
+    setUsingCachedSession(false);
     setSessionError('');
   }, []);
 

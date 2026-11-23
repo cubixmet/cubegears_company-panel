@@ -6,6 +6,20 @@ export function inventoryScope(user) {
   return { user: String(user.id), workshop: String(workshop), branch: String(branch) };
 }
 
+// General PWA access is company scoped even if the owner has no selected
+// branch. Inventory drafts remain stricter and still require a valid branch.
+export function offlineUserScope(user) {
+  const workshop = user?.company?.id || user?.companyId;
+  const branch = user?.branch?.id;
+  if (!user?.id || !workshop || user.onboardingRequired ||
+      (branch && user.allowedBranchIds && !user.allowedBranchIds.includes(String(branch)))) return null;
+  return {
+    user: String(user.id),
+    workshop: String(workshop),
+    branch: branch ? String(branch) : null,
+  };
+}
+
 export const scopeKey = (scope) => scope ? JSON.stringify(scope) : '';
 
 function accessClaims() {
@@ -26,7 +40,7 @@ export function accessDeadline(user) {
 const verificationKey = 'cubixgear:verified-offline-session';
 
 export function rememberVerifiedSession(user) {
-  const key = scopeKey(inventoryScope(user));
+  const key = scopeKey(offlineUserScope(user));
   if (key && accessDeadline(user) > Date.now()) localStorage.setItem(verificationKey, key);
   else forgetVerifiedSession();
 }
@@ -36,6 +50,6 @@ export function forgetVerifiedSession() {
 }
 
 export function offlineSessionDeadline(user) {
-  const key = scopeKey(inventoryScope(user));
+  const key = scopeKey(offlineUserScope(user));
   return key && key === localStorage.getItem(verificationKey) ? accessDeadline(user) : 0;
 }
